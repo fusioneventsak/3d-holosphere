@@ -171,26 +171,17 @@ const randomRotation = (): [number, number, number] => {
 
 // Scene setup component with camera initialization
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
-  const material = useRef<THREE.ShaderMaterial>();
-  
-  useEffect(() => {
-    if (!material.current) {
-      material.current = new THREE.ShaderMaterial({
-        uniforms: {
-          colorA: { value: new THREE.Color() },
-          colorB: { value: new THREE.Color() },
-          gradientAngle: { value: 0 }
-        },
-        vertexShader: gradientShader.vertexShader,
-        fragmentShader: gradientShader.fragmentShader,
-        side: THREE.BackSide
-      });
-    }
-    
-    // Update uniforms whenever settings change
-    material.current.uniforms.colorA.value.set(settings.backgroundGradientStart);
-    material.current.uniforms.colorB.value.set(settings.backgroundGradientEnd);
-    material.current.uniforms.gradientAngle.value = settings.backgroundGradientAngle;
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) },
+        gradientAngle: { value: settings.backgroundGradientAngle }
+      },
+      vertexShader: gradientShader.vertexShader,
+      fragmentShader: gradientShader.fragmentShader,
+      side: THREE.BackSide
+    });
   }, [settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
 
   const { camera } = useThree();
@@ -207,7 +198,15 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
       {settings.backgroundGradient ? (
         <mesh>
           <sphereGeometry args={[50, 32, 32]} />
-          <primitive object={material.current} attach="material" />
+          <shaderMaterial
+            attach="material"
+            args={[{
+              uniforms: gradientMaterial.uniforms,
+              vertexShader: gradientMaterial.vertexShader,
+              fragmentShader: gradientMaterial.fragmentShader,
+              side: THREE.BackSide
+            }]}
+          />
         </mesh>
       ) : (
         <color attach="background" args={[settings.backgroundColor]} />
