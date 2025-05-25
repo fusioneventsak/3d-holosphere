@@ -293,8 +293,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Sine wave motion
-        mesh.position.y = initialPosition.current[1] + Math.sin(time.current + (initialPosition.current[0] * 0.5)) * 2;
+        // Sine wave motion starting from floor level
+        const baseHeight = 1; // Minimum height above floor
+        const waveAmplitude = 2; // Height of wave
+        mesh.position.y = baseHeight + Math.abs(Math.sin(time.current + (initialPosition.current[0] * 0.5)) * waveAmplitude);
         break;
         
       case 'spiral':
