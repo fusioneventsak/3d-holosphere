@@ -20,16 +20,10 @@ const gradientShader = {
   fragmentShader: `
     uniform vec3 colorA;
     uniform vec3 colorB;
-    uniform float gradientAngle;
     varying vec2 vUv;
     
     void main() {
-      float angle = gradientAngle * 3.14159 / 180.0;
-      vec2 rotatedUv = vec2(
-        cos(angle) * vUv.x - sin(angle) * vUv.y,
-        sin(angle) * vUv.x + cos(angle) * vUv.y
-      );
-      gl_FragColor = vec4(mix(colorA, colorB, rotatedUv.y), 1.0);
+      gl_FragColor = vec4(mix(colorA, colorB, 1.0 - vUv.y), 1.0);
     }
   `
 };
@@ -175,8 +169,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
     return new THREE.ShaderMaterial({
       uniforms: {
         colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
-        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) },
-        gradientAngle: { value: settings.backgroundGradientAngle }
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) }
       },
       vertexShader: gradientShader.vertexShader,
       fragmentShader: gradientShader.fragmentShader,
@@ -187,8 +180,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   useEffect(() => {
     gradientMaterial.uniforms.colorA.value.set(settings.backgroundGradientStart);
     gradientMaterial.uniforms.colorB.value.set(settings.backgroundGradientEnd);
-    gradientMaterial.uniforms.gradientAngle.value = settings.backgroundGradientAngle;
-  }, [gradientMaterial, settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
+  }, [gradientMaterial, settings.backgroundGradientStart, settings.backgroundGradientEnd]);
 
   const { camera } = useThree();
 
