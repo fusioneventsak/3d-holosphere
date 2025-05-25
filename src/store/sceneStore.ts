@@ -112,28 +112,29 @@ export const useSceneStore = create<SceneState>()(
   settings: defaultSettings,
   updateSettings: (() => {
     const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
-    // Ensure photoCount stays within bounds
-    if (newSettings.photoCount) {
-      console.log('Updating photoCount:', {
-        raw: newSettings.photoCount,
-        type: typeof newSettings.photoCount
-      });
-      const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
-      if (isNaN(count)) {
-        console.warn('Invalid photoCount value, skipping update');
-        delete newSettings.photoCount;
-      } else {
-        console.log('Setting new photoCount:', count);
-        newSettings.photoCount = count;
+      // Ensure photoCount stays within bounds
+      if (newSettings.photoCount) {
+        console.log('Updating photoCount:', {
+          raw: newSettings.photoCount,
+          type: typeof newSettings.photoCount
+        });
+        const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
+        if (isNaN(count)) {
+          console.warn('Invalid photoCount value, skipping update');
+          delete newSettings.photoCount;
+        } else {
+          console.log('Setting new photoCount:', count);
+          newSettings.photoCount = count;
+        }
       }
-    }
 
-    set((state) => ({
-      ...console.log('Current settings:', state.settings),
-      ...console.log('New settings:', newSettings),
-      settings: { ...state.settings, ...newSettings },
-    }));
-  },
+      set((state) => ({
+        ...console.log('Current settings:', state.settings),
+        ...console.log('New settings:', newSettings),
+        settings: { ...state.settings, ...newSettings },
+      }));
+    };
+    
     const debouncedUpdate = debounce(immediateUpdate, 100);
     
     return (newSettings: Partial<SceneSettings>, debounce = false) => {
