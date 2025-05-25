@@ -150,7 +150,21 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
-      <color attach="background" args={[settings.backgroundColor]} />
+      {settings.backgroundGradient ? (
+        <mesh position={[0, 0, -10]}>
+          <planeGeometry args={[50, 50]} />
+          <meshBasicMaterial>
+            <gradientTexture
+              attach="map"
+              stops={[0, 1]}
+              colors={[settings.backgroundColor, settings.backgroundColorSecondary]}
+              rotation={settings.backgroundGradientAngle * (Math.PI / 180)}
+            />
+          </meshBasicMaterial>
+        </mesh>
+      ) : (
+        <color attach="background" args={[settings.backgroundColor]} />
+      )}
       <ambientLight intensity={settings.ambientLightIntensity} />
       {Array.from({ length: settings.spotlightCount }).map((_, i) => {
         const angle = (i / settings.spotlightCount) * Math.PI * 2;

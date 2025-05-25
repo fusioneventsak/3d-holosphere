@@ -8,6 +8,9 @@ export type SceneSettings = {
   useStockPhotos: boolean;
   photoCount: number;
   backgroundColor: string;
+  backgroundGradient: boolean;
+  backgroundColorSecondary: string;
+  backgroundGradientAngle: number;
   emptySlotColor: string;
   cameraDistance: number;
   cameraRotationEnabled: boolean;
@@ -51,6 +54,9 @@ const defaultSettings: SceneSettings = {
   useStockPhotos: true,
   photoCount: 50,
   backgroundColor: '#000000',
+  backgroundGradient: false,
+  backgroundColorSecondary: '#000000',
+  backgroundGradientAngle: 180,
   emptySlotColor: '#1A1A1A',
   cameraDistance: 6,
   cameraRotationEnabled: true,
