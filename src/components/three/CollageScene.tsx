@@ -204,19 +204,27 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
       <ambientLight intensity={settings.ambientLightIntensity} />
       {Array.from({ length: settings.spotlightCount }).map((_, i) => {
         const angle = (i / settings.spotlightCount) * Math.PI * 2;
-        const x = Math.cos(angle) * settings.spotlightDistance;
-        const z = Math.sin(angle) * settings.spotlightDistance;
+        const radius = settings.spotlightDistance;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const target = new THREE.Object3D();
+        target.position.set(0, -2, 0); // Target the floor
+
         return (
-          <spotLight
-            key={i}
-            position={[x, settings.spotlightHeight, z]}
-            intensity={settings.spotlightIntensity}
-            color={settings.spotlightColor}
-            angle={settings.spotlightAngle}
-            penumbra={settings.spotlightPenumbra}
-            distance={50}
-            decay={2}
-          />
+          <group key={i}>
+            <primitive object={target} />
+            <spotLight
+              position={[x, settings.spotlightHeight, z]}
+              intensity={settings.spotlightIntensity}
+              color={settings.spotlightColor}
+              angle={settings.spotlightAngle}
+              penumbra={settings.spotlightPenumbra}
+              distance={100}
+              decay={1.5}
+              target={target}
+              castShadow
+            />
+          </group>
         );
       })}
     </>
@@ -326,6 +334,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       <meshStandardMaterial 
         map={texture || null}
         side={THREE.FrontSide}
+        castShadow
+        receiveShadow
         transparent={false}
         toneMapped={true}
       />
@@ -399,6 +409,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
           color={new THREE.Color(settings.floorColor)}
+          receiveShadow
           transparent
           opacity={settings.floorOpacity}
           metalness={settings.floorMetalness}
@@ -466,7 +477,13 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     <div className="w-full h-full">
       <Canvas
         ref={canvasRef}
-        gl={{ antialias: false }}
+        gl={{ 
+          antialias: false,
+          shadowMap: {
+            enabled: true,
+            type: THREE.PCFSoftShadowMap
+          }
+        }}
         dpr={[1, 1.5]}
         performance={{ min: 0.3 }}
         frameloop="demand"
