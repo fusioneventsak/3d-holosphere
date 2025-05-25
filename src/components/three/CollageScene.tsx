@@ -217,10 +217,10 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 2), Math.PI)}
+             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
-             distance={200}
+             distance={300}
               target={target}
               castShadow
              shadow-mapSize={[2048, 2048]}

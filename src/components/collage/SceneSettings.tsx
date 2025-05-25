@@ -82,7 +82,7 @@ const SceneSettings: React.FC = () => {
                   <input
                     type="range"
                     min="3"
-                    max="10"
+                    max="50"
                     step="0.5"
                     value={settings.cameraDistance}
                     onChange={(e) => updateSettings({ 
@@ -455,7 +455,7 @@ const SceneSettings: React.FC = () => {
                   <input
                     type="range"
                     min="0.2"
-                    max="4.0"
+                    max="8.0"
                     step="0.1"
                     value={settings.spotlightWidth}
                     onChange={(e) => updateSettings({ 
