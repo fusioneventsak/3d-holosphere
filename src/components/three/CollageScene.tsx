@@ -314,13 +314,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'spiral':
         // Tornado spiral motion
         const spiralRadius = 8 + (time.current * 0.2);
-        const height = time.current * 2;
+        const spiralHeight = time.current * 2;
         mesh.position.x = Math.cos(time.current * 2) * spiralRadius;
         mesh.position.z = Math.sin(time.current * 2) * spiralRadius;
-        mesh.position.y = height;
+        mesh.position.y = spiralHeight;
         
         // Reset when reaching top
-        if (height > 15) {
+        if (spiralHeight > 15) {
           time.current = 0;
         }
         break;
