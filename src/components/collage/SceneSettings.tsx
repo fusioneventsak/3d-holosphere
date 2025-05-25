@@ -440,7 +440,7 @@ const SceneSettings: React.FC = () => {
                   <input
                     type="range"
                     min="0.2"
-                    max="2"
+                    max="3.14"
                     step="0.1"
                     value={settings.spotlightAngle}
                     onChange={(e) => updateSettings({ 
