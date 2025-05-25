@@ -250,6 +250,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const startDelay = useRef<number>(Math.random() * 10); // Random start delay between 0-10 seconds
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
+  const randomOffset = useRef(Math.random() * Math.PI * 2);
   const { camera } = useThree();
   
   const texture = useMemo(() => {
@@ -300,11 +301,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Create phase offsets based on both X and Z positions
         const xPhase = initialPosition.current[0] * 0.3;
         const zPhase = initialPosition.current[2] * 0.4;
-        const randomOffset = useRef(Math.random() * Math.PI * 2).current;
         
         // Combine multiple sine waves with different frequencies
-        const wave1 = Math.sin(time.current * speed + xPhase + randomOffset) * 0.5;
-        const wave2 = Math.cos(time.current * speed * 1.3 + zPhase + randomOffset) * 0.3;
+        const wave1 = Math.sin(time.current * speed + xPhase + randomOffset.current) * 0.5;
+        const wave2 = Math.cos(time.current * speed * 1.3 + zPhase + randomOffset.current) * 0.3;
         
         // Combine waves and ensure minimum height
         mesh.position.y = baseHeight + (wave1 + wave2) * waveAmplitude;
