@@ -72,9 +72,9 @@ const defaultSettings: SceneSettings = {
   cameraHeight: 2,
   cameraEnabled: true,
   spotlightCount: 1,
-  spotlightHeight: 15,
+  spotlightHeight: 20,
   spotlightDistance: 30,
-  spotlightAngle: Math.PI / 2, // 90 degrees
+  spotlightAngle: Math.PI, // 180 degrees
   spotlightPenumbra: 0.8,
   ambientLightIntensity: 0.5,
   spotlightIntensity: 5.0,

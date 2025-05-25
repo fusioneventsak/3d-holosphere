@@ -409,7 +409,7 @@ const SceneSettings: React.FC = () => {
                   <label className="block text-xs text-gray-500">Height</label>
                   <input
                     type="range"
-                    min="5"
+                    min="0"
                     max="30"
                     step="1"
                     value={settings.spotlightHeight}
@@ -439,8 +439,8 @@ const SceneSettings: React.FC = () => {
                   <label className="block text-xs text-gray-500">Angle</label>
                   <input
                     type="range"
-                    min="0.2"
-                    max="6.28"
+                    min="0.5"
+                    max="3.14"
                     step="0.1"
                     value={settings.spotlightAngle}
                     onChange={(e) => updateSettings({ 
