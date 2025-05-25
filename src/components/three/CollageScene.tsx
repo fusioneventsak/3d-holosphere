@@ -151,17 +151,20 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   return (
     <>
       {settings.backgroundGradient ? (
-        <mesh position={[0, 0, -10]}>
-          <planeGeometry args={[50, 50]} />
-          <meshBasicMaterial>
-            <gradientTexture
-              attach="map"
-              stops={[0, 1]}
-              colors={[settings.backgroundColor, settings.backgroundColorSecondary]}
-              rotation={settings.backgroundGradientAngle * (Math.PI / 180)}
-            />
-          </meshBasicMaterial>
-        </mesh>
+        <>
+          <color attach="background" args={[settings.backgroundColor]} />
+          <mesh position={[0, 0, -20]} scale={[40, 40, 1]}>
+            <planeGeometry />
+            <meshBasicMaterial>
+              <gradientTexture
+                attach="map"
+                stops={[0, 1]} 
+                colors={[settings.backgroundColor, settings.backgroundColorSecondary]}
+                rotation={settings.backgroundGradientAngle * (Math.PI / 180)}
+              />
+            </meshBasicMaterial>
+          </mesh>
+        </>
       ) : (
         <color attach="background" args={[settings.backgroundColor]} />
       )}
@@ -270,13 +273,15 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   if (!url) {
     return (
       <mesh ref={meshRef} position={position} rotation={rotation}>
-        <planeGeometry args={[size, size * 1.5]} />
-        <meshStandardMaterial 
-          color={new THREE.Color(settings.emptySlotColor)}
-          metalness={0.6}
-          roughness={0.2}
-          envMapIntensity={1}
-          transparent={false}
+        <planeGeometry args={[size, size * 1.5, 1, 1]} />
+        <meshPhysicalMaterial 
+          color={settings.emptySlotColor}
+          metalness={0.8}
+          roughness={0.2} 
+          clearcoat={0.5}
+          clearcoatRoughness={0.3}
+          transparent={true}
+          opacity={0.8}
         />
       </mesh>
     );
@@ -449,7 +454,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
                 enableDamping={true}
                 rotateSpeed={0.5}
                 zoomSpeed={0.5}
-                makeDefault
               />
               
               <PhotosContainer photos={displayedPhotos} settings={settings} />
