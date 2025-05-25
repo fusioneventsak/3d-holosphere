@@ -323,35 +323,38 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'spiral':
         // Calculate funnel parameters
         const maxHeight = 15;
-        const baseRadius = 12;
+        const baseRadius = 6;
         const topRadius = 2;
         
         // Update time and position
         const t = (time.current + heightOffset.current) % maxHeight;
         const heightProgress = t / maxHeight;
         
-        // Calculate funnel radius with exponential narrowing for better shape
-        const funnelRadius = baseRadius * Math.pow(1 - heightProgress, spiralTightness.current) + topRadius;
+        // Calculate funnel radius with exponential narrowing for cyclone shape
+        const funnelRadius = baseRadius * Math.pow(1 - heightProgress, 1.5) + topRadius;
         
         // Calculate orbital position
-        const orbitAngle = time.current * orbitSpeed.current + randomOffset.current;
-        const orbitDistance = funnelRadius + (orbitRadius.current * (1 - heightProgress * 0.5));
+        const orbitAngle = time.current * (orbitSpeed.current * 2) + randomOffset.current;
+        const orbitDistance = funnelRadius * (1 + Math.sin(heightProgress * Math.PI) * 0.2);
         const orbitX = Math.cos(orbitAngle) * orbitDistance;
         const orbitZ = Math.sin(orbitAngle) * orbitDistance;
         
         // Set position
         mesh.position.x = orbitX;
         mesh.position.z = orbitZ;
-        mesh.position.y = t * settings.photoSpacing;
+        mesh.position.y = t * (settings.photoSpacing * 0.75);
         
         // Reset when reaching top
         if (t >= maxHeight - 0.1) {
           time.current = -heightOffset.current; // Reset with offset for smooth transition
         }
         
-        // Always face camera
+        // Face center with slight tilt
         if (camera) {
-          mesh.lookAt(camera.position);
+          const lookAtPoint = new THREE.Vector3(0, mesh.position.y, 0);
+          mesh.lookAt(lookAtPoint);
+          // Add slight tilt based on height
+          mesh.rotation.z = heightProgress * Math.PI * 0.2;
         }
         break;
     }
