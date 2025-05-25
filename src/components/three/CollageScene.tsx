@@ -321,51 +321,35 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'spiral':
-        // Calculate funnel parameters
-        const maxHeight = 20;
-        const baseRadius = 2; // Narrow at bottom
-        const topRadius = 8;  // Wide at top
+        // Spiral animation parameters
+        const maxHeight = 15;
+        const baseRadius = 4;
+        const spiralTightness = 0.5;
+        const verticalSpeed = speed * 0.5;
         
-        // Update time and position
-        const t = (time.current + heightOffset.current) % maxHeight;
-        const heightProgress = t / maxHeight;
+        // Update position over time
+        const t = (time.current * verticalSpeed + heightOffset.current) % maxHeight;
         
-        // Calculate funnel radius that's wider at top
-        const funnelRadius = topRadius - (topRadius - baseRadius) * heightProgress;
+        // Calculate spiral coordinates
+        const angle = time.current * speed * 2 + randomOffset.current;
+        const radius = baseRadius + (t * spiralTightness);
         
-        // Calculate orbital position
-        const orbitAngle = time.current * speed * 2 + randomOffset.current;
-        const orbitDistance = funnelRadius * settings.photoSpacing;
-        const orbitX = Math.cos(orbitAngle) * orbitDistance;
-        const orbitZ = Math.sin(orbitAngle) * orbitDistance;
-        
-        // Set position
-        mesh.position.x = orbitX;
-        mesh.position.z = orbitZ;
+        // Set position in spiral pattern
+        mesh.position.x = Math.cos(angle) * radius;
+        mesh.position.z = Math.sin(angle) * radius;
         mesh.position.y = t;
         
-        // Reset when reaching top
-        if (t >= maxHeight - 0.1) {
-          time.current = -heightOffset.current; // Reset with offset for smooth transition
+        // Reset when reaching the top
+        if (mesh.position.y >= maxHeight - 0.1) {
+          time.current = -heightOffset.current / verticalSpeed;
         }
         
-        // Always face outward and stay upright
+        // Make photos face outward
         if (camera) {
-          // Calculate direction from center to photo
-          const center = new THREE.Vector3(0, mesh.position.y, 0);
-          const outwardDir = mesh.position.clone().sub(center);
-          outwardDir.y = 0; // Keep vertical
-          outwardDir.normalize();
-          
-          // Set position for lookAt target
-          const targetPosition = new THREE.Vector3(
-            mesh.position.x + outwardDir.x * 10,
-            mesh.position.y,
-            mesh.position.z + outwardDir.z * 10
-          );
-          
-          mesh.lookAt(targetPosition);
-          mesh.rotation.z = 0; // Keep upright
+          const center = new THREE.Vector3(0, t, 0);
+          mesh.position.sub(center).normalize();
+          mesh.lookAt(new THREE.Vector3(mesh.position.x * 2, t, mesh.position.z * 2));
+          mesh.rotation.z = 0;
         }
         break;
     }
