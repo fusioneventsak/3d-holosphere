@@ -48,8 +48,17 @@ export type SceneSettings = {
 
 type SceneState = {
   settings: SceneSettings;
-  updateSettings: (settings: Partial<SceneSettings>) => void;
+  updateSettings: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
   resetSettings: () => void;
+};
+
+// Debounce helper
+const debounce = (fn: Function, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function (this: any, ...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), ms);
+  };
 };
 
 const defaultSettings: SceneSettings = {
@@ -101,7 +110,8 @@ export const useSceneStore = create<SceneState>()(
   persist(
     (set) => ({
   settings: defaultSettings,
-  updateSettings: (newSettings) => {
+  updateSettings: (() => {
+    const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
     // Ensure photoCount stays within bounds
     if (newSettings.photoCount) {
       console.log('Updating photoCount:', {
@@ -124,6 +134,16 @@ export const useSceneStore = create<SceneState>()(
       settings: { ...state.settings, ...newSettings },
     }));
   },
+    const debouncedUpdate = debounce(immediateUpdate, 100);
+    
+    return (newSettings: Partial<SceneSettings>, debounce = false) => {
+      if (debounce) {
+        debouncedUpdate(newSettings);
+      } else {
+        immediateUpdate(newSettings);
+      }
+    };
+  })(),
   resetSettings: () => set({ settings: defaultSettings }),
 }), {
     name: 'scene-settings',

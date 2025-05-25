@@ -544,8 +544,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           precision: "mediump"
         }}
         dpr={[1, 1.5]}
-        performance={{ min: 0.3 }}
-        frameloop="demand"
+        frameloop="always"
+        performance={{ min: 0.5 }}
         onCreated={handleCreated}
         camera={{
           fov: 60,
@@ -553,6 +553,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           far: 100,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
+        style={{ transition: 'all 0.3s ease-out' }}
       >
         <React.Suspense fallback={<LoadingFallback />}>
           {isSceneReady && (
@@ -571,10 +572,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
                 minDistance={3}
                 maxDistance={50}
                 maxPolarAngle={Math.PI * 0.65}
-                dampingFactor={0.05}
+                dampingFactor={0.1}
                 enableDamping={true}
-                rotateSpeed={0.5}
-                zoomSpeed={0.5}
+                rotateSpeed={0.8}
+                zoomSpeed={0.8}
+                enableTransition={true}
+                transitionDuration={0.3}
               />
               
               <PhotosContainer photos={displayedPhotos} settings={settings} />

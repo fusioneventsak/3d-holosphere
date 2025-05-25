@@ -87,7 +87,7 @@ const SceneSettings: React.FC = () => {
                     value={settings.cameraDistance}
                     onChange={(e) => updateSettings({ 
                       cameraDistance: parseFloat(e.target.value) 
-                    })}
+                    }, true)}
                     className="w-full"
                   />
                 </div>
@@ -104,7 +104,7 @@ const SceneSettings: React.FC = () => {
                     value={settings.cameraHeight}
                     onChange={(e) => updateSettings({ 
                       cameraHeight: parseFloat(e.target.value) 
-                    })}
+                    }, true)}
                     className="w-full"
                   />
                 </div>
