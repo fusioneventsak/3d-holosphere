@@ -331,7 +331,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const heightProgress = t / maxHeight;
         
         // Calculate funnel radius that's wider at top
-        const funnelRadius = baseRadius + (topRadius - baseRadius) * heightProgress;
+        const funnelRadius = topRadius - (topRadius - baseRadius) * heightProgress;
         
         // Calculate orbital position
         const orbitAngle = time.current * speed * 2 + randomOffset.current;
@@ -352,17 +352,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Always face outward and stay upright
         if (camera) {
           // Calculate direction from center to photo
-          const direction = new THREE.Vector3(
-            mesh.position.x,
-            0, // Keep y at 0 to prevent tilting
-            mesh.position.z
-          ).normalize();
+          const center = new THREE.Vector3(0, mesh.position.y, 0);
+          const outwardDir = mesh.position.clone().sub(center);
+          outwardDir.y = 0; // Keep vertical
+          outwardDir.normalize();
           
           // Set position for lookAt target
           const targetPosition = new THREE.Vector3(
-            mesh.position.x + direction.x,
+            mesh.position.x + outwardDir.x * 10,
             mesh.position.y,
-            mesh.position.z + direction.z
+            mesh.position.z + outwardDir.z * 10
           );
           
           mesh.lookAt(targetPosition);
@@ -570,7 +569,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
                 autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
                 autoRotateSpeed={settings.cameraRotationSpeed}
                 minDistance={3}
-                maxDistance={15}
+                maxDistance={50}
                 maxPolarAngle={Math.PI * 0.65}
                 dampingFactor={0.05}
                 enableDamping={true}

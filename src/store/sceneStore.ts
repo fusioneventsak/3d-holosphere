@@ -67,7 +67,7 @@ const defaultSettings: SceneSettings = {
   backgroundColorSecondary: '#000000',
   backgroundGradientAngle: 180,
   emptySlotColor: '#1A1A1A',
-  cameraDistance: 6,
+  cameraDistance: 25,
   cameraRotationEnabled: true,
   cameraRotationSpeed: 0.2,
   cameraHeight: 2,
