@@ -294,28 +294,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Use memoized values to prevent recalculation
-        const baseHeight = 2; // Increased minimum height
-        const waveAmplitude = 1.2; // Reduced amplitude for stability
+        // Simplified wave motion with better stability
+        const baseHeight = 1.5;
+        const amplitude = 0.75;
+        const frequency = 0.5;
         
-        // Create phase offsets based on both X and Z positions
-        const xPhase = initialPosition.current[0] * 0.3;
-        const zPhase = initialPosition.current[2] * 0.4;
+        // Single wave calculation with position-based offset
+        const positionOffset = (initialPosition.current[0] + initialPosition.current[2]) * 0.2;
+        const wave = Math.sin(time.current * speed * frequency + positionOffset + randomOffset.current);
         
-        // Combine multiple sine waves with different frequencies
-        const wave1 = Math.sin(time.current * speed + xPhase + randomOffset.current) * 0.5;
-        const wave2 = Math.cos(time.current * speed * 1.3 + zPhase + randomOffset.current) * 0.3;
+        // Apply smooth wave motion with clamped height
+        mesh.position.y = Math.max(0.5, baseHeight + (wave * amplitude));
         
-        // Combine waves and ensure minimum height
-        mesh.position.y = baseHeight + (wave1 + wave2) * waveAmplitude;
+        // Update position while maintaining original x/z coordinates
+        mesh.position.x = initialPosition.current[0];
+        mesh.position.z = initialPosition.current[2];
         
-        // Ensure photo stays above floor
-        if (mesh.position.y < 0.5) {
-          mesh.position.y = 0.5;
+        // Always face camera
+        if (camera) {
+          mesh.lookAt(camera.position);
         }
-        
-        // Always face the camera
-        mesh.lookAt(camera.position);
         break;
         
       case 'spiral':
@@ -502,11 +500,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         ref={canvasRef}
         gl={{ 
           antialias: false,
-          shadowMap: {
-            enabled: false // Disable initial shadow map to prevent startup issues
-          }
+          powerPreference: "high-performance",
+          precision: "lowp"
         }}
-        dpr={[1, 1]} // Reduce DPR for better performance
+        dpr={[1, 1.5]}
         performance={{ min: 0.3 }}
         frameloop="always" // Use consistent frame updates
         onCreated={handleCreated}
