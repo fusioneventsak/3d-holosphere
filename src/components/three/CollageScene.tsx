@@ -293,22 +293,25 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        const baseHeight = 1; // Minimum height above floor
-        const waveAmplitude = 1.5; // Height of wave
+        // Use memoized values to prevent recalculation
+        const baseHeight = 2; // Increased minimum height
+        const waveAmplitude = 1.2; // Reduced amplitude for stability
         
         // Create phase offsets based on both X and Z positions
-        const xPhase = initialPosition.current[0] * 0.5;
-        const zPhase = initialPosition.current[2] * 0.7;
-        const positionOffset = Math.sin(xPhase * 0.3) * Math.cos(zPhase * 0.4) * 0.5;
+        const xPhase = initialPosition.current[0] * 0.3;
+        const zPhase = initialPosition.current[2] * 0.4;
         
         // Combine multiple sine waves with different frequencies
-        const wave1 = Math.sin(time.current * 0.7 + xPhase) * 0.6;
-        const wave2 = Math.cos(time.current * 1.1 + zPhase) * 0.4;
-        const wave3 = Math.sin(time.current * 0.9 + (xPhase + zPhase) * 0.5) * 0.3;
+        const wave1 = Math.sin(time.current * speed + xPhase) * 0.5;
+        const wave2 = Math.cos(time.current * speed * 1.3 + zPhase) * 0.3;
         
         // Combine waves and ensure minimum height
-        const height = baseHeight + (wave1 + wave2 + wave3 + positionOffset) * waveAmplitude;
-        mesh.position.y = Math.max(height, 0); // Never go below y=0
+        mesh.position.y = baseHeight + (wave1 + wave2) * waveAmplitude;
+        
+        // Ensure photo stays above floor
+        if (mesh.position.y < 0.5) {
+          mesh.position.y = 0.5;
+        }
         break;
         
       case 'spiral':
@@ -484,6 +487,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
 
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     setIsSceneReady(true);
   };
 
@@ -494,13 +499,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         gl={{ 
           antialias: false,
           shadowMap: {
-            enabled: true,
-            type: THREE.VSMShadowMap
+            enabled: false // Disable initial shadow map to prevent startup issues
           }
         }}
-        dpr={[1, 1.5]}
+        dpr={[1, 1]} // Reduce DPR for better performance
         performance={{ min: 0.3 }}
-        frameloop="demand"
+        frameloop="always" // Use consistent frame updates
         onCreated={handleCreated}
         camera={{
           fov: 60,
