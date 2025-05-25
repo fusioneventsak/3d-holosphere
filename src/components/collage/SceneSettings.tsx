@@ -295,26 +295,24 @@ const SceneSettings: React.FC = () => {
           
           <div className="space-y-4">
             <div>
-              <div className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  checked={settings.backgroundGradient}
-                  onChange={(e) => updateSettings({
-                    backgroundGradient: e.target.checked
-                  })}
-                  className="mr-2"
-                />
-                <label className="text-sm text-gray-400">
-                  Use Gradient Background
-                </label>
-              </div>
+              <label className="block text-sm text-gray-400 mb-2 flex items-center justify-between">
+                Background
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">Gradient</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.backgroundGradient}
+                    onChange={(e) => updateSettings({
+                      backgroundGradient: e.target.checked
+                    })}
+                  />
+                </div>
+              </label>
               
               {settings.backgroundGradient ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">
-                      Gradient Start Color
-                    </label>
+                    <label className="block text-xs text-gray-500">Start Color</label>
                     <input
                       type="color"
                       value={settings.backgroundGradientStart}
@@ -326,9 +324,7 @@ const SceneSettings: React.FC = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">
-                      Gradient End Color
-                    </label>
+                    <label className="block text-xs text-gray-500">End Color</label>
                     <input
                       type="color"
                       value={settings.backgroundGradientEnd}
@@ -340,9 +336,7 @@ const SceneSettings: React.FC = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">
-                      Gradient Angle: {settings.backgroundGradientAngle}°
-                    </label>
+                    <label className="block text-xs text-gray-500">Angle (degrees)</label>
                     <input
                       type="range"
                       min="0"
@@ -357,19 +351,14 @@ const SceneSettings: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">
-                    Background Color
-                  </label>
-                  <input
-                    type="color"
-                    value={settings.backgroundColor}
-                    onChange={(e) => updateSettings({
-                      backgroundColor: e.target.value
-                    })}
-                    className="w-full h-8 rounded cursor-pointer"
-                  />
-                </div>
+                <input
+                  type="color"
+                  value={settings.backgroundColor}
+                  onChange={(e) => updateSettings({
+                    backgroundColor: e.target.value
+                  })}
+                  className="w-full h-8 rounded cursor-pointer"
+                />
               )}
             </div>
 

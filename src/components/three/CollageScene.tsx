@@ -2,6 +2,38 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
+
+// Create gradient background shader
+const gradientShader = {
+  uniforms: {
+    colorA: { value: new THREE.Color() },
+    colorB: { value: new THREE.Color() },
+    gradientAngle: { value: 0 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 colorA;
+    uniform vec3 colorB;
+    uniform float gradientAngle;
+    varying vec2 vUv;
+    
+    void main() {
+      float angle = gradientAngle * 3.14159 / 180.0;
+      vec2 rotatedUv = vec2(
+        cos(angle) * vUv.x - sin(angle) * vUv.y,
+        sin(angle) * vUv.x + cos(angle) * vUv.y
+      );
+      gl_FragColor = vec4(mix(colorA, colorB, rotatedUv.y), 1.0);
+    }
+  `
+};
+
 import { useSceneStore } from '../../store/sceneStore';
 import { getStockPhotos } from '../../lib/stockPhotos';
 
@@ -139,6 +171,19 @@ const randomRotation = (): [number, number, number] => {
 
 // Scene setup component with camera initialization
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) },
+        gradientAngle: { value: settings.backgroundGradientAngle }
+      },
+      vertexShader: gradientShader.vertexShader,
+      fragmentShader: gradientShader.fragmentShader,
+      side: THREE.BackSide
+    });
+  }, [settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
+
   const { camera } = useThree();
 
   useEffect(() => {
@@ -150,19 +195,13 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
-      <color attach="background" args={[settings.backgroundColor]} />
       {settings.backgroundGradient && (
-        <mesh position={[0, 0, -20]} scale={[40, 40, 1]}>
-          <planeGeometry />
-          <meshBasicMaterial>
-            <gradientTexture
-              attach="map"
-              stops={[0, 1]}
-              colors={[settings.backgroundGradientStart, settings.backgroundGradientEnd]}
-              rotation={settings.backgroundGradientAngle * (Math.PI / 180)}
-            />
-          </meshBasicMaterial>
+        <mesh>
+          <sphereGeometry args={[50, 32, 32]} />
+          <primitive object={gradientMaterial} attach="material" />
         </mesh>
+      ) : (
+        <color attach="background" args={[settings.backgroundColor]} />
       )}
       <ambientLight intensity={settings.ambientLightIntensity} />
       {Array.from({ length: settings.spotlightCount }).map((_, i) => {
