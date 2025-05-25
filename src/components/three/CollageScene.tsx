@@ -172,7 +172,7 @@ const randomRotation = (): [number, number, number] => {
 // Scene setup component with camera initialization
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   const gradientMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
+    const material = new THREE.ShaderMaterial({
       uniforms: {
         colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
         colorB: { value: new THREE.Color(settings.backgroundGradientEnd) },
@@ -182,6 +182,13 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
       fragmentShader: gradientShader.fragmentShader,
       side: THREE.BackSide
     });
+    
+    // Update uniforms when settings change
+    material.uniforms.colorA.value.set(settings.backgroundGradientStart);
+    material.uniforms.colorB.value.set(settings.backgroundGradientEnd);
+    material.uniforms.gradientAngle.value = settings.backgroundGradientAngle;
+    
+    return material;
   }, [settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
 
   const { camera } = useThree();
