@@ -1,0 +1,99 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ChevronLeft, Share2 } from 'lucide-react';
+import { useCollageStore } from '../store/collageStore';
+import Layout from '../components/layout/Layout';
+import CollageScene from '../components/three/CollageScene';
+
+const CollageViewerPage: React.FC = () => {
+  const { code } = useParams<{ code: string }>();
+  const { currentCollage, photos, fetchCollageByCode, loading, error } = useCollageStore();
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (code) {
+      fetchCollageByCode(code);
+    }
+  }, [code, fetchCollageByCode]);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (loading && !currentCollage) {
+    return (
+      <Layout>
+        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="mt-2 text-gray-400">Loading collage...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error || !currentCollage) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
+            <p className="text-gray-400 mb-6">
+              The collage you're looking for doesn't exist or might have been removed.
+            </p>
+            <Link
+              to="/"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+            >
+              <ChevronLeft className="mr-2 h-5 w-5" />
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              {currentCollage.name}
+            </h1>
+          </div>
+          
+          <div className="mt-4 sm:mt-0">
+            <button
+              onClick={handleCopyLink}
+              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              <Share2 className="mr-1 h-4 w-4" />
+              {copied ? 'Copied!' : 'Share'}
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {photos.length === 0 ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <p className="text-gray-400 mb-6">
+              This collage doesn't have any photos yet.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="h-[calc(100vh-200px)] w-full">
+          <CollageScene photos={photos} />
+        </div>
+      )}
+    </Layout>
+  );
+};
+
+export default CollageViewerPage;

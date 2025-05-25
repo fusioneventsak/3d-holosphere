@@ -1,0 +1,130 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export type SceneSettings = {
+  animationPattern: 'float' | 'wave' | 'spiral';
+  animationSpeed: number;
+  animationEnabled: boolean;
+  useStockPhotos: boolean;
+  photoCount: number;
+  backgroundColor: string;
+  emptySlotColor: string;
+  cameraDistance: number;
+  cameraRotationEnabled: boolean;
+  cameraRotationSpeed: number;
+  cameraHeight: number;
+  cameraEnabled: boolean;
+  spotlightCount: number;
+  spotlightHeight: number;
+  spotlightDistance: number;
+  spotlightAngle: number;
+  spotlightPenumbra: number;
+  ambientLightIntensity: number;
+  spotlightIntensity: number;
+  spotlightColor: string;
+  floorEnabled: boolean;
+  floorColor: string;
+  floorOpacity: number;
+  floorSize: number;
+  floorReflectivity: number;
+  floorMetalness: number;
+  floorRoughness: number;
+  gridEnabled: boolean;
+  gridColor: string;
+  gridSize: number;
+  gridDivisions: number;
+  gridOpacity: number;
+  photoSize: number;
+  photoSpacing: number;
+};
+
+type SceneState = {
+  settings: SceneSettings;
+  updateSettings: (settings: Partial<SceneSettings>) => void;
+  resetSettings: () => void;
+};
+
+const defaultSettings: SceneSettings = {
+  animationPattern: 'float',
+  animationSpeed: 0.5,
+  animationEnabled: true,
+  useStockPhotos: true,
+  photoCount: 50,
+  backgroundColor: '#000000',
+  emptySlotColor: '#1A1A1A',
+  cameraDistance: 6,
+  cameraRotationEnabled: true,
+  cameraRotationSpeed: 0.2,
+  cameraHeight: 2,
+  cameraEnabled: true,
+  spotlightCount: 1,
+  spotlightHeight: 20,
+  spotlightDistance: 30,
+  spotlightAngle: 0.5,
+  spotlightPenumbra: 0.8,
+  ambientLightIntensity: 0.5,
+  spotlightIntensity: 2.0,
+  spotlightColor: '#ffffff',
+  floorEnabled: true,
+  floorColor: '#1A1A1A',
+  floorOpacity: 0.8,
+  floorSize: 20,
+  floorReflectivity: 0.6,
+  floorMetalness: 0.2,
+  floorRoughness: 0.7,
+  gridEnabled: true,
+  gridColor: '#444444',
+  gridSize: 30,
+  gridDivisions: 30,
+  gridOpacity: 1.0,
+  photoSize: 0.8,
+  photoSpacing: 1.5,
+};
+
+export const useSceneStore = create<SceneState>()(
+  persist(
+    (set) => ({
+  settings: defaultSettings,
+  updateSettings: (newSettings) => {
+    // Ensure photoCount stays within bounds
+    if (newSettings.photoCount) {
+      console.log('Updating photoCount:', {
+        raw: newSettings.photoCount,
+        type: typeof newSettings.photoCount
+      });
+      const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
+      if (isNaN(count)) {
+        console.warn('Invalid photoCount value, skipping update');
+        delete newSettings.photoCount;
+      } else {
+        console.log('Setting new photoCount:', count);
+        newSettings.photoCount = count;
+      }
+    }
+
+    set((state) => ({
+      ...console.log('Current settings:', state.settings),
+      ...console.log('New settings:', newSettings),
+      settings: { ...state.settings, ...newSettings },
+    }));
+  },
+  resetSettings: () => set({ settings: defaultSettings }),
+}), {
+    name: 'scene-settings',
+    version: 1,
+    partialize: (state) => ({ settings: state.settings }),
+    onRehydrateStorage: () => (state) => {
+      if (state) {
+        // Validate and fix any invalid settings after rehydration
+        const validatedSettings = { ...defaultSettings };
+        for (const key in state.settings) {
+          const value = state.settings[key];
+          if (value !== undefined && value !== null) {
+            validatedSettings[key] = value;
+          }
+        }
+        state.settings = validatedSettings;
+      }
+    }
+  })
+);
