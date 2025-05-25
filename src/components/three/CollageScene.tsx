@@ -321,18 +321,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'spiral':
-        // Spiral animation parameters
-        const maxHeight = 15;
-        const baseRadius = 4;
-        const spiralTightness = 0.5;
-        const verticalSpeed = speed * 0.5;
+        // Funnel spiral parameters
+        const maxHeight = 15; // Maximum height of the funnel
+        const minRadius = 2; // Radius at the bottom of the funnel
+        const maxRadius = 8; // Radius at the top of the funnel
+        const verticalSpeed = speed * 0.5; // Speed of vertical movement
         
         // Update position over time
         const t = (time.current * verticalSpeed + heightOffset.current) % maxHeight;
         
-        // Calculate spiral coordinates
+        // Calculate funnel spiral coordinates
         const angle = time.current * speed * 2 + randomOffset.current;
-        const radius = baseRadius + (t * spiralTightness);
+        
+        // Calculate radius that decreases as height increases
+        const progress = t / maxHeight;
+        const radius = maxRadius - (progress * (maxRadius - minRadius));
         
         // Set position in spiral pattern
         mesh.position.x = Math.cos(angle) * radius;
@@ -344,11 +347,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           time.current = -heightOffset.current / verticalSpeed;
         }
         
-        // Make photos face outward
+        // Make photos face outward from the center of the funnel
         if (camera) {
           const center = new THREE.Vector3(0, t, 0);
-          mesh.position.sub(center).normalize();
-          mesh.lookAt(new THREE.Vector3(mesh.position.x * 2, t, mesh.position.z * 2));
+          const direction = mesh.position.clone().sub(center);
+          mesh.lookAt(mesh.position.clone().add(direction));
           mesh.rotation.z = 0;
         }
         break;
