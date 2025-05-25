@@ -454,8 +454,8 @@ const SceneSettings: React.FC = () => {
                   <label className="block text-xs text-gray-500">Width</label>
                   <input
                     type="range"
-                    min="0.1"
-                    max="2.0"
+                    min="0.2"
+                    max="4.0"
                     step="0.1"
                     value={settings.spotlightWidth}
                     onChange={(e) => updateSettings({ 
