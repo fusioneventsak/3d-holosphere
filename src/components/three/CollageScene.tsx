@@ -328,6 +328,55 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
   );
 };
 
+// Floor component with Grid
+const Floor: React.FC<{ settings: any }> = ({ settings }) => {
+  const { scene } = useThree();
+  const [isGridReady, setIsGridReady] = React.useState(false);
+
+  useEffect(() => {
+    // Wait for scene to be ready before enabling grid
+    if (scene) {
+      const timeout = setTimeout(() => setIsGridReady(true), 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [scene]);
+
+  if (!settings.floorEnabled) return null;
+
+  return (
+    <>
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -2, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={30}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -2.001, 0]}
+      >
+        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <meshStandardMaterial
+          color={new THREE.Color(settings.floorColor)}
+          transparent
+          opacity={settings.floorOpacity}
+          metalness={settings.floorMetalness}
+          roughness={settings.floorRoughness}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
+  );
+};
+
 // Camera setup component
 const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
   const { camera } = useThree();
@@ -402,44 +451,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
               <CameraSetup settings={settings} />
               <SceneSetup settings={settings} />
               
-              {/* Floor */}
-              {settings.floorEnabled && (
-                <>
-                  {settings.gridEnabled && isSceneReady && (
-                    <Grid
-                      position={[0, -2, 0]}
-                      args={[settings.gridSize, settings.gridDivisions]}
-                      cellSize={1}
-                      cellThickness={0.5}
-                      cellColor={settings.gridColor}
-                      sectionSize={3}
-                      fadeDistance={30}
-                      fadeStrength={1}
-                      followCamera={false}
-                      infiniteGrid={false}
-                      material={new THREE.LineBasicMaterial({
-                        transparent: true,
-                        opacity: settings.gridOpacity,
-                        color: settings.gridColor
-                      })}
-                    />
-                  )}
-                  <mesh
-                    rotation={[-Math.PI / 2, 0, 0]}
-                    position={[0, -2.001, 0]}
-                  >
-                    <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-                    <meshStandardMaterial
-                      color={new THREE.Color(settings.floorColor)}
-                      transparent
-                      opacity={settings.floorOpacity}
-                      metalness={settings.floorMetalness}
-                      roughness={settings.floorRoughness}
-                      side={THREE.DoubleSide}
-                    />
-                  </mesh>
-                </>
-              )}
+              <Floor settings={settings} />
               
               <OrbitControls 
                 makeDefault
