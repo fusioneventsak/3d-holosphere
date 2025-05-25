@@ -195,7 +195,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
-      {settings.backgroundGradient && (
+      {settings.backgroundGradient ? (
         <mesh>
           <sphereGeometry args={[50, 32, 32]} />
           <primitive object={gradientMaterial} attach="material" />
@@ -512,4 +512,4 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   );
 };
 
-export default CollageScene
+export default CollageScene;
