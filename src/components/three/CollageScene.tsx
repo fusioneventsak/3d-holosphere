@@ -323,8 +323,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           roughness={0.2} 
           clearcoat={0.5}
           clearcoatRoughness={0.3}
-          transparent={true}
-          opacity={0.8}
         />
       </mesh>
     );
