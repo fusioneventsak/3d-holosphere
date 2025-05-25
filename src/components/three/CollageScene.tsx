@@ -486,20 +486,11 @@ type CollageSceneProps = {
 const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   const settings = useSceneStore((state) => state.settings);
   const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
-  const [isSceneReady, setIsSceneReady] = React.useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     getStockPhotos().then(setStockPhotos);
   }, []);
-
-  // Reset scene ready state when critical settings change
-  useEffect(() => {
-    setIsSceneReady(false);
-    // Small delay to ensure clean re-initialization
-    const timer = setTimeout(() => setIsSceneReady(true), 300);
-    return () => clearTimeout(timer);
-  }, [settings.cameraDistance, settings.cameraHeight]);
 
   const displayedPhotos = useMemo(() => 
     generatePhotoList(
@@ -516,7 +507,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.VSMShadowMap; // Better performance
     gl.setClearColor(0x000000, 0);
-    setIsSceneReady(true);
   };
 
   return (
@@ -541,33 +531,29 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         style={{ transition: 'all 0.3s ease-out' }}
       >
         <React.Suspense fallback={<LoadingFallback />}>
-          {isSceneReady && (
-            <>
-              <CameraSetup settings={settings} />
-              <SceneSetup settings={settings} />
-              
-              <Floor settings={settings} />
-              
-              <OrbitControls 
-                makeDefault
-                enableZoom={true}
-                enablePan={false}
-                autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-                autoRotateSpeed={settings.cameraRotationSpeed}
-                minDistance={3}
-                maxDistance={50}
-                maxPolarAngle={Math.PI * 0.65}
-                dampingFactor={0.1}
-                enableDamping={true}
-                rotateSpeed={0.8}
-                zoomSpeed={0.8}
-                enableTransition={true}
-                transitionDuration={0.3}
-              />
-              
-              <PhotosContainer photos={displayedPhotos} settings={settings} />
-            </>
-          )}
+          <>
+            <CameraSetup settings={settings} />
+            <SceneSetup settings={settings} />
+            
+            <Floor settings={settings} />
+            
+            <OrbitControls 
+              makeDefault
+              enableZoom={true}
+              enablePan={false}
+              autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+              autoRotateSpeed={settings.cameraRotationSpeed}
+              minDistance={3}
+              maxDistance={50}
+              maxPolarAngle={Math.PI * 0.65}
+              dampingFactor={0.1}
+              enableDamping={true}
+              rotateSpeed={0.8}
+              zoomSpeed={0.8}
+            />
+            
+            <PhotosContainer photos={displayedPhotos} settings={settings} />
+          </>
         </React.Suspense>
       </Canvas>
     </div>
