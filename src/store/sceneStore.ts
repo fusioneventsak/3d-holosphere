@@ -25,6 +25,7 @@ export type SceneSettings = {
   spotlightHeight: number;
   spotlightDistance: number;
   spotlightAngle: number;
+  spotlightWidth: number;
   spotlightPenumbra: number;
   ambientLightIntensity: number;
   spotlightIntensity: number;
@@ -75,6 +76,7 @@ const defaultSettings: SceneSettings = {
   spotlightHeight: 15,
   spotlightDistance: 30,
   spotlightAngle: Math.PI / 2, // 90 degrees default
+  spotlightWidth: 1.0,
   spotlightPenumbra: 0.8,
   ambientLightIntensity: 0.5,
   spotlightIntensity: 8.0,

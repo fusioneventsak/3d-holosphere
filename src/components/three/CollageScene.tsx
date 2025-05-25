@@ -217,7 +217,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle, Math.PI * 2)}
+             angle={Math.min(settings.spotlightAngle * settings.spotlightWidth, Math.PI * 2)}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
              distance={200}
