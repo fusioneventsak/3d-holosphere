@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, OrbitControls, Grid } from '@react-three/drei';
+import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Create gradient background shader
@@ -14,7 +14,7 @@ const gradientShader = {
     varying vec2 vUv;
     void main() {
       vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      gl_Position = vec4(position, 1.0);
     }
   `,
   fragmentShader: `
@@ -171,17 +171,24 @@ const randomRotation = (): [number, number, number] => {
 
 // Scene setup component with camera initialization
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
-  const uniforms = useMemo(() => ({
-    colorA: { value: new THREE.Color() },
-    colorB: { value: new THREE.Color() },
-    gradientAngle: { value: 0 }
-  }), []);
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) },
+        gradientAngle: { value: settings.backgroundGradientAngle }
+      },
+      vertexShader: gradientShader.vertexShader,
+      fragmentShader: gradientShader.fragmentShader,
+      depthWrite: false
+    });
+  }, []);
   
   useEffect(() => {
-    uniforms.colorA.value.set(settings.backgroundGradientStart);
-    uniforms.colorB.value.set(settings.backgroundGradientEnd);
-    uniforms.gradientAngle.value = settings.backgroundGradientAngle;
-  }, [uniforms, settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
+    gradientMaterial.uniforms.colorA.value.set(settings.backgroundGradientStart);
+    gradientMaterial.uniforms.colorB.value.set(settings.backgroundGradientEnd);
+    gradientMaterial.uniforms.gradientAngle.value = settings.backgroundGradientAngle;
+  }, [gradientMaterial, settings.backgroundGradientStart, settings.backgroundGradientEnd, settings.backgroundGradientAngle]);
 
   const { camera } = useThree();
 
@@ -195,14 +202,9 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   return (
     <>
       {settings.backgroundGradient ? (
-        <mesh>
-          <sphereGeometry args={[50, 32, 32]} />
-          <shaderMaterial 
-            uniforms={uniforms}
-            vertexShader={gradientShader.vertexShader}
-            fragmentShader={gradientShader.fragmentShader}
-            side={THREE.BackSide}
-          />
+        <mesh position={[0, 0, -1]}>
+          <planeGeometry args={[2, 2]} />
+          <primitive object={gradientMaterial} attach="material" />
         </mesh>
       ) : (
         <color attach="background" args={[settings.backgroundColor]} />
