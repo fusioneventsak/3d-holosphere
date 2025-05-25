@@ -248,9 +248,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
   const startDelay = useRef<number>(Math.random() * 10); // Random start delay between 0-10 seconds
-  const orbitRadius = useRef<number>(Math.random() * 4 + 2); // Random orbit radius between 2-6
+  const orbitRadius = useRef<number>(Math.random() * 8 + 4); // Random orbit radius between 4-12
   const orbitSpeed = useRef<number>(Math.random() * 0.5 + 0.5); // Random speed between 0.5-1
-  const heightOffset = useRef<number>(Math.random() * 10); // Random height offset
+  const heightOffset = useRef<number>(Math.random() * 15); // Random height offset
+  const spiralTightness = useRef<number>(Math.random() * 0.3 + 0.7); // Random spiral tightness between 0.7-1.0
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const randomOffset = useRef(Math.random() * Math.PI * 2);
@@ -322,25 +323,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'spiral':
         // Calculate funnel parameters
         const maxHeight = 15;
-        const baseRadius = 8;
+        const baseRadius = 12;
         const topRadius = 2;
         
         // Update time and position
         const t = (time.current + heightOffset.current) % maxHeight;
         const heightProgress = t / maxHeight;
         
-        // Calculate funnel radius at current height (wider at bottom, narrower at top)
-        const funnelRadius = baseRadius - (heightProgress * (baseRadius - topRadius));
+        // Calculate funnel radius with exponential narrowing for better shape
+        const funnelRadius = baseRadius * Math.pow(1 - heightProgress, spiralTightness.current) + topRadius;
         
         // Calculate orbital position
-        const orbitAngle = time.current * orbitSpeed.current;
-        const orbitX = Math.cos(orbitAngle) * (funnelRadius + orbitRadius.current);
-        const orbitZ = Math.sin(orbitAngle) * (funnelRadius + orbitRadius.current);
+        const orbitAngle = time.current * orbitSpeed.current + randomOffset.current;
+        const orbitDistance = funnelRadius + (orbitRadius.current * (1 - heightProgress * 0.5));
+        const orbitX = Math.cos(orbitAngle) * orbitDistance;
+        const orbitZ = Math.sin(orbitAngle) * orbitDistance;
         
         // Set position
         mesh.position.x = orbitX;
         mesh.position.z = orbitZ;
-        mesh.position.y = t;
+        mesh.position.y = t * settings.photoSpacing;
         
         // Reset when reaching top
         if (t >= maxHeight - 0.1) {
