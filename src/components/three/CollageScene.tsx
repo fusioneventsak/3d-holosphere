@@ -322,39 +322,51 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'spiral':
         // Calculate funnel parameters
-        const maxHeight = 15;
-        const baseRadius = 6;
-        const topRadius = 2;
+        const maxHeight = 20;
+        const baseRadius = 2; // Narrow at bottom
+        const topRadius = 8;  // Wide at top
         
         // Update time and position
         const t = (time.current + heightOffset.current) % maxHeight;
         const heightProgress = t / maxHeight;
         
-        // Calculate funnel radius with exponential narrowing for cyclone shape
-        const funnelRadius = baseRadius * Math.pow(1 - heightProgress, 1.5) + topRadius;
+        // Calculate funnel radius that's wider at top
+        const funnelRadius = baseRadius + (topRadius - baseRadius) * heightProgress;
         
         // Calculate orbital position
-        const orbitAngle = time.current * (orbitSpeed.current * 2) + randomOffset.current;
-        const orbitDistance = funnelRadius * (1 + Math.sin(heightProgress * Math.PI) * 0.2);
+        const orbitAngle = time.current * speed * 2 + randomOffset.current;
+        const orbitDistance = funnelRadius * settings.photoSpacing;
         const orbitX = Math.cos(orbitAngle) * orbitDistance;
         const orbitZ = Math.sin(orbitAngle) * orbitDistance;
         
         // Set position
         mesh.position.x = orbitX;
         mesh.position.z = orbitZ;
-        mesh.position.y = t * (settings.photoSpacing * 0.75);
+        mesh.position.y = t;
         
         // Reset when reaching top
         if (t >= maxHeight - 0.1) {
           time.current = -heightOffset.current; // Reset with offset for smooth transition
         }
         
-        // Face center with slight tilt
+        // Always face outward and stay upright
         if (camera) {
-          const lookAtPoint = new THREE.Vector3(0, mesh.position.y, 0);
-          mesh.lookAt(lookAtPoint);
-          // Add slight tilt based on height
-          mesh.rotation.z = heightProgress * Math.PI * 0.2;
+          // Calculate direction from center to photo
+          const direction = new THREE.Vector3(
+            mesh.position.x,
+            0, // Keep y at 0 to prevent tilting
+            mesh.position.z
+          ).normalize();
+          
+          // Set position for lookAt target
+          const targetPosition = new THREE.Vector3(
+            mesh.position.x + direction.x,
+            mesh.position.y,
+            mesh.position.z + direction.z
+          );
+          
+          mesh.lookAt(targetPosition);
+          mesh.rotation.z = 0; // Keep upright
         }
         break;
     }
@@ -518,7 +530,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.shadowMap.type = THREE.VSMShadowMap; // Better performance
+    gl.setClearColor(0x000000, 0);
     setIsSceneReady(true);
   };
 
@@ -527,18 +540,18 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
       <Canvas
         ref={canvasRef}
         gl={{ 
-          antialias: false,
+          antialias: true,
           powerPreference: "high-performance",
-          precision: "lowp"
+          precision: "mediump"
         }}
         dpr={[1, 1.5]}
         performance={{ min: 0.3 }}
-        frameloop="always" // Use consistent frame updates
+        frameloop="demand"
         onCreated={handleCreated}
         camera={{
           fov: 60,
           near: 0.1,
-          far: 50,
+          far: 100,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
       >
