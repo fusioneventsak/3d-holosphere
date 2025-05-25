@@ -217,9 +217,9 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               color={settings.spotlightColor}
               angle={settings.spotlightAngle}
+              decay={1.5}
               penumbra={settings.spotlightPenumbra}
-              distance={50}
-              decay={1}
+              distance={100}
               target={target}
               castShadow
               shadow-mapSize={[512, 512]}
