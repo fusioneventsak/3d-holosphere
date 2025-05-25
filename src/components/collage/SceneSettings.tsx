@@ -664,5 +664,3 @@ const SceneSettings: React.FC = () => {
 };
 
 export default SceneSettings
-
-export default SceneSettings
