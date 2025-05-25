@@ -248,6 +248,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
   const startDelay = useRef<number>(Math.random() * 10); // Random start delay between 0-10 seconds
+  const orbitRadius = useRef<number>(Math.random() * 4 + 2); // Random orbit radius between 2-6
+  const orbitSpeed = useRef<number>(Math.random() * 0.5 + 0.5); // Random speed between 0.5-1
+  const heightOffset = useRef<number>(Math.random() * 10); // Random height offset
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const randomOffset = useRef(Math.random() * Math.PI * 2);
@@ -317,16 +320,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'spiral':
-        // Tornado spiral motion
-        const spiralRadius = 8 + (time.current * 0.2);
-        const spiralHeight = time.current * 2;
-        mesh.position.x = Math.cos(time.current * 2) * spiralRadius;
-        mesh.position.z = Math.sin(time.current * 2) * spiralRadius;
-        mesh.position.y = spiralHeight;
+        // Calculate funnel parameters
+        const maxHeight = 15;
+        const baseRadius = 8;
+        const topRadius = 2;
+        
+        // Update time and position
+        const t = (time.current + heightOffset.current) % maxHeight;
+        const heightProgress = t / maxHeight;
+        
+        // Calculate funnel radius at current height (wider at bottom, narrower at top)
+        const funnelRadius = baseRadius - (heightProgress * (baseRadius - topRadius));
+        
+        // Calculate orbital position
+        const orbitAngle = time.current * orbitSpeed.current;
+        const orbitX = Math.cos(orbitAngle) * (funnelRadius + orbitRadius.current);
+        const orbitZ = Math.sin(orbitAngle) * (funnelRadius + orbitRadius.current);
+        
+        // Set position
+        mesh.position.x = orbitX;
+        mesh.position.z = orbitZ;
+        mesh.position.y = t;
         
         // Reset when reaching top
-        if (spiralHeight > 15) {
-          time.current = 0;
+        if (t >= maxHeight - 0.1) {
+          time.current = -heightOffset.current; // Reset with offset for smooth transition
+        }
+        
+        // Always face camera
+        if (camera) {
+          mesh.lookAt(camera.position);
         }
         break;
     }
