@@ -293,10 +293,19 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Sine wave motion starting from floor level
         const baseHeight = 1; // Minimum height above floor
         const waveAmplitude = 2; // Height of wave
-        mesh.position.y = baseHeight + Math.abs(Math.sin(time.current + (initialPosition.current[0] * 0.5)) * waveAmplitude);
+        
+        // Create phase offsets based on both X and Z positions
+        const xPhase = initialPosition.current[0] * 0.3;
+        const zPhase = initialPosition.current[2] * 0.4;
+        const randomOffset = (Math.sin(xPhase) + Math.cos(zPhase)) * 0.5;
+        
+        // Combine multiple sine waves with different frequencies
+        const wave1 = Math.sin(time.current * 0.8 + xPhase) * 0.6;
+        const wave2 = Math.sin(time.current * 1.2 + zPhase) * 0.4;
+        
+        mesh.position.y = baseHeight + (wave1 + wave2 + randomOffset) * waveAmplitude;
         break;
         
       case 'spiral':
