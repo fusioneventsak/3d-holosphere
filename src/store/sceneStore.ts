@@ -72,9 +72,6 @@ const defaultSettings: SceneSettings = {
   backgroundGradientStart: '#000000',
   backgroundGradientEnd: '#1a1a1a',
   backgroundGradientAngle: 180,
-  backgroundGradient: false,
-  backgroundColorSecondary: '#000000',
-  backgroundGradientAngle: 180,
   emptySlotColor: '#1A1A1A',
   cameraDistance: 25,
   cameraRotationEnabled: true,
@@ -103,7 +100,7 @@ const defaultSettings: SceneSettings = {
   gridDivisions: 30,
   gridOpacity: 1.0,
   photoSize: 0.8,
-  photoSpacing: 1.5,
+  photoSpacing: 2.0,
 };
 
 export const useSceneStore = create<SceneState>()(

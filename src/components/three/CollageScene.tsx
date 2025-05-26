@@ -252,12 +252,16 @@ const LoadingFallback: React.FC = () => {
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
-  const startDelay = useRef<number>(Math.fround(Math.random() * 10)); // Use fround for consistent float precision
-  const orbitRadius = useRef<number>(Math.fround(Math.random() * 8 + 4));
-  const orbitSpeed = useRef<number>(Math.fround(Math.random() * 0.5 + 0.5));
-  const heightOffset = useRef<number>(Math.fround(Math.random() * 15));
-  const initialX = useRef<number>(Math.fround((Math.random() - 0.5) * 20)); // Random X position for float/wave
-  const initialZ = useRef<number>(Math.fround((Math.random() - 0.5) * 20)); // Random Z position for float/wave
+  const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
+  const gridPosition = useRef<[number, number]>([
+    Math.floor(index % Math.sqrt(photos.length)),
+    Math.floor(index / Math.sqrt(photos.length))
+  ]);
+  const randomOffset = useRef<[number, number, number]>([
+    (Math.random() - 0.5) * 2,
+    Math.random() * 0.5,
+    (Math.random() - 0.5) * 2
+  ]);
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const randomOffset = useRef(Math.random() * Math.PI * 2);
@@ -300,6 +304,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     // Calculate spacing here, before the switch statement
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
+    // Calculate base spacing between photos
+    const spacing = settings.photoSize * (1 + settings.photoSpacing);
+    
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
@@ -329,24 +336,24 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'float':
-        // Linear upward floating motion with reset
-        const floatSpeed = speed * 2;
-        const floatMaxHeight = 15;
-        const cycleHeight = floatMaxHeight + 4; // Add extra height for smooth transition
+        // Calculate grid-based starting position
+        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * spacing;
+        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * spacing;
         
-        // Calculate vertical position
-        let floatY = -2 + ((time.current * floatSpeed + heightOffset.current) % cycleHeight);
+        // Add random offset for natural distribution
+        const offsetX = randomOffset.current[0] * spacing;
+        const offsetZ = randomOffset.current[2] * spacing;
         
-        // Reset position when reaching max height
-        if (floatY > floatMaxHeight) {
-          floatY = -2;
-          time.current = 0;
-        }
+        // Calculate floating motion
+        const floatHeight = 15;
+        const floatY = Math.max(0, 
+          -2 + (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
+        );
         
         updatePosition(
-          initialX.current,
+          gridX + offsetX,
           floatY,
-          initialZ.current
+          gridZ + offsetZ
         );
         
         // Always face the camera
@@ -382,8 +389,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'spiral':
         // Funnel spiral parameters
         const spiralMaxHeight = Math.fround(15);
-        const minRadius = Math.fround(2);
-        const maxRadius = Math.fround(8);
+        const minRadius = Math.fround(4);
+        const maxRadius = Math.fround(12);
         const verticalSpeed = Math.fround(speed * 0.5);
         
         // Calculate funnel spiral angle
@@ -397,7 +404,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Set position in spiral pattern
         updatePosition(
           Math.fround(Math.cos(spiralAngle) * radius),
-          t,
+          Math.max(-2, t), // Prevent going below floor
           Math.fround(Math.sin(spiralAngle) * radius)
         );
         
