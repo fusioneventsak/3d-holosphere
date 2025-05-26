@@ -296,6 +296,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         Math.fround(z)
       );
     };
+
+    // Calculate spacing here, before the switch statement
+    const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
     switch (pattern) {
       case 'grid':
@@ -311,7 +314,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const col = gridIndex % gridWidth;
         
         // Center the grid
-        const spacing = settings.photoSize * (1 + settings.photoSpacing); // Add spacing between photos
         const xOffset = ((gridWidth - 1) * spacing) * -0.5;
         const yOffset = ((gridHeight - 1) * spacing) * -0.5;
         
@@ -645,7 +647,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
         style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
-        style={{ transition: 'all 0.3s ease-out' }}
       >
         <React.Suspense fallback={<LoadingFallback />}>
           {isSceneReady && (
