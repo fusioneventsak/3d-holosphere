@@ -257,6 +257,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     Math.floor(index % Math.sqrt(photos.length)),
     Math.floor(index / Math.sqrt(photos.length))
   ]);
+  const orbitRadius = useRef<number>(Math.random() * 3 + 5); // Random orbit radius between 5-8
   const randomOffset = useRef<[number, number, number]>([
     (Math.random() - 0.5) * 2,
     Math.random() * 0.5,
