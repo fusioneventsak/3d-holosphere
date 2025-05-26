@@ -470,10 +470,10 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       const spacing = settings.photoSize * (1 + settings.photoSpacing);
-      const xOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const yOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
+      const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
+      const x = gridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
+      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
       
       return {
         key: photo.id,
@@ -497,10 +497,10 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       const spacing = settings.photoSize * (1 + settings.photoSpacing);
-      const xOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const yOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
+      const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
+      const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
+      const x = backGridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
+      const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
       
       return {
         key: `back-${photo.id}`,
