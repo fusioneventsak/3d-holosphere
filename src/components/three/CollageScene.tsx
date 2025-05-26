@@ -328,15 +328,15 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'float':
         // Linear upward floating motion with reset
-        const maxHeight = 15;
         const floatSpeed = speed * 2;
-        const cycleHeight = maxHeight + 4; // Add extra height for smooth transition
+        const floatMaxHeight = 15;
+        const cycleHeight = floatMaxHeight + 4; // Add extra height for smooth transition
         
         // Calculate vertical position
         let floatY = -2 + ((time.current * floatSpeed + heightOffset.current) % cycleHeight);
         
         // Reset position when reaching max height
-        if (floatY > maxHeight) {
+        if (floatY > floatMaxHeight) {
           floatY = -2;
           time.current = 0;
         }
@@ -379,7 +379,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'spiral':
         // Funnel spiral parameters
-        const maxHeight = Math.fround(15);
+        const spiralMaxHeight = Math.fround(15);
         const minRadius = Math.fround(2);
         const maxRadius = Math.fround(8);
         const verticalSpeed = Math.fround(speed * 0.5);
@@ -388,8 +388,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const spiralAngle = Math.fround(time.current * speed * 2 + randomOffset.current);
         
         // Update position over time and calculate progress
-        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % maxHeight);
-        const heightProgress = Math.fround(t / maxHeight);
+        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % spiralMaxHeight);
+        const heightProgress = Math.fround(t / spiralMaxHeight);
         const radius = Math.fround(maxRadius - (heightProgress * (maxRadius - minRadius)));
         
         // Set position in spiral pattern
@@ -400,7 +400,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         );
         
         // Reset when reaching the top
-        if (mesh.position.y >= maxHeight - 0.1) {
+        if (mesh.position.y >= spiralMaxHeight - 0.1) {
           time.current = -heightOffset.current / verticalSpeed;
         }
         
