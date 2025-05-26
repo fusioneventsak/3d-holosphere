@@ -303,9 +303,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     // Calculate spacing here, before the switch statement
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
-    // Calculate base spacing between photos
-    const spacing = settings.photoSize * (1 + settings.photoSpacing);
-    
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
