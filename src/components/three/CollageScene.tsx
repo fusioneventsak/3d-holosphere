@@ -91,6 +91,8 @@ type PhotoPlaneProps = {
   animationEnabled: boolean;
   size: number;
   settings: any;
+  photos: Photo[];
+  index: number;
 };
 
 // Helper functions
@@ -244,7 +246,7 @@ const LoadingFallback: React.FC = () => {
 };
 
 // Component for individual photo planes
-const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings }) => {
+const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
   const startDelay = useRef<number>(Math.fround(Math.random() * 10)); // Use fround for consistent float precision
@@ -294,12 +296,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
-        const totalPhotos = photos.length;
+        const totalPhotos = photos?.length || 0;
         const gridWidth = Math.ceil(Math.sqrt(totalPhotos));
         const gridHeight = Math.ceil(totalPhotos / gridWidth);
         
         // Calculate photo's position in the grid
-        const gridIndex = parseInt(mesh.userData.index);
+        const gridIndex = index;
         const row = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
         
@@ -447,13 +449,9 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         animationEnabled: settings.animationEnabled,
         settings: settings,
         size: settings.photoSize,
-        size: settings.photoSize
+        photos: photos,
+        index: index
       };
-      
-      // Add index to mesh userData for grid pattern positioning
-      const mesh = new THREE.Mesh();
-      mesh.userData.index = index;
-      props.ref = mesh;
       
       return props;
     });
