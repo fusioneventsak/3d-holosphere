@@ -359,20 +359,17 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Wave pattern with proper spacing
-        const waveAmplitude = 2;
-        const waveFrequency = 0.5;
-        const waveSpeed = speed;
+        // Wave pattern parameters
+        const waveAmplitude = 3;
+        const baseY = 2;
+        const radius = 8;
+        const angleStep = (2 * Math.PI) / Math.max(20, photos.length);
+        const angle = index * angleStep + time.current * speed;
         
-        // Calculate wave motion
-        const wavePhase = time.current * waveSpeed + randomOffset.current;
-        const waveY = 2 + Math.sin(wavePhase) * waveAmplitude;
-        
-        // Calculate orbit radius with proper spacing
-        const orbitDistance = orbitRadius.current * spacing;
-        const angle = wavePhase * 0.5 + (index * (Math.PI * 2) / photos.length);
-        const waveX = Math.cos(angle) * orbitDistance;
-        const waveZ = Math.sin(angle) * orbitDistance;
+        // Calculate wave position
+        const waveX = Math.cos(angle) * radius;
+        const waveY = baseY + Math.sin(time.current * speed + index * 0.5) * waveAmplitude;
+        const waveZ = Math.sin(angle) * radius;
         
         updatePosition(
           waveX,
@@ -380,42 +377,32 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           waveZ
         );
         
-        // Always face camera
         mesh.lookAt(camera.position);
         break;
         
       case 'spiral':
-        // Funnel spiral parameters
-        const spiralMaxHeight = Math.fround(15);
-        const minRadius = Math.fround(4);
-        const maxRadius = Math.fround(12);
-        const verticalSpeed = Math.fround(speed * 0.5); 
+        // Spiral parameters
+        const maxHeight = 15;
+        const spiralRadius = 8;
+        const verticalSpeed = speed * 0.5;
+        const rotationSpeed = speed * 2;
         
-        // Calculate funnel spiral angle
-        const spiralAngle = Math.fround(time.current * speed * 2 + randomOffset.current);
+        // Calculate time-based position
+        const t = ((time.current * verticalSpeed + index * 0.2) % 1) * Math.PI * 2;
+        const spiralAngle = t + time.current * rotationSpeed;
         
-        // Update position over time and calculate progress
-        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % spiralMaxHeight); 
-        const heightProgress = Math.fround(t / spiralMaxHeight);
-        const radius = Math.fround(maxRadius - (heightProgress * (maxRadius - minRadius)));
+        // Calculate spiral position
+        const spiralX = Math.cos(spiralAngle) * (spiralRadius * (1 - t / (Math.PI * 2)));
+        const spiralY = maxHeight * (1 - t / (Math.PI * 2));
+        const spiralZ = Math.sin(spiralAngle) * (spiralRadius * (1 - t / (Math.PI * 2)));
         
-        // Set position in spiral pattern
         updatePosition(
-          Math.fround(Math.cos(spiralAngle) * radius),
-          Math.max(-2, t), // Prevent going below floor
-          Math.fround(Math.sin(spiralAngle) * radius)
+          spiralX,
+          Math.max(2, spiralY), // Keep above floor
+          spiralZ
         );
         
-        // Reset when reaching the top
-        if (mesh.position.y >= spiralMaxHeight - 0.1) {
-          time.current = -heightOffset.current / verticalSpeed;
-        }
-        
-        // Make photos face outward from the center of the funnel
-        const center = new THREE.Vector3(0, t, 0);
-        const direction = mesh.position.clone().sub(center);
-        mesh.lookAt(mesh.position.clone().add(direction));
-        mesh.rotation.z = 0;
+        mesh.lookAt(camera.position);
         break;
     }
   });
