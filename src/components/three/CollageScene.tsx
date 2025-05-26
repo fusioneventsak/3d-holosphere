@@ -361,14 +361,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave':
         // Wave pattern parameters
         const waveAmplitude = 3;
-        const baseY = 2;
-        const radius = 8;
-        const angleStep = (2 * Math.PI) / Math.max(20, photos.length);
+        const baseY = 4;
+        const radius = Math.sqrt(photos.length) * 1.5;
+        const angleStep = (2 * Math.PI) / photos.length;
         const angle = index * angleStep + time.current * speed;
         
         // Calculate wave position
         const waveX = Math.cos(angle) * radius;
-        const waveY = baseY + Math.sin(time.current * speed + index * 0.5) * waveAmplitude;
+        const waveY = baseY + Math.sin(time.current * speed + angle) * waveAmplitude;
         const waveZ = Math.sin(angle) * radius;
         
         updatePosition(
@@ -383,18 +383,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'spiral':
         // Spiral parameters
         const maxHeight = 15;
-        const spiralRadius = 8;
+        const spiralRadius = Math.sqrt(photos.length);
         const verticalSpeed = speed * 0.5;
         const rotationSpeed = speed * 2;
         
         // Calculate time-based position
-        const t = ((time.current * verticalSpeed + index * 0.2) % 1) * Math.PI * 2;
+        const t = ((time.current * verticalSpeed + (index / photos.length)) % 1) * Math.PI * 2;
         const spiralAngle = t + time.current * rotationSpeed;
         
         // Calculate spiral position
-        const spiralX = Math.cos(spiralAngle) * (spiralRadius * (1 - t / (Math.PI * 2)));
-        const spiralY = maxHeight * (1 - t / (Math.PI * 2));
-        const spiralZ = Math.sin(spiralAngle) * (spiralRadius * (1 - t / (Math.PI * 2)));
+        const progress = t / (Math.PI * 2);
+        const currentRadius = spiralRadius * (1 - progress);
+        const spiralX = Math.cos(spiralAngle) * currentRadius * 2;
+        const spiralY = maxHeight * (1 - progress);
+        const spiralZ = Math.sin(spiralAngle) * currentRadius * 2;
         
         updatePosition(
           spiralX,
