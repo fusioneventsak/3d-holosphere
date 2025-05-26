@@ -256,7 +256,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const orbitRadius = useRef<number>(Math.fround(Math.random() * 8 + 4));
   const orbitSpeed = useRef<number>(Math.fround(Math.random() * 0.5 + 0.5));
   const heightOffset = useRef<number>(Math.fround(Math.random() * 15));
-  const spiralTightness = useRef<number>(Math.fround(Math.random() * 0.3 + 0.7));
+  const initialX = useRef<number>(Math.fround((Math.random() - 0.5) * 20)); // Random X position for float/wave
+  const initialZ = useRef<number>(Math.fround((Math.random() - 0.5) * 20)); // Random Z position for float/wave
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const randomOffset = useRef(Math.random() * Math.PI * 2);
@@ -326,18 +327,18 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'float':
-        // Calculate total animation duration (time to float from bottom to top)
-        const animationDuration = Math.fround(12 / speed);
+        // Use consistent float pattern with even distribution
+        const floatHeight = Math.fround(15); // Maximum float height
+        const floatCycle = Math.fround(10 / speed); // Time for one complete cycle
+        const floatProgress = Math.fround((time.current + startDelay.current) % floatCycle / floatCycle);
+        const floatY = Math.fround(
+          -2 + (Math.sin(floatProgress * Math.PI * 2) * 0.5 + 0.5) * floatHeight
+        );
         
-        // Calculate current position in animation cycle
-        const cycleTime = Math.fround((elapsedTime.current - startDelay.current) % animationDuration);
-        const progress = Math.fround(cycleTime / animationDuration);
-        
-        // Move from -2 to 10 (12 units total height)
         updatePosition(
-          mesh.position.x,
-          Math.fround(-2 + (progress * 12)),
-          mesh.position.z
+          initialX.current,
+          floatY,
+          initialZ.current
         );
         
         // Always face the camera
@@ -345,21 +346,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Wave motion with consistent precision
-        const baseHeight = Math.fround(1.5);
-        const amplitude = Math.fround(0.75);
-        const frequency = Math.fround(0.5);
+        // Enhanced wave pattern with better distribution
+        const waveBaseHeight = Math.fround(2);
+        const waveAmplitude = Math.fround(1.5);
+        const waveFrequency = Math.fround(0.8);
+        const waveSpeed = Math.fround(speed * 2);
         
-        // Single wave calculation with position-based offset
-        const positionOffset = Math.fround((initialPosition.current[0] + initialPosition.current[2]) * 0.2);
-        const waveAngle = Math.fround(time.current * frequency + positionOffset + randomOffset.current);
-        const wave = Math.fround(Math.sin(waveAngle));
+        // Calculate wave position
+        const wavePhase = Math.fround(time.current * waveSpeed + randomOffset.current);
+        const waveX = initialX.current;
+        const waveZ = initialZ.current;
+        const distanceFromCenter = Math.fround(Math.sqrt(waveX * waveX + waveZ * waveZ));
+        const waveY = Math.fround(
+          waveBaseHeight + 
+          Math.sin(wavePhase + distanceFromCenter * waveFrequency) * waveAmplitude
+        );
         
-        // Apply smooth wave motion with clamped height
         updatePosition(
-          initialPosition.current[0],
-          Math.fround(Math.max(0.5, baseHeight + (wave * amplitude))),
-          initialPosition.current[2]
+          waveX,
+          waveY,
+          waveZ
         );
         
         // Always face camera
