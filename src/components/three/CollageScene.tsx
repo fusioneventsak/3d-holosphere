@@ -360,7 +360,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave':
         // Calculate grid-based position for even distribution
-        const totalPhotos = photos.length;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const row = Math.floor(index / gridSize);
         const col = index % gridSize;
