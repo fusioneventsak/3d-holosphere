@@ -93,6 +93,7 @@ type PhotoPlaneProps = {
   settings: any;
   photos: Photo[];
   index: number;
+  wall?: 'front' | 'back';
 };
 
 // Helper functions
@@ -136,27 +137,29 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
 
 // Helper to generate random positions for photos
 const randomPosition = (index: number, total: number, settings: any, isUserPhoto: boolean): [number, number, number] => {
-  // Create an even distribution across the floor
-  const gridSize = Math.ceil(Math.sqrt(total));
-  const spacing = (settings.floorSize / gridSize) * settings.photoSpacing;
-
-  // Get position in grid
-  const row = Math.floor(index / gridSize);
-  const col = index % gridSize;
-
-  // Calculate base position
-  const halfSize = ((settings.floorSize * settings.photoSpacing) / 2) - (spacing / 2);
-  let x = (col * spacing) - halfSize;
-  let z = (row * spacing) - halfSize;
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const gridWidth = Math.ceil(Math.sqrt(total * aspectRatio));
+  const gridHeight = Math.ceil(total / gridWidth);
   
-  // If it's a user photo and stock photos are disabled, position in foreground
-  if (isUserPhoto && !settings.useStockPhotos) {
-    z = Math.min(z, 0); // Keep in front half of grid
-  }
-
-  // Start photos below the floor
-  const y = -2;
+  // Add some randomness to the grid position
+  const randomOffset = () => (Math.random() - 0.5) * settings.photoSpacing;
   
+  // Calculate base grid position
+  const col = index % gridWidth;
+  const row = Math.floor(index / gridWidth);
+  
+  // Calculate spacing between photos
+  const spacing = settings.photoSize * (1 + settings.photoSpacing);
+  
+  // Center the grid
+  const xOffset = ((gridWidth - 1) * spacing) * -0.5;
+  const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+  
+  // Calculate position with random offset
+  const x = xOffset + (col * spacing) + randomOffset();
+  const y = yOffset + ((gridHeight - 1 - row) * spacing) + randomOffset();
+  const z = 2; // Keep photos above floor
+
   return [x, y, z];
 };
 
@@ -432,9 +435,15 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    return photos.map((photo, index) => {
+    // Create two sets of photos - one for front wall, one for back wall
+    const totalPhotos = photos.length;
+    const frontPhotos = photos.slice(0, Math.ceil(totalPhotos / 2));
+    const backPhotos = photos.slice(Math.ceil(totalPhotos / 2));
+    
+    // Generate props for both walls
+    const frontProps = frontPhotos.map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const props = {
+      return {
         key: photo.id,
         url: photo.url,
         position: randomPosition(index, photos.length, settings, isUserPhoto),
@@ -445,11 +454,30 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index
+        index: index,
+        wall: 'front' as const
       };
-      
-      return props;
     });
+    
+    const backProps = backPhotos.map((photo, index) => {
+      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
+      return {
+        key: `back-${photo.id}`,
+        url: photo.url,
+        position: randomPosition(index, photos.length, settings, isUserPhoto),
+        rotation: [0, Math.PI, 0] as [number, number, number], // Rotate to face back
+        pattern: settings.animationPattern,
+        speed: settings.animationSpeed,
+        animationEnabled: settings.animationEnabled,
+        settings: settings,
+        size: settings.photoSize,
+        photos: photos,
+        index: index,
+        wall: 'back' as const
+      };
+    });
+    
+    return [...frontProps, ...backProps];
   }, [photos, settings]);
 
   return (
