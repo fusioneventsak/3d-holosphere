@@ -296,35 +296,29 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
-        const totalPhotos = photos?.length || 0;
-        const gridWidth = Math.ceil(Math.sqrt(totalPhotos));
+        const totalPhotos = photos?.length || 1;
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
         const gridHeight = Math.ceil(totalPhotos / gridWidth);
         
-        // Calculate photo's position in the grid
+        // Calculate position in the wall grid
         const gridIndex = index;
         const row = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
         
         // Center the grid
-        const xOffset = (gridWidth - 1) * settings.photoSpacing * -0.5;
-        const zOffset = (gridHeight - 1) * settings.photoSpacing * -0.5;
-        
-        // Calculate layer (every other row goes up one level)
-        const layer = Math.floor(row / 2);
-        const yPos = Math.fround(2 + (layer * settings.photoSpacing));
+        const xOffset = ((gridWidth - 1) * settings.photoSpacing) * -0.5;
+        const yOffset = ((gridHeight - 1) * settings.photoSpacing) * -0.5;
         
         // Set position in grid
         updatePosition(
           Math.fround(xOffset + (col * settings.photoSpacing)),
-          yPos,
-          Math.fround(zOffset + (row * settings.photoSpacing))
+          Math.fround(yOffset + ((gridHeight - 1 - row) * settings.photoSpacing)),
+          0 // All photos on the same Z plane
         );
         
-        // Calculate rotation to face camera while staying upright
-        const cameraDirection = new THREE.Vector3();
-        camera.getWorldDirection(cameraDirection);
-        const angle = Math.atan2(cameraDirection.x, cameraDirection.z);
-        mesh.rotation.y = angle;
+        // Keep photos facing forward
+        mesh.rotation.set(0, 0, 0);
         break;
         
       case 'float':
@@ -580,7 +574,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         camera={{
           fov: 60,
           near: 0.1,
-          far: 100,
+          far: 1000,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
         style={{ transition: 'all 0.3s ease-out' }}
@@ -598,8 +592,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
               enablePan={false}
               autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
               autoRotateSpeed={settings.cameraRotationSpeed}
-              minDistance={3}
-              maxDistance={50}
+              minDistance={5}
+              maxDistance={100}
               maxPolarAngle={Math.PI * 0.65}
               dampingFactor={0.1}
               enableDamping={true}
