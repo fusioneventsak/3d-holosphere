@@ -359,22 +359,38 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Wave pattern parameters
-        const waveAmplitude = 3;
-        const baseY = 4;
-        const radius = Math.sqrt(photos.length) * 1.5;
-        const angleStep = (2 * Math.PI) / photos.length;
-        const angle = index * angleStep + time.current * speed;
+        // Calculate grid-based position for even distribution
+        const totalPhotos = photos.length;
+        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+        const row = Math.floor(index / gridSize);
+        const col = index % gridSize;
+        const spacing = settings.photoSize * (1 + settings.photoSpacing);
         
-        // Calculate wave position
-        const waveX = Math.cos(angle) * radius;
-        const waveY = baseY + Math.sin(time.current * speed + angle) * waveAmplitude;
-        const waveZ = Math.sin(angle) * radius;
+        // Center the grid
+        const xOffset = ((gridSize - 1) * spacing) * -0.5;
+        const zOffset = ((gridSize - 1) * spacing) * -0.5;
+        
+        // Base position in grid
+        const baseX = xOffset + (col * spacing);
+        const baseZ = zOffset + (row * spacing);
+        
+        // Wave parameters
+        const baseY = 2; // Base height above floor
+        const waveAmplitude = 1.5;
+        const waveFrequency = 1;
+        
+        // Create unique wave phase for each photo based on position
+        const phaseOffset = (col + row) * Math.PI / 2;
+        
+        // Calculate wave height
+        const waveY = baseY + (
+          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
+        );
         
         updatePosition(
-          waveX,
+          baseX,
           waveY,
-          waveZ
+          baseZ
         );
         
         mesh.lookAt(camera.position);
