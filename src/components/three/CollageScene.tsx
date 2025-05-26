@@ -137,6 +137,9 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
 
 // Helper to generate random positions for photos
 const randomPosition = (index: number, total: number, settings: any, isUserPhoto: boolean): [number, number, number] => {
+  // Calculate spacing between photos first
+  const spacing = settings.photoSize * (1 + settings.photoSpacing);
+  
   const aspectRatio = window.innerWidth / window.innerHeight;
   const gridWidth = Math.ceil(Math.sqrt(total * aspectRatio));
   const gridHeight = Math.ceil(total / gridWidth);
@@ -147,9 +150,6 @@ const randomPosition = (index: number, total: number, settings: any, isUserPhoto
   // Calculate base grid position
   const col = index % gridWidth;
   const row = Math.floor(index / gridWidth);
-  
-  // Calculate spacing between photos
-  const spacing = settings.photoSize * (1 + settings.photoSpacing);
   
   // Center the grid
   const xOffset = ((gridWidth - 1) * spacing) * -0.5;
