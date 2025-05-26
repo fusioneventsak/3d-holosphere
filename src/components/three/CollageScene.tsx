@@ -301,20 +301,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
         const gridHeight = Math.ceil(totalPhotos / gridWidth);
         
-        // Calculate position in the wall grid
+        // Calculate position in the wall grid with spacing
         const gridIndex = index;
         const row = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
         
         // Center the grid
-        const xOffset = ((gridWidth - 1) * settings.photoSpacing) * -0.5;
-        const yOffset = ((gridHeight - 1) * settings.photoSpacing) * -0.5;
+        const spacing = settings.photoSize * (1 + settings.photoSpacing); // Add spacing between photos
+        const xOffset = ((gridWidth - 1) * spacing) * -0.5;
+        const yOffset = ((gridHeight - 1) * spacing) * -0.5;
         
         // Set position in grid
         updatePosition(
-          Math.fround(xOffset + (col * settings.photoSpacing)),
-          Math.fround(yOffset + ((gridHeight - 1 - row) * settings.photoSpacing)),
-          0 // All photos on the same Z plane
+          Math.fround(xOffset + (col * spacing)),
+          Math.fround(yOffset + ((gridHeight - 1 - row) * spacing)),
+          2 // Position photos above the floor
         );
         
         // Keep photos facing forward
@@ -582,9 +583,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         <React.Suspense fallback={<LoadingFallback />}>
           <>
             <CameraSetup settings={settings} />
-            <SceneSetup settings={settings} />
-            
             <Floor settings={settings} />
+            <SceneSetup settings={settings} />
             
             <OrbitControls 
               makeDefault
