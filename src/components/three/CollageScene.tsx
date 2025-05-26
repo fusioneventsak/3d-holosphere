@@ -327,13 +327,19 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'float':
-        // Use consistent float pattern with even distribution
-        const floatHeight = Math.fround(15); // Maximum float height
-        const floatCycle = Math.fround(10 / speed); // Time for one complete cycle
-        const floatProgress = Math.fround((time.current + startDelay.current) % floatCycle / floatCycle);
-        const floatY = Math.fround(
-          -2 + (Math.sin(floatProgress * Math.PI * 2) * 0.5 + 0.5) * floatHeight
-        );
+        // Linear upward floating motion with reset
+        const maxHeight = 15;
+        const floatSpeed = speed * 2;
+        const cycleHeight = maxHeight + 4; // Add extra height for smooth transition
+        
+        // Calculate vertical position
+        let floatY = -2 + ((time.current * floatSpeed + heightOffset.current) % cycleHeight);
+        
+        // Reset position when reaching max height
+        if (floatY > maxHeight) {
+          floatY = -2;
+          time.current = 0;
+        }
         
         updatePosition(
           initialX.current,
@@ -346,21 +352,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Enhanced wave pattern with better distribution
-        const waveBaseHeight = Math.fround(2);
-        const waveAmplitude = Math.fround(1.5);
-        const waveFrequency = Math.fround(0.8);
-        const waveSpeed = Math.fround(speed * 2);
+        // Wave pattern with proper spacing
+        const waveAmplitude = 2;
+        const waveFrequency = 0.5;
+        const waveSpeed = speed;
+        const spacing = settings.photoSize * (1 + settings.photoSpacing);
         
-        // Calculate wave position
-        const wavePhase = Math.fround(time.current * waveSpeed + randomOffset.current);
-        const waveX = initialX.current;
-        const waveZ = initialZ.current;
-        const distanceFromCenter = Math.fround(Math.sqrt(waveX * waveX + waveZ * waveZ));
-        const waveY = Math.fround(
-          waveBaseHeight + 
-          Math.sin(wavePhase + distanceFromCenter * waveFrequency) * waveAmplitude
-        );
+        // Calculate wave motion
+        const wavePhase = time.current * waveSpeed + randomOffset.current;
+        const waveY = 2 + Math.sin(wavePhase) * waveAmplitude;
+        
+        // Calculate position with proper spacing
+        const radius = orbitRadius.current * spacing;
+        const angle = wavePhase * 0.5 + (index * (Math.PI * 2) / photos.length);
+        const waveX = Math.cos(angle) * radius;
+        const waveZ = Math.sin(angle) * radius;
         
         updatePosition(
           waveX,
