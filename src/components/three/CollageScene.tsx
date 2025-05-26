@@ -361,11 +361,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const wavePhase = time.current * waveSpeed + randomOffset.current;
         const waveY = 2 + Math.sin(wavePhase) * waveAmplitude;
         
-        // Calculate position with proper spacing
-        const radius = orbitRadius.current * spacing;
+        // Calculate orbit radius with proper spacing
+        const orbitDistance = orbitRadius.current * spacing;
         const angle = wavePhase * 0.5 + (index * (Math.PI * 2) / photos.length);
-        const waveX = Math.cos(angle) * radius;
-        const waveZ = Math.sin(angle) * radius;
+        const waveX = Math.cos(angle) * orbitDistance;
+        const waveZ = Math.sin(angle) * orbitDistance;
         
         updatePosition(
           waveX,
