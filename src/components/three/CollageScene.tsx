@@ -422,7 +422,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       <planeGeometry args={[size, size * 1.5]} />
       <meshStandardMaterial 
         map={texture || null}
-        side={THREE.FrontSide}
+        side={THREE.DoubleSide}
         castShadow
         receiveShadow
         transparent={false}
