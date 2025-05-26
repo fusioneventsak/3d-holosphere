@@ -264,6 +264,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   ]);
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
+  const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
   const texture = useMemo(() => {
@@ -387,13 +388,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const spiralMaxHeight = Math.fround(15);
         const minRadius = Math.fround(4);
         const maxRadius = Math.fround(12);
-        const verticalSpeed = Math.fround(speed * 0.5);
+        const verticalSpeed = Math.fround(speed * 0.5); 
         
         // Calculate funnel spiral angle
         const spiralAngle = Math.fround(time.current * speed * 2 + randomOffset.current);
         
         // Update position over time and calculate progress
-        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % spiralMaxHeight);
+        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % spiralMaxHeight); 
         const heightProgress = Math.fround(t / spiralMaxHeight);
         const radius = Math.fround(maxRadius - (heightProgress * (maxRadius - minRadius)));
         
