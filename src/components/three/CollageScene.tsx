@@ -293,11 +293,29 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     switch (pattern) {
       case 'grid':
-        // Static grid position - no animation
-        mesh.position.set(
-          initialPosition.current[0],
-          Math.fround(1.5), // Fixed height above floor
-          initialPosition.current[2]
+        // Calculate grid dimensions
+        const totalPhotos = photos.length;
+        const gridWidth = Math.ceil(Math.sqrt(totalPhotos));
+        const gridHeight = Math.ceil(totalPhotos / gridWidth);
+        
+        // Calculate photo's position in the grid
+        const gridIndex = parseInt(mesh.userData.index);
+        const row = Math.floor(gridIndex / gridWidth);
+        const col = gridIndex % gridWidth;
+        
+        // Center the grid
+        const xOffset = (gridWidth - 1) * settings.photoSpacing * -0.5;
+        const zOffset = (gridHeight - 1) * settings.photoSpacing * -0.5;
+        
+        // Calculate layer (every other row goes up one level)
+        const layer = Math.floor(row / 2);
+        const yPos = Math.fround(2 + (layer * settings.photoSpacing));
+        
+        // Set position in grid
+        updatePosition(
+          Math.fround(xOffset + (col * settings.photoSpacing)),
+          yPos,
+          Math.fround(zOffset + (row * settings.photoSpacing))
         );
         
         // Calculate rotation to face camera while staying upright
@@ -419,7 +437,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
   const photoProps = useMemo(() => {
     return photos.map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      return {
+      const props = {
         key: photo.id,
         url: photo.url,
         position: randomPosition(index, photos.length, settings, isUserPhoto),
@@ -429,7 +447,15 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         animationEnabled: settings.animationEnabled,
         settings: settings,
         size: settings.photoSize,
+        size: settings.photoSize
       };
+      
+      // Add index to mesh userData for grid pattern positioning
+      const mesh = new THREE.Mesh();
+      mesh.userData.index = index;
+      props.ref = mesh;
+      
+      return props;
     });
   }, [photos, settings]);
 
