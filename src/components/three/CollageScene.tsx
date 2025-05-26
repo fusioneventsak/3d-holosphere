@@ -435,18 +435,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    // Create two sets of photos - one for front wall, one for back wall
-    const totalPhotos = photos.length;
-    const frontPhotos = photos.slice(0, Math.ceil(totalPhotos / 2));
-    const backPhotos = photos.slice(Math.ceil(totalPhotos / 2));
+    // Calculate grid dimensions based on total photos
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    const gridWidth = Math.ceil(Math.sqrt(photos.length * aspectRatio));
+    const gridHeight = Math.ceil(photos.length / gridWidth);
     
-    // Generate props for both walls
-    const frontProps = frontPhotos.map((photo, index) => {
+    // Generate props for front wall
+    const frontProps = photos.map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
+      const col = index % gridWidth;
+      const row = Math.floor(index / gridWidth);
+      const spacing = settings.photoSize * (1 + settings.photoSpacing);
+      const xOffset = ((gridWidth - 1) * spacing) * -0.5;
+      const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.5;
+      const y = yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.5;
+      
       return {
         key: photo.id,
         url: photo.url,
-        position: randomPosition(index, photos.length, settings, isUserPhoto),
+        position: [x, y, 2] as [number, number, number],
         rotation: randomRotation(),
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -459,12 +467,16 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       };
     });
     
-    const backProps = backPhotos.map((photo, index) => {
+    // Generate props for back wall (mirror of front wall)
+    const backProps = photos.map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
+      const frontProp = frontProps[index];
+      const [x, y, z] = frontProp.position;
+      
       return {
         key: `back-${photo.id}`,
         url: photo.url,
-        position: randomPosition(index, photos.length, settings, isUserPhoto),
+        position: [x, y, -2] as [number, number, number], // Mirror Z position
         rotation: [0, Math.PI, 0] as [number, number, number], // Rotate to face back
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -479,6 +491,15 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     return [...frontProps, ...backProps];
   }, [photos, settings]);
+
+  // Preload textures for better performance
+  useEffect(() => {
+    photos.forEach(photo => {
+      if (photo.url) {
+        textureLoader.load(photo.url);
+      }
+    });
+  }, [photos]);
 
   return (
     <>
@@ -562,6 +583,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   const settings = useSceneStore((state) => state.settings);
   const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isSceneReady, setIsSceneReady] = React.useState(false);
 
   useEffect(() => {
     getStockPhotos().then(setStockPhotos);
@@ -581,7 +603,14 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.setClearColor(0x000000, 0);
+    gl.info.autoReset = true;
+    gl.physicallyCorrectLights = true;
+    
+    // Mark scene as ready after a short delay to ensure everything is initialized
+    setTimeout(() => setIsSceneReady(true), 100);
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
   };
@@ -606,10 +635,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           far: 1000,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
+        style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
         style={{ transition: 'all 0.3s ease-out' }}
       >
         <React.Suspense fallback={<LoadingFallback />}>
-          <>
+          {isSceneReady && (
+            <>
             <CameraSetup settings={settings} />
             <Floor settings={settings} />
             <SceneSetup settings={settings} />
@@ -630,9 +661,18 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
             />
             
             <PhotosContainer photos={displayedPhotos} settings={settings} />
-          </>
+            </>
+          )}
         </React.Suspense>
       </Canvas>
+      {!isSceneReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="mt-2 text-gray-400">Loading scene...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
