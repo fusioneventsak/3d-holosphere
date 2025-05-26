@@ -355,8 +355,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const maxRadius = Math.fround(8);
         const verticalSpeed = Math.fround(speed * 0.5);
         
-        // Calculate funnel spiral coordinates
-        const angle = Math.fround(time.current * speed * 2 + randomOffset.current);
+        // Calculate funnel spiral angle
+        const spiralAngle = Math.fround(time.current * speed * 2 + randomOffset.current);
         
         // Update position over time and calculate progress
         const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % maxHeight);
@@ -365,9 +365,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Set position in spiral pattern
         updatePosition(
-          Math.fround(Math.cos(angle) * radius),
+          Math.fround(Math.cos(spiralAngle) * radius),
           t,
-          Math.fround(Math.sin(angle) * radius)
+          Math.fround(Math.sin(spiralAngle) * radius)
         );
         
         // Reset when reaching the top
