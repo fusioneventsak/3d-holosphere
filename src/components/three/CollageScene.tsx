@@ -356,7 +356,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const waveAmplitude = 2;
         const waveFrequency = 0.5;
         const waveSpeed = speed;
-        const spacing = settings.photoSize * (1 + settings.photoSpacing);
         
         // Calculate wave motion
         const wavePhase = time.current * waveSpeed + randomOffset.current;
