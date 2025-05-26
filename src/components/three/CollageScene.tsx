@@ -247,11 +247,11 @@ const LoadingFallback: React.FC = () => {
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
-  const startDelay = useRef<number>(Math.random() * 10); // Random start delay between 0-10 seconds
-  const orbitRadius = useRef<number>(Math.random() * 8 + 4); // Random orbit radius between 4-12
-  const orbitSpeed = useRef<number>(Math.random() * 0.5 + 0.5); // Random speed between 0.5-1
-  const heightOffset = useRef<number>(Math.random() * 15); // Random height offset
-  const spiralTightness = useRef<number>(Math.random() * 0.3 + 0.7); // Random spiral tightness between 0.7-1.0
+  const startDelay = useRef<number>(Math.fround(Math.random() * 10)); // Use fround for consistent float precision
+  const orbitRadius = useRef<number>(Math.fround(Math.random() * 8 + 4));
+  const orbitSpeed = useRef<number>(Math.fround(Math.random() * 0.5 + 0.5));
+  const heightOffset = useRef<number>(Math.fround(Math.random() * 15));
+  const spiralTightness = useRef<number>(Math.fround(Math.random() * 0.3 + 0.7));
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const randomOffset = useRef(Math.random() * Math.PI * 2);
@@ -271,8 +271,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   useFrame((state, delta) => {
     if (!meshRef.current || !animationEnabled || !camera) return;
     
-    elapsedTime.current += delta;
-    time.current += delta;
+    // Use consistent time steps for animations
+    const timeStep = Math.fround(delta * speed);
+    elapsedTime.current = Math.fround(elapsedTime.current + timeStep);
+    time.current = Math.fround(time.current + timeStep);
     
     // Wait for start delay before beginning animation
     if (elapsedTime.current < startDelay.current) {
@@ -280,65 +282,78 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     }
     
     const mesh = meshRef.current;
+    // Ensure position updates use consistent precision
+    const updatePosition = (x: number, y: number, z: number) => {
+      mesh.position.set(
+        Math.fround(x),
+        Math.fround(y),
+        Math.fround(z)
+      );
+    };
     
     switch (pattern) {
       case 'float':
         // Calculate total animation duration (time to float from bottom to top)
-        const animationDuration = 12 / speed; // 12 units of height / speed
+        const animationDuration = Math.fround(12 / speed);
         
         // Calculate current position in animation cycle
-        const cycleTime = (elapsedTime.current - startDelay.current) % animationDuration;
-        const progress = cycleTime / animationDuration;
+        const cycleTime = Math.fround((elapsedTime.current - startDelay.current) % animationDuration);
+        const progress = Math.fround(cycleTime / animationDuration);
         
         // Move from -2 to 10 (12 units total height)
-        mesh.position.y = -2 + (progress * 12);
+        updatePosition(
+          mesh.position.x,
+          Math.fround(-2 + (progress * 12)),
+          mesh.position.z
+        );
         
         // Always face the camera
         mesh.lookAt(camera.position);
         break;
         
       case 'wave':
-        // Simplified wave motion with better stability
-        const baseHeight = 1.5;
-        const amplitude = 0.75;
-        const frequency = 0.5;
+        // Wave motion with consistent precision
+        const baseHeight = Math.fround(1.5);
+        const amplitude = Math.fround(0.75);
+        const frequency = Math.fround(0.5);
         
         // Single wave calculation with position-based offset
-        const positionOffset = (initialPosition.current[0] + initialPosition.current[2]) * 0.2;
-        const wave = Math.sin(time.current * speed * frequency + positionOffset + randomOffset.current);
+        const positionOffset = Math.fround((initialPosition.current[0] + initialPosition.current[2]) * 0.2);
+        const waveAngle = Math.fround(time.current * frequency + positionOffset + randomOffset.current);
+        const wave = Math.fround(Math.sin(waveAngle));
         
         // Apply smooth wave motion with clamped height
-        mesh.position.y = Math.max(0.5, baseHeight + (wave * amplitude));
-        
-        // Update position while maintaining original x/z coordinates
-        mesh.position.x = initialPosition.current[0];
-        mesh.position.z = initialPosition.current[2];
+        updatePosition(
+          initialPosition.current[0],
+          Math.fround(Math.max(0.5, baseHeight + (wave * amplitude))),
+          initialPosition.current[2]
+        );
         
         // Always face camera
-        if (camera) {
-          mesh.lookAt(camera.position);
-        }
+        mesh.lookAt(camera.position);
         break;
         
       case 'spiral':
         // Funnel spiral parameters
-        const maxHeight = 15; // Maximum height of the funnel
-        const minRadius = 2; // Radius at the bottom of the funnel
-        const maxRadius = 8; // Radius at the top of the funnel
-        const verticalSpeed = speed * 0.5; // Speed of vertical movement
+        const maxHeight = Math.fround(15);
+        const minRadius = Math.fround(2);
+        const maxRadius = Math.fround(8);
+        const verticalSpeed = Math.fround(speed * 0.5);
         
         // Calculate funnel spiral coordinates
-        const angle = time.current * speed * 2 + randomOffset.current;
+        const angle = Math.fround(time.current * speed * 2 + randomOffset.current);
         
         // Update position over time and calculate progress
-        const t = (time.current * verticalSpeed + heightOffset.current) % maxHeight;
-        const heightProgress = t / maxHeight;
-        const radius = maxRadius - (heightProgress * (maxRadius - minRadius));
+        const t = Math.fround((time.current * verticalSpeed + heightOffset.current) % maxHeight);
+        const heightProgress = Math.fround(t / maxHeight);
+        const radius = Math.fround(maxRadius - (heightProgress * (maxRadius - minRadius)));
         
         // Set position in spiral pattern
-        mesh.position.x = Math.cos(angle) * radius;
-        mesh.position.z = Math.sin(angle) * radius;
-        mesh.position.y = t;
+        updatePosition(
+          Math.fround(Math.cos(angle) * radius),
+          t,
+          Math.fround(Math.sin(angle) * radius)
+        );
         
         // Reset when reaching the top
         if (mesh.position.y >= maxHeight - 0.1) {
@@ -346,12 +361,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         }
         
         // Make photos face outward from the center of the funnel
-        if (camera) {
-          const center = new THREE.Vector3(0, t, 0);
-          const direction = mesh.position.clone().sub(center);
-          mesh.lookAt(mesh.position.clone().add(direction));
-          mesh.rotation.z = 0;
-        }
+        const center = new THREE.Vector3(0, t, 0);
+        const direction = mesh.position.clone().sub(center);
+        mesh.lookAt(mesh.position.clone().add(direction));
+        mesh.rotation.z = 0;
         break;
     }
   });
@@ -505,8 +518,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.VSMShadowMap; // Better performance
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.setClearColor(0x000000, 0);
+    gl.info.autoReset = true;
+    gl.physicallyCorrectLights = true;
   };
 
   return (
@@ -516,11 +531,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         gl={{ 
           antialias: true,
           powerPreference: "high-performance",
-          precision: "mediump"
+          precision: "highp",
+          logarithmicDepthBuffer: true
         }}
         dpr={[1, 1.5]}
         frameloop="always"
-        performance={{ min: 0.5 }}
+        performance={{ min: 0.8 }}
         onCreated={handleCreated}
         camera={{
           fov: 60,
