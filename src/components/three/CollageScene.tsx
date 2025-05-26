@@ -264,7 +264,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   ]);
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
-  const randomOffset = useRef(Math.random() * Math.PI * 2);
   const { camera } = useThree();
   
   const texture = useMemo(() => {
