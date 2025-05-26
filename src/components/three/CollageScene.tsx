@@ -361,7 +361,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave':
         // Calculate grid-based position for even distribution
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const col = index % gridSize;
+        const waveCol = index % gridSize;
         const spacing = settings.photoSize * (1 + settings.photoSpacing);
         
         // Center the grid
@@ -369,7 +369,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const zOffset = ((gridSize - 1) * spacing) * -0.5;
         
         // Base position in grid
-        const baseX = xOffset + (col * spacing);
+        const baseX = xOffset + (waveCol * spacing);
         const row = Math.floor(index / gridSize);
         const baseZ = zOffset + (row * spacing);
         
@@ -379,7 +379,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const waveFrequency = 1;
         
         // Create unique wave phase for each photo based on position
-        const phaseOffset = (col + row) * Math.PI / 2;
+        const phaseOffset = (waveCol + row) * Math.PI / 2;
         
         // Calculate wave height
         const waveY = baseY + (
