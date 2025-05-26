@@ -436,25 +436,27 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
     // Calculate grid dimensions based on total photos
+    const totalPhotos = photos.length;
+    const photosPerWall = Math.ceil(totalPhotos / 2); // Split photos between front and back
     const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(photos.length * aspectRatio));
-    const gridHeight = Math.ceil(photos.length / gridWidth);
+    const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
+    const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
     // Generate props for front wall
-    const frontProps = photos.map((photo, index) => {
+    const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       const spacing = settings.photoSize * (1 + settings.photoSpacing);
       const xOffset = ((gridWidth - 1) * spacing) * -0.5;
       const yOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.5;
-      const y = yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.5;
+      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
+      const y = Math.max(0, yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
       
       return {
         key: photo.id,
         url: photo.url,
-        position: [x, y, 2] as [number, number, number],
+        position: [x, y + 2, 2] as [number, number, number], // Ensure photos are above floor
         rotation: randomRotation(),
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -468,15 +470,20 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     });
     
     // Generate props for back wall (mirror of front wall)
-    const backProps = photos.map((photo, index) => {
+    const backProps = photos.slice(photosPerWall).map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const frontProp = frontProps[index];
-      const [x, y, z] = frontProp.position;
+      const col = index % gridWidth;
+      const row = Math.floor(index / gridWidth);
+      const spacing = settings.photoSize * (1 + settings.photoSpacing);
+      const xOffset = ((gridWidth - 1) * spacing) * -0.5;
+      const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+      const x = xOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
+      const y = Math.max(0, yOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
       
       return {
         key: `back-${photo.id}`,
         url: photo.url,
-        position: [x, y, -2] as [number, number, number], // Mirror Z position
+        position: [x, y + 2, -2] as [number, number, number], // Mirror Z position and ensure above floor
         rotation: [0, Math.PI, 0] as [number, number, number], // Rotate to face back
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -491,15 +498,6 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     return [...frontProps, ...backProps];
   }, [photos, settings]);
-
-  // Preload textures for better performance
-  useEffect(() => {
-    photos.forEach(photo => {
-      if (photo.url) {
-        textureLoader.load(photo.url);
-      }
-    });
-  }, [photos]);
 
   return (
     <>
@@ -632,7 +630,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         camera={{
           fov: 60,
           near: 0.1,
-          far: 1000,
+          far: 2000,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
         style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
