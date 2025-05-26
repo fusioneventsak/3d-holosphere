@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type SceneSettings = {
-  animationPattern: 'float' | 'wave' | 'spiral';
+  animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   animationSpeed: number;
   animationEnabled: boolean;
   useStockPhotos: boolean;
@@ -62,7 +62,7 @@ const debounce = (fn: Function, ms = 300) => {
 };
 
 const defaultSettings: SceneSettings = {
-  animationPattern: 'float',
+  animationPattern: 'grid',
   animationSpeed: 0.5,
   animationEnabled: true,
   useStockPhotos: true,

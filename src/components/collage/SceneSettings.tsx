@@ -151,6 +151,7 @@ const SceneSettings: React.FC = () => {
                     <option value="float">Float</option>
                     <option value="wave">Wave</option>
                     <option value="spiral">Spiral</option>
+                    <option value="grid">Grid</option>
                   </select>
                 </div>
                 

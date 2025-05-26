@@ -86,7 +86,7 @@ type PhotoPlaneProps = {
   url: string;
   position: [number, number, number];
   rotation: [number, number, number];
-  pattern: 'float' | 'wave' | 'spiral';
+  pattern: 'float' | 'wave' | 'spiral' | 'grid';
   speed: number;
   animationEnabled: boolean;
   size: number;
@@ -292,6 +292,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     };
     
     switch (pattern) {
+      case 'grid':
+        // Static grid position - no animation
+        mesh.position.set(
+          initialPosition.current[0],
+          Math.fround(1.5), // Fixed height above floor
+          initialPosition.current[2]
+        );
+        
+        // Calculate rotation to face camera while staying upright
+        const cameraDirection = new THREE.Vector3();
+        camera.getWorldDirection(cameraDirection);
+        const angle = Math.atan2(cameraDirection.x, cameraDirection.z);
+        mesh.rotation.y = angle;
+        break;
+        
       case 'float':
         // Calculate total animation duration (time to float from bottom to top)
         const animationDuration = Math.fround(12 / speed);
