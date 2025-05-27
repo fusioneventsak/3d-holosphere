@@ -140,6 +140,32 @@ const randomRotation = (): [number, number, number] => {
   return [0, 0, 0]; // Keep photos straight
 };
 
+// Calculate optimal floor dimensions based on photo count and aspect ratio
+const calculateOptimalFloorDimensions = (photoCount: number, spacing: number, aspectRatio: number): {
+  size: number,
+  cols: number,
+  rows: number,
+  cellSize: number
+} => {
+  // Calculate grid dimensions based on aspect ratio
+  const cols = Math.ceil(Math.sqrt(photoCount * aspectRatio));
+  const rows = Math.ceil(photoCount / cols);
+  
+  // Calculate minimum floor size needed to fit all photos with proper spacing
+  // Add some padding (1.2 multiplier) to ensure photos don't touch the edge
+  const minSize = Math.max(cols, rows) * spacing * 1.2;
+  
+  // Cell size within the floor
+  const cellSize = minSize / Math.max(cols, rows);
+  
+  return {
+    size: minSize,
+    cols,
+    rows,
+    cellSize
+  };
+};
+
 // Scene setup component with camera initialization
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   const gradientMaterial = useMemo(() => {
@@ -194,13 +220,13 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
-             distance={300}
+              distance={300}
               target={target}
               castShadow
-             shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[2048, 2048]}
               shadow-bias={-0.001}
             />
           </group>
@@ -238,7 +264,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
-  const { camera } = useThree();
+  const { camera, size: canvasSize } = useThree();
   
   // Wave pattern specific refs
   const waveGridPosition = useRef<{x: number, z: number}>({x: 0, z: 0});
@@ -289,28 +315,47 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     // Use spacing setting consistently across all patterns
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
+    // Calculate optimal floor dimensions based on photo count
+    const { size: floorSize, cols, rows, cellSize } = calculateOptimalFloorDimensions(
+      photos.length,
+      spacing,
+      canvasSize.width / canvasSize.height
+    );
+    
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
         const gridTotalPhotos = photos?.length || 1;
-        const aspectRatio = window.innerWidth / window.innerHeight;
-        const gridWidth = Math.ceil(Math.sqrt(gridTotalPhotos * aspectRatio));
-        const gridHeight = Math.ceil(gridTotalPhotos / gridWidth);
+        const aspectRatio = canvasSize.width / canvasSize.height;
+        
+        // Use the optimal dimensions calculation
+        const { cols: gridCols, rows: gridRows } = calculateOptimalFloorDimensions(
+          gridTotalPhotos,
+          spacing,
+          aspectRatio
+        );
         
         // Calculate position in the wall grid with spacing
         const gridIndex = index;
-        const gridRow = Math.floor(gridIndex / gridWidth);
-        const col = gridIndex % gridWidth;
+        const gridRow = Math.floor(gridIndex / gridCols);
+        const gridCol = gridIndex % gridCols;
+        
+        // Calculate the floor area to use (either user setting or calculated optimal)
+        const effectiveFloorSize = Math.max(settings.floorSize, floorSize);
+        
+        // Calculate cell size based on effective floor size
+        const gridCellSize = effectiveFloorSize / Math.max(gridCols, gridRows);
         
         // Center the grid
-        const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-        const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
+        const halfFloorSize = effectiveFloorSize / 2;
+        const gridXOffset = -halfFloorSize + gridCellSize / 2;
+        const gridYOffset = -halfFloorSize + gridCellSize / 2;
         
         // Set position in grid
         updatePosition(
-          Math.fround(gridXOffset + (col * spacing)),
-          Math.fround(gridYOffset + ((gridHeight - 1 - gridRow) * spacing)),
-          2 // Position photos above the floor
+          Math.fround(gridXOffset + (gridCol * gridCellSize)),
+          Math.fround(2), // Position photos above the floor at a fixed height
+          Math.fround(gridYOffset + (gridRow * gridCellSize))
         );
         
         // Keep photos facing forward
@@ -318,24 +363,39 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'float':
-        // Calculate grid-based starting position
-        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * spacing;
-        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * spacing;
+        // Use the optimal dimensions
+        const { cols: floatCols, rows: floatRows, cellSize: floatCellSize } = calculateOptimalFloorDimensions(
+          photos.length,
+          spacing,
+          canvasSize.width / canvasSize.height
+        );
         
-        // Add random offset for natural distribution
-        const offsetX = randomOffset.current[0] * spacing;
-        const offsetZ = randomOffset.current[2] * spacing;
+        // Calculate base position in the grid
+        const floatCol = index % floatCols;
+        const floatRow = Math.floor(index / floatCols);
         
-        // Calculate floating motion
+        // Calculate the floor area to use
+        const floatFloorSize = Math.max(settings.floorSize, floorSize);
+        const halfFloatFloorSize = floatFloorSize / 2;
+        
+        // Base position
+        const floatBaseX = -halfFloatFloorSize + floatCellSize / 2 + (floatCol * floatCellSize);
+        const floatBaseZ = -halfFloatFloorSize + floatCellSize / 2 + (floatRow * floatCellSize);
+        
+        // Add some randomness for natural distribution
+        const floatOffsetX = (Math.sin(time.current * 0.5 + index) * 0.5) * floatCellSize * 0.5;
+        const floatOffsetZ = (Math.cos(time.current * 0.5 + index * 1.5) * 0.5) * floatCellSize * 0.5;
+        
+        // Calculate floating motion with random height
         const floatHeight = 15;
-        const floatY = Math.max(0, 
-          -2 + (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
+        const floatY = Math.max(2, 
+          2 + (Math.sin(time.current * speed + startDelay.current + index * 0.2) * 0.5 + 0.5) * floatHeight * (0.5 + Math.random() * 0.5)
         );
         
         updatePosition(
-          gridX + offsetX,
+          floatBaseX + floatOffsetX,
           floatY,
-          gridZ + offsetZ
+          floatBaseZ + floatOffsetZ
         );
         
         // Always face the camera
@@ -345,26 +405,24 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave':
         // Calculate wave grid position if not already set
         if (waveGridPosition.current.x === 0 && waveGridPosition.current.z === 0) {
-          // Determine total number of photos to display in a grid
-          const totalPhotos = photos.length;
-          
-          // Calculate grid dimensions for an even distribution
-          const totalCols = Math.ceil(Math.sqrt(totalPhotos));
-          const totalRows = Math.ceil(totalPhotos / totalCols);
-          
-          // Calculate grid cell size based on floor size and spacing
-          // Use exact floor size to ensure photos are distributed exactly across the floor
-          const floorHalfSize = settings.floorSize / 2;
-          const cellSize = (settings.floorSize / totalCols) * spacing;
+          // Use the optimal dimensions
+          const { cols: waveCols, rows: waveRows, cellSize: waveCellSize } = calculateOptimalFloorDimensions(
+            photos.length,
+            spacing,
+            canvasSize.width / canvasSize.height
+          );
           
           // Calculate row and column for this photo
-          const row = Math.floor(index / totalCols);
-          const col = index % totalCols;
+          const waveRow = Math.floor(index / waveCols);
+          const waveCol = index % waveCols;
+          
+          // Calculate the floor area to use
+          const waveFloorSize = Math.max(settings.floorSize, floorSize);
+          const halfWaveFloorSize = waveFloorSize / 2;
           
           // Calculate position to distribute evenly across floor
-          // Start from -floorHalfSize and distribute evenly
-          const x = -floorHalfSize + (col * cellSize) + (cellSize / 2);
-          const z = -floorHalfSize + (row * cellSize) + (cellSize / 2);
+          const x = -halfWaveFloorSize + waveCellSize / 2 + (waveCol * waveCellSize);
+          const z = -halfWaveFloorSize + waveCellSize / 2 + (waveRow * waveCellSize);
           
           // Store calculated grid position
           waveGridPosition.current = {x, z};
@@ -373,9 +431,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Get the base grid position
         const {x: baseX, z: baseZ} = waveGridPosition.current;
         
-        // Wave animation calculation
+        // Wave animation calculation with varying amplitudes and frequencies
         const waveY = 2 + // Base height above floor
-          Math.sin(time.current * waveFrequency.current + wavePhaseOffset.current) * waveAmplitude.current;
+          Math.sin(time.current * speed * waveFrequency.current + wavePhaseOffset.current + 
+                  (Math.sin(baseX * 0.1) + Math.cos(baseZ * 0.1)) * 2) * 
+          waveAmplitude.current;
         
         // Set final position
         updatePosition(
@@ -449,31 +509,35 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
+  const { size: canvasSize } = useThree();
+  
   const photoProps = useMemo(() => {
-    // Calculate grid dimensions based on total photos
-    const totalPhotos = photos.length;
-    const photosPerWall = Math.ceil(totalPhotos / 2); // Split photos between front and back
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
-    const gridHeight = Math.ceil(photosPerWall / gridWidth);
-    
-    // Use spacing from settings
+    // Calculate optimal floor dimensions based on photo count and spacing
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
+    const aspectRatio = canvasSize.width / canvasSize.height;
+    const { cols, rows, cellSize } = calculateOptimalFloorDimensions(
+      photos.length, 
+      spacing, 
+      aspectRatio
+    );
     
-    // Generate props for front wall
-    const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const col = index % gridWidth;
-      const row = Math.floor(index / gridWidth);
-      const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = gridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
+    // Calculate the effective floor size (either user setting or calculated optimal)
+    const floorSize = Math.max(settings.floorSize, Math.max(cols, rows) * spacing * 1.2);
+    const halfFloorSize = floorSize / 2;
+    
+    // Generate props for photos distributed within floor boundaries
+    return photos.map((photo, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      
+      // Calculate base position to evenly distribute across floor
+      const x = -halfFloorSize + cellSize / 2 + (col * cellSize);
+      const z = -halfFloorSize + cellSize / 2 + (row * cellSize);
       
       return {
         key: photo.id,
         url: photo.url,
-        position: [x, y + 2, 2] as [number, number, number], // Ensure photos are above floor
+        position: [x, 2, z] as [number, number, number], // Position above floor
         rotation: randomRotation(),
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -481,39 +545,10 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index,
-        wall: 'front' as const
+        index: index
       };
     });
-    
-    // Generate props for back wall (mirror of front wall)
-    const backProps = photos.slice(photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const col = index % gridWidth;
-      const row = Math.floor(index / gridWidth);
-      const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = backGridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
-      
-      return {
-        key: `back-${photo.id}`,
-        url: photo.url,
-        position: [x, y + 2, -2] as [number, number, number], // Mirror Z position and ensure above floor
-        rotation: [0, Math.PI, 0] as [number, number, number], // Rotate to face back
-        pattern: settings.animationPattern,
-        speed: settings.animationSpeed,
-        animationEnabled: settings.animationEnabled,
-        settings: settings,
-        size: settings.photoSize,
-        photos: photos,
-        index: index,
-        wall: 'back' as const
-      };
-    });
-    
-    return [...frontProps, ...backProps];
-  }, [photos, settings]);
+  }, [photos, settings, canvasSize]);
 
   return (
     <>
@@ -525,9 +560,20 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
 };
 
 // Floor component with Grid
-const Floor: React.FC<{ settings: any }> = ({ settings }) => {
-  const { scene } = useThree();
+const Floor: React.FC<{ settings: any, photos: Photo[] }> = ({ settings, photos }) => {
+  const { scene, size: canvasSize } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
+
+  // Calculate optimal floor size based on photo count
+  const spacing = settings.photoSize * (1 + settings.photoSpacing);
+  const { size: calculatedSize } = calculateOptimalFloorDimensions(
+    photos.length, 
+    spacing, 
+    canvasSize.width / canvasSize.height
+  );
+  
+  // Use the larger of user setting or calculated size
+  const effectiveFloorSize = Math.max(settings.floorSize, calculatedSize);
 
   useEffect(() => {
     // Wait for scene to be ready before enabling grid
@@ -545,7 +591,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
       {settings.gridEnabled && isGridReady && (
         <Grid
           position={[0, -1.99, 0]} // Position grid ABOVE the floor
-          args={[settings.gridSize, settings.gridDivisions]}
+          args={[effectiveFloorSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
           cellColor={settings.gridColor}
@@ -563,7 +609,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
         position={[0, -2, 0]}
         receiveShadow
       >
-        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <planeGeometry args={[effectiveFloorSize, effectiveFloorSize]} />
         <meshStandardMaterial 
           color={new THREE.Color(settings.floorColor)}
           receiveShadow
@@ -622,16 +668,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
-    gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.setClearColor(0x000000, 0);
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
     
     // Mark scene as ready after a short delay to ensure everything is initialized
     setTimeout(() => setIsSceneReady(true), 100);
-    gl.info.autoReset = true;
-    gl.physicallyCorrectLights = true;
   };
 
   return (
@@ -661,7 +703,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
             <>
             <CameraSetup settings={settings} />
             <SceneSetup settings={settings} />
-            <Floor settings={settings} />
+            <Floor settings={settings} photos={displayedPhotos} />
             
             <OrbitControls 
               makeDefault
