@@ -282,7 +282,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       );
     };
 
-    // Calculate spacing here, before the switch statement
+    // Use spacing setting consistently across all patterns
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
     switch (pattern) {
@@ -346,9 +346,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Initialize random positions if not already set
         if (wavePositionX.current === 0 && wavePositionZ.current === 0) {
           // Random positions within the floor bounds, but with some padding from edges
+          // Apply photoSpacing to control how spread out the photos are
           const padding = floorSize * 0.1;
-          wavePositionX.current = (Math.random() * (floorSize - padding * 2) - (floorSize/2 - padding));
-          wavePositionZ.current = (Math.random() * (floorSize - padding * 2) - (floorSize/2 - padding));
+          const distributionArea = floorSize * (0.5 + settings.photoSpacing * 0.5); // Make distribution area affected by spacing
+          wavePositionX.current = (Math.random() * distributionArea - distributionArea/2);
+          wavePositionZ.current = (Math.random() * distributionArea - distributionArea/2);
         }
         
         // Create complex wave motion with multiple frequencies
@@ -365,8 +367,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         );
         
         // Add subtle movement in X and Z directions for more natural effect
-        const driftX = Math.sin(time.current * 0.1 + wavePhaseOffset.current) * 0.2;
-        const driftZ = Math.cos(time.current * 0.15 + wavePhaseOffset.current * 1.3) * 0.2;
+        // Make drift amount affected by photoSpacing setting
+        const driftScale = 0.2 * (1 + settings.photoSpacing * 0.3);
+        const driftX = Math.sin(time.current * 0.1 + wavePhaseOffset.current) * driftScale;
+        const driftZ = Math.cos(time.current * 0.15 + wavePhaseOffset.current * 1.3) * driftScale;
         
         updatePosition(
           wavePositionX.current + driftX,
@@ -374,16 +378,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           wavePositionZ.current + driftZ
         );
         
-        // Subtle tilt based on wave slope and drift
-        const slopeX = Math.cos(time.current * 0.3 + wavePhaseOffset.current) * 0.1;
-        const slopeZ = Math.cos(time.current * 0.3 + wavePhaseOffset.current + Math.PI/2) * 0.1;
-        mesh.rotation.set(slopeX, 0, slopeZ);
+        // Always face the camera instead of tilting with the wave
+        mesh.lookAt(camera.position);
         break;
         
       case 'spiral':
         // Spiral parameters
         const maxHeight = 15;
-        const spiralRadius = Math.sqrt(photos.length);
+        const spiralRadius = Math.sqrt(photos.length) * (1 + settings.photoSpacing * 0.5); // Apply spacing to spiral radius
         const verticalSpeed = speed * 0.5;
         const rotationSpeed = speed * 2;
         
@@ -449,12 +451,14 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
     const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
+    // Use spacing from settings
+    const spacing = settings.photoSize * (1 + settings.photoSpacing);
+    
     // Generate props for front wall
     const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
       const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
       const x = gridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
@@ -481,7 +485,6 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
       const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
       const x = backGridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
