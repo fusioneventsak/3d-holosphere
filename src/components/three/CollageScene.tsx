@@ -476,26 +476,26 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     // Calculate photo dimensions and spacing
     const photoHeight = settings.photoSize * 1.5;
     const verticalSpacing = photoHeight * 1.05; // Keep consistent spacing
-    const horizontalSpacing = settings.photoSize * 1.05; 
+    const horizontalSpacing = settings.photoSize * 1.05;
     
     // Calculate total grid height needed
     const totalRows = Math.ceil(totalPhotos / gridWidth);
     const totalGridHeight = totalRows * verticalSpacing;
     
-    // Position grid so bottom row is at floor level (-2)
-    const startY = -2 + (totalGridHeight * 0.5);
+    // Use wallHeight setting to position the grid
+    const floorLevel = -2; // Floor level
+    const startY = floorLevel + settings.wallHeight; // Start at specified wall height
     
     // Generate props for all photos in a single wall
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
-      // Center horizontally
+      // Center horizontally and adjust vertical position
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const y = startY - (row * verticalSpacing);
       
-      // Calculate vertical position relative to center
       const x = gridXOffset + (col * horizontalSpacing);
-      const y = startY - (row * verticalSpacing) + (totalGridHeight * 0.5);
       const z = 0;
       
       const position: [number, number, number] = [x, y, z];
