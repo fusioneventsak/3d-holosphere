@@ -468,8 +468,8 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
     const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
-    // Calculate compact spacing for solid wall effect
-    const spacing = settings.photoSize * (1 + settings.photoSpacing * 0.2); // Reduce spacing for solid wall effect
+    // Calculate spacing for wall effect - make this extremely tight
+    const spacing = settings.photoSize * (1 + settings.photoSpacing * 0.05); // Extra tight spacing for solid wall
     
     // Generate props for front wall photos
     const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
@@ -480,12 +480,12 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
       
-      // Calculate position with minimal randomness for solid wall
+      // Calculate position with no randomness for solid wall
       const x = gridXOffset + (col * spacing);
       const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing));
       
       // Create rotation value separately with let instead of including it directly in the object literal
-      let photoRotation = randomRotation();
+      let photoRotation = [0, 0, 0] as [number, number, number]; // Front facing
       
       return {
         key: photo.id,
@@ -512,7 +512,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
       
-      // Calculate position with minimal randomness for solid wall
+      // Calculate position with no randomness for solid wall
       const x = backGridXOffset + (col * spacing);
       const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing));
       
@@ -522,7 +522,8 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       return {
         key: `back-${photo.id}`,
         url: photo.url,
-        position: [x, y + 2, -2] as [number, number, number], // Mirror Z position and ensure above floor
+        // Critical fix: Keep y position at +2 to ensure back photos are ABOVE the floor
+        position: [x, y + 2, -2] as [number, number, number],
         rotation: photoRotation,
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
@@ -535,10 +536,10 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       };
     });
     
-    // For a solid wall effect, create a grid with equal spacing
+    // For a solid wall effect with no gaps between columns
     if (settings.animationPattern === 'grid') {
-      // Recalculate for a more compact grid layout
-      const compactSpacing = settings.photoSize * 1.05; // Very tight spacing
+      // Recalculate for a completely solid grid layout with zero gaps
+      const compactSpacing = settings.photoSize * 1.01; // Extremely tight spacing
       
       // Update front wall positions
       frontProps.forEach((prop, i) => {
@@ -549,7 +550,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
         const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
         
-        // Set exact position for solid wall
+        // Set exact position for solid wall with absolutely no gaps
         prop.position = [
           gridXOffset + (col * compactSpacing),
           gridYOffset + ((gridHeight - 1 - row) * compactSpacing) + 2,
@@ -566,10 +567,11 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
         const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
         
-        // Set exact position for solid wall
+        // Set exact position for solid wall with absolutely no gaps
+        // Critical fix: Keep the y position at +2 to ensure back photos are ABOVE the floor
         prop.position = [
           gridXOffset + (col * compactSpacing),
-          gridYOffset + ((gridHeight - 1 - row) * compactSpacing) + 2,
+          gridYOffset + ((gridHeight - 1 - row) * compactSpacing) + 2, 
           -2
         ];
       });

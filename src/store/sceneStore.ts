@@ -100,7 +100,7 @@ const defaultSettings: SceneSettings = {
   gridDivisions: 30,
   gridOpacity: 1.0,
   photoSize: 0.8,
-  photoSpacing: 0.2,
+  photoSpacing: 0.05, // Reduced to almost zero for solid wall effect
 };
 
 export const useSceneStore = create<SceneState>()(
