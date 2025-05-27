@@ -470,19 +470,20 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     // Calculate grid dimensions based on aspect ratio
     const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
-    const gridHeight = Math.ceil(totalPhotos / gridWidth);
+    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio)); 
+    const gridHeight = Math.ceil(totalPhotos / gridWidth); 
     
     // Calculate photo dimensions and spacing
     const photoHeight = settings.photoSize * 1.5;
-    const verticalSpacing = photoHeight * 1.05; // Slight gap between rows
+    const verticalSpacing = photoHeight * 1.05; // Keep consistent spacing
     const horizontalSpacing = settings.photoSize * 1.05; 
     
-    // Position entire wall at specified height
+    // Calculate total wall height
     const totalWallHeight = verticalSpacing * gridHeight;
-    const baseHeight = settings.wallHeight;
-    // Adjust starting Y position to ensure bottom row is above floor
-    const startY = baseHeight + (totalWallHeight / 2);
+    
+    // Position bottom row exactly at floor level (-2)
+    const floorLevel = -2;
+    const startY = floorLevel + totalWallHeight - (verticalSpacing / 2);
     
     // Generate props for all photos in a single wall
     return photos.map((photo, index) => {
@@ -492,9 +493,9 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       // Center the grid
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
       
-      // Calculate position
+      // Calculate position from bottom up
       const x = gridXOffset + (col * horizontalSpacing);
-      const y = startY - (row * verticalSpacing);
+      const y = startY - (row * verticalSpacing); // Position relative to bottom row
       const z = 0;
       
       const position: [number, number, number] = [x, y, z];
