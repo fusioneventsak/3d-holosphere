@@ -240,12 +240,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
-  // Random wave animation properties (unique to each photo)
-  const waveFrequency = useRef<number>(0.5 + Math.random() * 1.5); // Random frequency between 0.5-2.0
-  const wavePhase = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
-  const secondaryWaveAmplitude = useRef<number>(0.3 + Math.random() * 0.7); // Secondary wave amplitude
-  const secondaryWaveFrequency = useRef<number>(0.3 + Math.random() * 0.5); // Secondary wave frequency
-  const waveHeightOffset = useRef<number>(3 + Math.random() * 4); // Random base height (3-7 units above floor)
+  // Store position coordinates for wave pattern
+  const wavePositionX = useRef<number>(0);
+  const wavePositionZ = useRef<number>(0);
   
   const texture = useMemo(() => {
     if (!url) return null;
@@ -339,62 +336,55 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave':
         // Use floor size to determine distribution area
-        const waveFloorSize = settings.floorSize * 0.8; // Use 80% of floor size for distribution
-        const waveTotalPhotos = photos?.length || 1;
+        const floorSize = settings.floorSize;
+        const totalPhotos = photos?.length || 1;
         
         // Calculate grid size based on number of photos
-        const photosPerSide = Math.ceil(Math.sqrt(waveTotalPhotos));
+        const photosPerSide = Math.ceil(Math.sqrt(totalPhotos));
         
         // Calculate cell size based on floor size
-        const cellSize = waveFloorSize / photosPerSide;
+        const cellSize = floorSize / photosPerSide;
         
         // Calculate grid position (row, column)
         const waveCol = index % photosPerSide;
         const waveRow = Math.floor(index / photosPerSide);
         
         // Calculate center offset to position grid in the middle of floor
-        const waveXOffset = (waveFloorSize / 2) * -1;
-        const waveZOffset = (waveFloorSize / 2) * -1;
+        const xOffset = (floorSize / 2) * -1;
+        const zOffset = (floorSize / 2) * -1;
         
-        // Calculate base position (x, z)
-        const waveX = waveXOffset + (waveCol * cellSize) + (cellSize / 2) + (Math.random() - 0.5) * (cellSize * 0.3);
-        const waveZ = waveZOffset + (waveRow * cellSize) + (cellSize / 2) + (Math.random() - 0.5) * (cellSize * 0.3);
+        // Calculate base position (x, z) - evenly distributed
+        if (wavePositionX.current === 0 && wavePositionZ.current === 0) {
+          // Only set these once to keep photos in fixed positions
+          wavePositionX.current = xOffset + (waveCol * cellSize) + (cellSize / 2);
+          wavePositionZ.current = zOffset + (waveRow * cellSize) + (cellSize / 2);
+        }
         
-        // Wave parameters - scale with floor size
-        const minHeight = 3; // Ensure photos never go below floor
-        const waveAmplitude = Math.max(1.5, settings.floorSize / 10); // Scale amplitude with floor size
+        // Wave animation parameters
+        const baseHeight = 2; // Base height above floor
+        const waveAmplitude = 0.5; // Smaller amplitude for gentle waves
         
-        // Complex wave motion combining multiple sine waves with different frequencies and phases
-        // Primary wave
-        const primaryWave = Math.sin(time.current * speed * waveFrequency.current + wavePhase.current) * waveAmplitude;
+        // Wave phase based on position for coordinated wave effect
+        // This creates a travelling wave across the surface
+        const phaseX = wavePositionX.current * 0.2;
+        const phaseZ = wavePositionZ.current * 0.2;
+        const combinedPhase = phaseX + phaseZ;
         
-        // Secondary wave (higher frequency, lower amplitude)
-        const secondaryWave = Math.sin(time.current * speed * secondaryWaveFrequency.current * 3 + wavePhase.current * 2) 
-          * waveAmplitude * secondaryWaveAmplitude.current;
-          
-        // Third harmonic wave (very subtle)
-        const tertiaryWave = Math.sin(time.current * speed * 5 + waveCol * 0.5) * 0.3;
-        
-        // Combine waves
-        const waveY = minHeight + waveHeightOffset.current + primaryWave + secondaryWave + tertiaryWave;
-        
-        updatePosition(
-          waveX,
-          waveY,
-          waveZ
+        // Create wave motion
+        const waveY = baseHeight + (
+          Math.sin(time.current * 0.5 + combinedPhase) * waveAmplitude
         );
         
-        // Slightly tilt photos based on wave motion
-        const tiltX = Math.sin(time.current * speed * 0.5 + wavePhase.current) * 0.1;
-        const tiltZ = Math.cos(time.current * speed * 0.3 + wavePhase.current) * 0.1;
-        mesh.rotation.set(tiltX, 0, tiltZ);
+        updatePosition(
+          wavePositionX.current,
+          waveY,
+          wavePositionZ.current
+        );
         
-        // Gently rotate to face the camera, but not completely
-        const lookAtVector = new THREE.Vector3().copy(camera.position).sub(mesh.position).normalize();
-        const currentDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.quaternion);
-        const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(currentDirection, lookAtVector);
-        mesh.quaternion.slerp(targetQuaternion, 0.03);
-        
+        // Subtle tilt based on wave slope
+        const slopeX = Math.cos(time.current * 0.5 + combinedPhase) * 0.05;
+        const slopeZ = Math.cos(time.current * 0.5 + combinedPhase + Math.PI/2) * 0.05;
+        mesh.rotation.set(slopeX, 0, slopeZ);
         break;
         
       case 'spiral':
