@@ -190,7 +190,7 @@ const SceneSettings: React.FC = () => {
               </label>
               <input
                 type="range"
-                min="0.5"
+                min="0.1"
                 max="2"
                 step="0.1"
                 value={settings.photoSize}
@@ -207,7 +207,7 @@ const SceneSettings: React.FC = () => {
               </label>
               <input
                 type="range"
-                min="0.1"
+                min="0.5"
                 max="2"
                 step="0.1"
                 value={settings.photoSpacing}
@@ -733,4 +733,4 @@ const SceneSettings: React.FC = () => {
   );
 };
 
-export default SceneSettings
+export default SceneSettings;
