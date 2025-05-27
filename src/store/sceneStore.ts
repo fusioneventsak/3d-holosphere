@@ -65,7 +65,7 @@ const defaultSettings: SceneSettings = {
   animationEnabled: false,
   useStockPhotos: true,
   photoCount: 50,
-  wallHeight: 8, // Increased default wall height above floor
+  wallHeight: 12, // Increased default wall height for better visibility
   backgroundColor: '#000000',
   backgroundGradient: false,
   backgroundGradientStart: '#000000',

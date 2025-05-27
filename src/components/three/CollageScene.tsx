@@ -465,35 +465,27 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    // Calculate total number of photos to display
     const totalPhotos = Math.min(photos.length, settings.photoCount);
     
-    // Calculate grid dimensions based on aspect ratio
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio)); 
-    const gridHeight = Math.ceil(totalPhotos / gridWidth); 
+    // Make grid wider by using a larger aspect ratio multiplier
+    const aspectRatio = (window.innerWidth / window.innerHeight) * 1.5;
+    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
+    const gridHeight = Math.ceil(totalPhotos / gridWidth);
     
-    // Calculate photo dimensions and spacing
     const photoHeight = settings.photoSize * 1.5;
-    const verticalSpacing = photoHeight * 1.05; // Keep consistent spacing
+    const verticalSpacing = photoHeight * 1.05;
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    // Calculate total grid height needed
-    const totalRows = Math.ceil(totalPhotos / gridWidth);
-    const totalGridHeight = totalRows * verticalSpacing;
+    // Position grid relative to floor
+    const floorLevel = -2;
+    const wallHeight = settings.wallHeight;
     
-    // Use wallHeight setting to position the grid
-    const floorLevel = -2; // Floor level
-    const startY = floorLevel + settings.wallHeight; // Start at specified wall height
-    
-    // Generate props for all photos in a single wall
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
-      // Center horizontally and adjust vertical position
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-      const y = startY - (row * verticalSpacing);
+      const y = floorLevel + wallHeight - (row * verticalSpacing);
       
       const x = gridXOffset + (col * horizontalSpacing);
       const z = 0;
