@@ -240,18 +240,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
-  // Wave position refs
-  const waveDistributionX = useRef<number>(0);
-  const waveDistributionZ = useRef<number>(0);
-  const waveAmplitude = useRef<number>(Math.random() * 1.2 + 0.5); // Random amplitude between 0.5 and 1.7
+  // Wave pattern specific refs
+  const waveGridPosition = useRef<{x: number, z: number}>({x: 0, z: 0});
+  const waveAmplitude = useRef<number>(Math.random() * 1.2 + 0.3); // Random amplitude between 0.3 and 1.5
   const waveFrequency = useRef<number>(Math.random() * 0.5 + 0.2); // Random frequency between 0.2 and 0.7
   const wavePhaseOffset = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
-  const waveHeightOffset = useRef<number>(Math.random() * 1.5 + 1.5); // Random base height between 1.5 and 3
   
-  // Force recalculation of distribution when spacing or floor size changes
+  // Force recalculation of wave distribution when settings change
   useEffect(() => {
-    waveDistributionX.current = 0;
-    waveDistributionZ.current = 0;
+    // Reset grid position flag when settings that affect distribution change
+    waveGridPosition.current = {x: 0, z: 0};
   }, [settings.photoSpacing, settings.floorSize]);
   
   const texture = useMemo(() => {
@@ -345,50 +343,45 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Initialize distribution positions if not set
-        if (waveDistributionX.current === 0 && waveDistributionZ.current === 0) {
-          // Use floor size and photo spacing to determine distribution area
-          const distributionArea = settings.floorSize * 0.9; // Use 90% of floor size for distribution
+        // Calculate wave grid position if not already set
+        if (waveGridPosition.current.x === 0 && waveGridPosition.current.z === 0) {
+          // Determine total number of photos to display in a grid
+          const totalPhotos = photos.length;
           
-          // Create an even grid distribution
-          const totalCols = Math.ceil(Math.sqrt(photos.length));
+          // Calculate grid dimensions for an even distribution
+          const totalCols = Math.ceil(Math.sqrt(totalPhotos));
+          const totalRows = Math.ceil(totalPhotos / totalCols);
+          
+          // Calculate grid cell size based on floor size and spacing
+          // Use exact floor size to ensure photos are distributed exactly across the floor
+          const floorHalfSize = settings.floorSize / 2;
+          const cellSize = (settings.floorSize / totalCols) * spacing;
+          
+          // Calculate row and column for this photo
           const row = Math.floor(index / totalCols);
           const col = index % totalCols;
           
-          // Apply spacing to the grid
-          const cellSize = (distributionArea / totalCols) * (1 + settings.photoSpacing * 0.5);
+          // Calculate position to distribute evenly across floor
+          // Start from -floorHalfSize and distribute evenly
+          const x = -floorHalfSize + (col * cellSize) + (cellSize / 2);
+          const z = -floorHalfSize + (row * cellSize) + (cellSize / 2);
           
-          // Center the grid on the floor
-          const halfGrid = (totalCols / 2) * cellSize;
-          const baseX = (col * cellSize) - halfGrid;
-          const baseZ = (row * cellSize) - halfGrid;
-          
-          // Add some controlled randomness
-          const randomAmount = cellSize * 0.3; // 30% of cell size
-          waveDistributionX.current = baseX + (Math.random() - 0.5) * randomAmount;
-          waveDistributionZ.current = baseZ + (Math.random() - 0.5) * randomAmount;
+          // Store calculated grid position
+          waveGridPosition.current = {x, z};
         }
         
-        // Wave motion calculation
-        const time1 = time.current * waveFrequency.current;
-        const time2 = time.current * (waveFrequency.current * 0.7);
+        // Get the base grid position
+        const {x: baseX, z: baseZ} = waveGridPosition.current;
         
-        // Create complex wave with multiple frequencies
+        // Wave animation calculation
         const waveY = 2 + // Base height above floor
-          // Primary wave
-          Math.sin(time1 + wavePhaseOffset.current) * waveAmplitude.current + 
-          // Secondary wave
-          Math.sin(time2 + wavePhaseOffset.current * 2) * (waveAmplitude.current * 0.3);
+          Math.sin(time.current * waveFrequency.current + wavePhaseOffset.current) * waveAmplitude.current;
         
-        // Apply subtle drift in X and Z for more natural motion
-        const driftScale = 0.15 * (1 + settings.photoSpacing * 0.3);
-        const driftX = Math.sin(time.current * 0.1 + index) * driftScale;
-        const driftZ = Math.cos(time.current * 0.15 + index * 1.3) * driftScale;
-        
+        // Set final position
         updatePosition(
-          waveDistributionX.current + driftX,
+          baseX,
           waveY,
-          waveDistributionZ.current + driftZ
+          baseZ
         );
         
         // Always face the camera
