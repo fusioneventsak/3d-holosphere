@@ -240,9 +240,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
-  // Store position coordinates for wave pattern
+  // Wave animation specific refs
   const wavePositionX = useRef<number>(0);
   const wavePositionZ = useRef<number>(0);
+  const waveAmplitude = useRef<number>(Math.random() * 1 + 0.3); // Random amplitude between 0.3 and 1.3
+  const waveFrequency = useRef<number>(Math.random() * 0.4 + 0.3); // Random frequency between 0.3 and 0.7
+  const wavePhaseOffset = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
+  const waveHeightOffset = useRef<number>(Math.random() * 1.5 + 1); // Random base height between 1 and 2.5
   
   const texture = useMemo(() => {
     if (!url) return null;
@@ -339,51 +343,40 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const floorSize = settings.floorSize;
         const totalPhotos = photos?.length || 1;
         
-        // Calculate grid size based on number of photos
-        const photosPerSide = Math.ceil(Math.sqrt(totalPhotos));
-        
-        // Calculate cell size based on floor size
-        const cellSize = floorSize / photosPerSide;
-        
-        // Calculate grid position (row, column)
-        const waveCol = index % photosPerSide;
-        const waveRow = Math.floor(index / photosPerSide);
-        
-        // Calculate center offset to position grid in the middle of floor
-        const xOffset = (floorSize / 2) * -1;
-        const zOffset = (floorSize / 2) * -1;
-        
-        // Calculate base position (x, z) - evenly distributed
+        // Initialize random positions if not already set
         if (wavePositionX.current === 0 && wavePositionZ.current === 0) {
-          // Only set these once to keep photos in fixed positions
-          wavePositionX.current = xOffset + (waveCol * cellSize) + (cellSize / 2);
-          wavePositionZ.current = zOffset + (waveRow * cellSize) + (cellSize / 2);
+          // Random positions within the floor bounds, but with some padding from edges
+          const padding = floorSize * 0.1;
+          wavePositionX.current = (Math.random() * (floorSize - padding * 2) - (floorSize/2 - padding));
+          wavePositionZ.current = (Math.random() * (floorSize - padding * 2) - (floorSize/2 - padding));
         }
         
-        // Wave animation parameters
-        const baseHeight = 2; // Base height above floor
-        const waveAmplitude = 0.5; // Smaller amplitude for gentle waves
+        // Create complex wave motion with multiple frequencies
+        const baseHeight = waveHeightOffset.current; // Random base height
         
-        // Wave phase based on position for coordinated wave effect
-        // This creates a travelling wave across the surface
-        const phaseX = wavePositionX.current * 0.2;
-        const phaseZ = wavePositionZ.current * 0.2;
-        const combinedPhase = phaseX + phaseZ;
-        
-        // Create wave motion
+        // Main sine wave
         const waveY = baseHeight + (
-          Math.sin(time.current * 0.5 + combinedPhase) * waveAmplitude
+          // Primary wave
+          Math.sin(time.current * 0.3 + wavePhaseOffset.current) * waveAmplitude.current +
+          // Secondary smaller wave
+          Math.sin(time.current * 0.7 + wavePhaseOffset.current * 2) * (waveAmplitude.current * 0.3) +
+          // Tertiary tiny ripple
+          Math.sin(time.current * 1.2 + wavePhaseOffset.current * 0.5) * (waveAmplitude.current * 0.1)
         );
+        
+        // Add subtle movement in X and Z directions for more natural effect
+        const driftX = Math.sin(time.current * 0.1 + wavePhaseOffset.current) * 0.2;
+        const driftZ = Math.cos(time.current * 0.15 + wavePhaseOffset.current * 1.3) * 0.2;
         
         updatePosition(
-          wavePositionX.current,
+          wavePositionX.current + driftX,
           waveY,
-          wavePositionZ.current
+          wavePositionZ.current + driftZ
         );
         
-        // Subtle tilt based on wave slope
-        const slopeX = Math.cos(time.current * 0.5 + combinedPhase) * 0.05;
-        const slopeZ = Math.cos(time.current * 0.5 + combinedPhase + Math.PI/2) * 0.05;
+        // Subtle tilt based on wave slope and drift
+        const slopeX = Math.cos(time.current * 0.3 + wavePhaseOffset.current) * 0.1;
+        const slopeZ = Math.cos(time.current * 0.3 + wavePhaseOffset.current + Math.PI/2) * 0.1;
         mesh.rotation.set(slopeX, 0, slopeZ);
         break;
         
@@ -562,7 +555,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-        <meshStandardMaterial
+        <meshStandardMaterial 
           color={new THREE.Color(settings.floorColor)}
           receiveShadow
           transparent={true}
