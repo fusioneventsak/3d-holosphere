@@ -350,33 +350,64 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     // Use the larger of user setting or calculated size
     const floorSize = Math.max(settings.floorSize, calculatedFloorSize);
     
+    // Define floor level constant - this is where our floor is positioned
+    const floorLevel = -2;
+    // Define minimum height above floor for all photos
+    const minHeightAboveFloor = 0.5;
+    
     switch (pattern) {
       case 'grid':
         // GRID PATTERN: Wall of photos hovering above the floor
         // ----------------------------------------
         // Calculate grid dimensions
         const totalPhotos = photos.length;
-        const gridCols = Math.ceil(Math.sqrt(totalPhotos));
-        const gridRows = Math.ceil(totalPhotos / gridCols);
+        let gridCols, gridRows;
+        
+        // Dynamic grid sizing based on photo count
+        if (totalPhotos <= 100) {
+          // Standard sizing for smaller collections
+          gridCols = Math.ceil(Math.sqrt(totalPhotos));
+        } else {
+          // More columns for larger collections to create wider, shorter walls
+          const aspectRatio = 1.5; // Wider than tall
+          gridCols = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
+        }
+        
+        gridRows = Math.ceil(totalPhotos / gridCols);
+        
+        // Calculate spacing - reduce for very large collections
+        let gridSpacing = spacing;
+        if (totalPhotos > 200) {
+          // Gradually reduce spacing as photo count increases
+          const reductionFactor = 1 - (Math.min(totalPhotos, 500) - 200) / 600;
+          gridSpacing = spacing * Math.max(0.5, reductionFactor);
+        }
         
         // Position in wall grid
         const col = index % gridCols;
         const row = Math.floor(index / gridCols);
         
         // Calculate grid wall size based on the spacing
-        const wallWidth = gridCols * spacing;
-        const wallHeight = gridRows * spacing;
+        const wallWidth = gridCols * gridSpacing;
+        const wallHeight = gridRows * gridSpacing;
         
         // Center the grid on the wall
-        const gridXOffset = (wallWidth / 2) - (spacing / 2);
-        const gridYOffset = (wallHeight / 2) - (spacing / 2);
+        const gridXOffset = (wallWidth / 2) - (gridSpacing / 2);
+        const gridYOffset = (wallHeight / 2) - (gridSpacing / 2);
+        
+        // Calculate the minimum wall height to keep all photos above floor
+        const minimumWallHeight = floorLevel + minHeightAboveFloor + (gridRows * gridSpacing);
         
         // Set position for grid pattern (wall of photos)
-        // All photos are positioned at fixed z=0 to create a wall
+        // Ensure the bottom row is always above the floor level
+        const bottomRowY = floorLevel + minHeightAboveFloor + 2; // Add 2 units clearance
+        const wallBottomY = bottomRowY;
+        const rowHeight = gridSpacing;
+        
         mesh.position.set(
-          gridXOffset - col * spacing,          // X position (spread horizontally)
-          gridYOffset - row * spacing + 4,      // Y position (spread vertically, hover above floor)
-          -5                                    // Z position (fixed distance behind)
+          gridXOffset - col * gridSpacing,             // X position (spread horizontally)
+          wallBottomY + row * rowHeight,               // Y position (always above floor)
+          -5                                           // Z position (fixed distance behind)
         );
         
         // Face camera directly
@@ -411,14 +442,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate Y position (continuous upward motion)
         // Map progress from 0-1 to a height range (-2 to 20)
-        const minHeight = -2; // Start below the floor
-        const floatMaxHeight = 20; // Maximum height
+        const minHeight = floorLevel; // Start at floor level
+        const floatMaxHeight = 20;    // Maximum height
         const floatY = minHeight + (floatMaxHeight - minHeight) * floatProgress.current;
         
         // Update position with continuous upward motion
         mesh.position.set(
           baseX + driftX,
-          floatY,
+          Math.max(floatY, floorLevel + minHeightAboveFloor), // Ensure always above floor
           baseZ + driftZ
         );
         
@@ -439,13 +470,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           (Math.sin(waveX * 0.1) + Math.cos(waveZ * 0.1))
         ) * waveAmplitude.current;
         
-        // Ensure wave stays above the floor (minimum height of 0.5 above floor)
-        const minWaveHeight = 0.5;
+        // Ensure wave stays above the floor (minimum height above floor)
+        const minWaveHeight = minHeightAboveFloor;
         
         // Set position with wave effect
         mesh.position.set(
           waveX,
-          minWaveHeight + Math.abs(waveY), // Use absolute value to keep waves above floor
+          floorLevel + minWaveHeight + Math.abs(waveY), // Use absolute value to keep waves above floor
           waveZ
         );
         
@@ -476,7 +507,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Update position for spiral
         mesh.position.set(
           spiralX,
-          Math.max(0.5, spiralY), // Keep above floor
+          Math.max(floorLevel + minHeightAboveFloor, floorLevel + spiralY), // Keep above floor
           spiralZ
         );
         
@@ -536,6 +567,11 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const cellWidth = floorSize / cols;
     const cellDepth = floorSize / rows;
     
+    // Define floor level constant - this is where our floor is positioned
+    const floorLevel = -2;
+    // Define minimum height above floor for all photos
+    const minHeightAboveFloor = 0.5;
+    
     // Generate initial props for all photos
     return photos.map((photo, index) => {
       // Calculate position within grid
@@ -547,17 +583,20 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const z = (row * cellDepth) - (floorSize / 2) + (cellDepth / 2);
       
       // Initial Y position depends on the pattern
-      let y = 0.5; // Default for wave (just above floor)
+      let y = floorLevel + minHeightAboveFloor; // Default - just above floor
       
       if (settings.animationPattern === 'grid') {
-        // For grid, position above floor
-        y = 4;
+        // For grid, position above floor in a wall
+        const gridRows = Math.ceil(photos.length / cols);
+        const gridRow = Math.floor(index / cols);
+        const wallBottomY = floorLevel + minHeightAboveFloor + 2; // Base height for bottom row
+        y = wallBottomY + (gridRow * spacing); // Stack vertically based on row
       } else if (settings.animationPattern === 'float') {
         // For float, spread vertically based on index
-        y = -2 + (Math.random() * 20); // Start at random heights
+        y = floorLevel + minHeightAboveFloor + (Math.random() * 20); // Start at random heights above floor
       } else if (settings.animationPattern === 'spiral') {
         // For spiral, Y depends on progress in the spiral
-        y = 0.5 + (Math.random() * 5); // Varied initial heights
+        y = floorLevel + minHeightAboveFloor + (Math.random() * 5); // Varied initial heights above floor
       }
       
       return {
