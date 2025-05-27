@@ -609,7 +609,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         }
         
         // Changed from const to let to avoid reassignment error
-        let gridRows = Math.ceil(totalPhotos / gridCols);
+        gridRows = Math.ceil(totalPhotos / gridCols);
         
         // For solid wall effect, minimal spacing between photos
         const basePhotoSize = settings.photoSize;
