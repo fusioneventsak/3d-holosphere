@@ -309,15 +309,15 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'grid':
         // Calculate grid dimensions
         const aspectRatio = window.innerWidth / window.innerHeight;
-        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
-        const gridHeight = Math.ceil(totalPhotos / gridWidth);
+        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio)) * 2;
+        const gridHeight = Math.ceil(totalPhotos / gridWidth) * 0.5;
         
         // Create tight spacing for a solid wall effect
         // Use photo dimensions - width and 1.5x height for portrait orientation
         const horizontalSpacing = settings.photoSize * 1.05; // Just a bit wider than photo width
         const verticalSpacing = settings.photoSize * 1.55; // Just a bit taller than photo height
         
-        // Calculate position in the wall grid
+        // Calculate position in the wall grid with wall height offset
         const gridIndex = index;
         const row = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
@@ -329,7 +329,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Set position in grid - ensure both walls are positioned above the floor
         updatePosition(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(yOffset + ((gridHeight - 1 - row) * verticalSpacing) + 2), // Add +2 to ensure above floor
+          Math.fround(settings.wallHeight + (row * verticalSpacing)), // Use wall height as base
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
@@ -485,12 +485,12 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
-      // Center the grid horizontally
+      // Center the grid horizontally and adjust for wall height
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
       const x = gridXOffset + (col * horizontalSpacing);
       
-      // Calculate vertical position based on row and wall height
-      const y = baseHeight + (row * verticalSpacing);
+      // Calculate vertical position starting from the bottom of the wall
+      const y = settings.wallHeight + (row * verticalSpacing);
       
       // Keep consistent Z position
       const z = 2;
