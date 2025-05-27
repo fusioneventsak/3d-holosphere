@@ -222,13 +222,13 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
-             distance={300}
+              distance={300}
               target={target}
               castShadow
-             shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[2048, 2048]}
               shadow-bias={-0.001}
             />
           </group>
@@ -546,23 +546,10 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
-      {settings.gridEnabled && isGridReady && (
-        <Grid
-          position={[0, -2, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={settings.gridColor}
-          sectionSize={3}
-          fadeDistance={30}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-        />
-      )}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2.001, 0]}
+        position={[0, -2, 0]}
+        receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -575,6 +562,21 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           side={THREE.DoubleSide}
         />
       </mesh>
+      
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -1.999, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={30}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
     </>
   );
 };
