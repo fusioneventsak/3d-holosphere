@@ -152,20 +152,20 @@ const randomPosition = (index: number, total: number, settings: any, isUserPhoto
   const row = Math.floor(index / gridWidth);
   
   // Center the grid
-  const xOffset = ((gridWidth - 1) * spacing) * -0.5;
-  const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+  const xOffset = ((gridWidth - 1) * spacing) * 0.5; // Reversed from -0.5
+  const yOffset = ((gridHeight - 1) * spacing) * 0.5; // Reversed from -0.5
   
   // Calculate position with random offset
-  const x = xOffset + (col * spacing) + randomOffset();
-  const y = yOffset + ((gridHeight - 1 - row) * spacing) + randomOffset();
-  const z = 2; // Keep photos above floor
+  const x = xOffset - (col * spacing) + randomOffset(); // Reversed direction
+  const y = yOffset - ((gridHeight - 1 - row) * spacing) + randomOffset(); // Reversed direction
+  const z = -2; // Reversed from 2
 
   return [x, y, z];
 };
 
 // Helper to generate random rotation for photos
 const randomRotation = (): [number, number, number] => {
-  return [0, 0, 0]; // Keep photos straight
+  return [0, Math.PI, 0]; // Rotated 180 degrees around Y axis
 };
 
 // Scene setup component with camera initialization
@@ -191,7 +191,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   useEffect(() => {
     if (camera) {
-      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.position.set(0, settings.cameraHeight, -settings.cameraDistance); // Reversed Z position
       camera.updateProjectionMatrix();
     }
   }, [camera, settings.cameraHeight, settings.cameraDistance]);
@@ -199,7 +199,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   return (
     <>
       {settings.backgroundGradient ? (
-        <mesh position={[0, 0, -1]}>
+        <mesh position={[0, 0, 1]}> {/* Reversed Z position */}
           <planeGeometry args={[2, 2]} />
           <primitive object={gradientMaterial} attach="material" />
         </mesh>
@@ -210,9 +210,9 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
       {Array.from({ length: settings.spotlightCount }).map((_, i) => {
         const angle = (i / settings.spotlightCount) * Math.PI * 2;
         const x = Math.cos(angle) * settings.spotlightDistance;
-        const z = Math.sin(angle) * settings.spotlightDistance;
+        const z = -Math.sin(angle) * settings.spotlightDistance; // Reversed Z position
         const target = new THREE.Object3D();
-        target.position.set(0, -2, 0); // Target the floor
+        target.position.set(0, 2, 0); // Reversed Y position
 
         return (
           <group key={i}>
@@ -238,304 +238,12 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   );
 };
 
-// Loading fallback component
-const LoadingFallback: React.FC = () => {
-  return (
-    <mesh position={[0, 0, 0]}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="white" />
-    </mesh>
-  );
-};
-
-// Component for individual photo planes
-const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const initialPosition = useRef<[number, number, number]>(position);
-  const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
-  const gridPosition = useRef<[number, number]>([
-    Math.floor(index % Math.sqrt(photos.length)),
-    Math.floor(index / Math.sqrt(photos.length))
-  ]);
-  const orbitRadius = useRef<number>(Math.random() * 3 + 5); // Random orbit radius between 5-8
-  const randomOffset = useRef<[number, number, number]>([
-    (Math.random() - 0.5) * 2,
-    Math.random() * 0.5,
-    (Math.random() - 0.5) * 2
-  ]);
-  const elapsedTime = useRef<number>(0);
-  const time = useRef<number>(0);
-  const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
-  const { camera } = useThree();
-  
-  const texture = useMemo(() => {
-    if (!url) return null;
-    return loadTexture(url);
-  }, [url]);
-  
-  useEffect(() => {
-    return () => {
-      if (url) cleanupTexture(url);
-    };
-  }, [url]);
-  
-  useFrame((state, delta) => {
-    if (!meshRef.current || !animationEnabled || !camera) return;
-    
-    // Use consistent time steps for animations
-    const timeStep = Math.fround(delta * speed);
-    elapsedTime.current = Math.fround(elapsedTime.current + timeStep);
-    time.current = Math.fround(time.current + timeStep);
-    
-    // Wait for start delay before beginning animation
-    if (elapsedTime.current < startDelay.current) {
-      return;
-    }
-    
-    const mesh = meshRef.current;
-    // Ensure position updates use consistent precision
-    const updatePosition = (x: number, y: number, z: number) => {
-      mesh.position.set(
-        Math.fround(x),
-        Math.fround(y),
-        Math.fround(z)
-      );
-    };
-
-    // Calculate spacing here, before the switch statement
-    const spacing = settings.photoSize * (1 + settings.photoSpacing);
-    
-    switch (pattern) {
-      case 'grid':
-        // Calculate grid dimensions
-        const totalPhotos = photos?.length || 1;
-        const aspectRatio = window.innerWidth / window.innerHeight;
-        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
-        const gridHeight = Math.ceil(totalPhotos / gridWidth);
-        
-        // Calculate position in the wall grid with spacing
-        const gridIndex = index;
-        const gridRow = Math.floor(gridIndex / gridWidth);
-        const col = gridIndex % gridWidth;
-        
-        // Center the grid
-        const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-        const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-        
-        // Set position in grid
-        updatePosition(
-          Math.fround(gridXOffset + (col * spacing)),
-          Math.fround(gridYOffset + ((gridHeight - 1 - gridRow) * spacing)),
-          2 // Position photos above the floor
-        );
-        
-        // Keep photos facing forward
-        mesh.rotation.set(0, 0, 0);
-        break;
-        
-      case 'float':
-        // Calculate grid-based starting position
-        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * spacing;
-        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * spacing;
-        
-        // Add random offset for natural distribution
-        const offsetX = randomOffset.current[0] * spacing;
-        const offsetZ = randomOffset.current[2] * spacing;
-        
-        // Calculate floating motion
-        const floatHeight = 15;
-        const floatY = Math.max(0, 
-          -2 + (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
-        );
-        
-        updatePosition(
-          gridX + offsetX,
-          floatY,
-          gridZ + offsetZ
-        );
-        
-        // Always face the camera
-        mesh.lookAt(camera.position);
-        break;
-        
-      case 'wave':
-        // Calculate grid-based position for even distribution
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const waveCol = index % gridSize;
-        
-        // Center the grid
-        const waveXOffset = ((gridSize - 1) * spacing) * -0.5;
-        const waveZOffset = ((gridSize - 1) * spacing) * -0.5;
-        
-        // Base position in grid
-        const baseX = waveXOffset + (waveCol * spacing);
-        const waveRow = Math.floor(index / gridSize);
-        const baseZ = waveZOffset + (waveRow * spacing);
-        
-        // Wave parameters
-        const baseY = 2; // Base height above floor
-        const waveAmplitude = 1.5;
-        const waveFrequency = 1;
-        
-        // Create unique wave phase for each photo based on position
-        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
-        
-        // Calculate wave height
-        const waveY = baseY + (
-          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
-        );
-        
-        updatePosition(
-          baseX,
-          waveY,
-          baseZ
-        );
-        
-        mesh.lookAt(camera.position);
-        break;
-        
-      case 'spiral':
-        // Spiral parameters
-        const maxHeight = 15;
-        const spiralRadius = Math.sqrt(photos.length);
-        const verticalSpeed = speed * 0.5;
-        const rotationSpeed = speed * 2;
-        
-        // Calculate time-based position
-        const t = ((time.current * verticalSpeed + (index / photos.length)) % 1) * Math.PI * 2;
-        const spiralAngle = t + time.current * rotationSpeed;
-        
-        // Calculate spiral position
-        const progress = t / (Math.PI * 2);
-        const currentRadius = spiralRadius * (1 - progress);
-        const spiralX = Math.cos(spiralAngle) * currentRadius * 2;
-        const spiralY = maxHeight * (1 - progress);
-        const spiralZ = Math.sin(spiralAngle) * currentRadius * 2;
-        
-        updatePosition(
-          spiralX,
-          Math.max(2, spiralY), // Keep above floor
-          spiralZ
-        );
-        
-        mesh.lookAt(camera.position);
-        break;
-    }
-  });
-
-  if (!url) {
-    return (
-      <mesh ref={meshRef} position={position} rotation={rotation}>
-        <planeGeometry args={[size, size * 1.5, 1, 1]} />
-        <meshPhysicalMaterial 
-          color={settings.emptySlotColor}
-          metalness={0.8}
-          roughness={0.2} 
-          clearcoat={0.5}
-          clearcoatRoughness={0.3}
-        />
-      </mesh>
-    );
-  }
-
-  return (
-    <mesh ref={meshRef} position={position} rotation={rotation}>
-      <planeGeometry args={[size, size * 1.5]} />
-      <meshStandardMaterial 
-        map={texture || null}
-        side={THREE.DoubleSide}
-        castShadow
-        receiveShadow
-        transparent={false}
-        toneMapped={true}
-      />
-    </mesh>
-  );
-};
-
-// Photos container component
-const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
-  const photoProps = useMemo(() => {
-    // Calculate grid dimensions based on total photos
-    const totalPhotos = photos.length;
-    const photosPerWall = Math.ceil(totalPhotos / 2); // Split photos between front and back
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
-    const gridHeight = Math.ceil(photosPerWall / gridWidth);
-    
-    // Generate props for front wall
-    const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const col = index % gridWidth;
-      const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
-      const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = gridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
-      
-      return {
-        key: photo.id,
-        url: photo.url,
-        position: [x, y + 2, 2] as [number, number, number], // Ensure photos are above floor
-        rotation: randomRotation(),
-        pattern: settings.animationPattern,
-        speed: settings.animationSpeed,
-        animationEnabled: settings.animationEnabled,
-        settings: settings,
-        size: settings.photoSize,
-        photos: photos,
-        index: index,
-        wall: 'front' as const
-      };
-    });
-    
-    // Generate props for back wall (mirror of front wall)
-    const backProps = photos.slice(photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
-      const col = index % gridWidth;
-      const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
-      const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
-      const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = backGridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
-      
-      return {
-        key: `back-${photo.id}`,
-        url: photo.url,
-        position: [x, y + 2, -2] as [number, number, number], // Mirror Z position and ensure above floor
-        rotation: [0, Math.PI, 0] as [number, number, number], // Rotate to face back
-        pattern: settings.animationPattern,
-        speed: settings.animationSpeed,
-        animationEnabled: settings.animationEnabled,
-        settings: settings,
-        size: settings.photoSize,
-        photos: photos,
-        index: index,
-        wall: 'back' as const
-      };
-    });
-    
-    return [...frontProps, ...backProps];
-  }, [photos, settings]);
-
-  return (
-    <>
-      {photoProps.map((props) => (
-        <PhotoPlane key={props.key} {...props} />
-      ))}
-    </>
-  );
-};
-
 // Floor component with Grid
 const Floor: React.FC<{ settings: any }> = ({ settings }) => {
   const { scene } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
 
   useEffect(() => {
-    // Wait for scene to be ready before enabling grid
     if (scene) {
       const timeout = setTimeout(() => setIsGridReady(true), 100);
       return () => clearTimeout(timeout);
@@ -547,8 +255,8 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
   return (
     <>
       <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2.001, 0]}
+        rotation={[Math.PI / 2, 0, 0]} // Reversed rotation
+        position={[0, 2.001, 0]} // Reversed Y position
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
@@ -566,7 +274,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
       
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -2, 0]}
+          position={[0, 2, 0]} // Reversed Y position
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -589,7 +297,7 @@ const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   useEffect(() => {
     if (camera) {
-      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.position.set(0, settings.cameraHeight, -settings.cameraDistance); // Reversed Z position
       camera.updateProjectionMatrix();
     }
   }, [camera, settings.cameraHeight, settings.cameraDistance]);
@@ -626,16 +334,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
-    gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.setClearColor(0x000000, 0);
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
     
-    // Mark scene as ready after a short delay to ensure everything is initialized
     setTimeout(() => setIsSceneReady(true), 100);
-    gl.info.autoReset = true;
-    gl.physicallyCorrectLights = true;
   };
 
   return (
@@ -656,33 +359,33 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           fov: 60,
           near: 0.1,
           far: 2000,
-          position: [0, settings.cameraHeight, settings.cameraDistance]
+          position: [0, settings.cameraHeight, -settings.cameraDistance] // Reversed Z position
         }}
         style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
       >
-        <React.Suspense fallback={<LoadingFallback />}>
+        <React.Suspense fallback={null}>
           {isSceneReady && (
             <>
-            <CameraSetup settings={settings} />
-            <Floor settings={settings} />
-            <SceneSetup settings={settings} />
-            
-            <OrbitControls 
-              makeDefault
-              enableZoom={true}
-              enablePan={false}
-              autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-              autoRotateSpeed={settings.cameraRotationSpeed}
-              minDistance={5}
-              maxDistance={100}
-              maxPolarAngle={Math.PI * 0.65}
-              dampingFactor={0.1}
-              enableDamping={true}
-              rotateSpeed={0.8}
-              zoomSpeed={0.8}
-            />
-            
-            <PhotosContainer photos={displayedPhotos} settings={settings} />
+              <CameraSetup settings={settings} />
+              <Floor settings={settings} />
+              <SceneSetup settings={settings} />
+              
+              <OrbitControls 
+                makeDefault
+                enableZoom={true}
+                enablePan={false}
+                autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+                autoRotateSpeed={-settings.cameraRotationSpeed} // Reversed rotation speed
+                minDistance={5}
+                maxDistance={100}
+                maxPolarAngle={Math.PI * 0.65}
+                dampingFactor={0.1}
+                enableDamping={true}
+                rotateSpeed={0.8}
+                zoomSpeed={0.8}
+              />
+              
+              <PhotosContainer photos={displayedPhotos} settings={settings} />
             </>
           )}
         </React.Suspense>
