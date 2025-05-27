@@ -270,10 +270,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     switch (pattern) {
       case 'grid':
         // Calculate grid dimensions
-        const totalPhotos = photos?.length || 1;
+        const gridTotalPhotos = photos?.length || 1;
         const aspectRatio = window.innerWidth / window.innerHeight;
-        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
-        const gridHeight = Math.ceil(totalPhotos / gridWidth);
+        const gridWidth = Math.ceil(Math.sqrt(gridTotalPhotos * aspectRatio));
+        const gridHeight = Math.ceil(gridTotalPhotos / gridWidth);
         
         // Calculate position in the wall grid with spacing
         const gridIndex = index;
@@ -322,8 +322,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave':
         // Calculate grid-based position for even distribution
-        const totalPhotos = photos?.length || 1;
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+        const waveTotalPhotos = photos?.length || 1;
+        const gridSize = Math.ceil(Math.sqrt(waveTotalPhotos));
         const waveCol = index % gridSize;
         
         // Center the grid
