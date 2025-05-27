@@ -210,6 +210,16 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   );
 };
 
+// Loading fallback component
+const LoadingFallback: React.FC = () => {
+  return (
+    <mesh position={[0, 0, 0]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="white" />
+    </mesh>
+  );
+};
+
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -321,23 +331,31 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Calculate grid-based position for even distribution
+        // Use floor size to determine distribution area
+        const waveFloorSize = settings.floorSize * 0.8; // Use 80% of floor size for distribution
         const waveTotalPhotos = photos?.length || 1;
-        const gridSize = Math.ceil(Math.sqrt(waveTotalPhotos));
-        const waveCol = index % gridSize;
         
-        // Center the grid
-        const waveXOffset = ((gridSize - 1) * spacing) * -0.5;
-        const zOffset = ((gridSize - 1) * spacing) * -0.5;
+        // Calculate grid size based on number of photos
+        const photosPerSide = Math.ceil(Math.sqrt(waveTotalPhotos));
         
-        // Base position in grid
-        const baseX = waveXOffset + (waveCol * spacing);
-        const waveRow = Math.floor(index / gridSize);
-        const baseZ = zOffset + (waveRow * spacing);
+        // Calculate cell size based on floor size
+        const cellSize = waveFloorSize / photosPerSide;
         
-        // Wave parameters
+        // Calculate grid position (row, column)
+        const waveCol = index % photosPerSide;
+        const waveRow = Math.floor(index / photosPerSide);
+        
+        // Calculate center offset to position grid in the middle of floor
+        const waveXOffset = (waveFloorSize / 2) * -1;
+        const waveZOffset = (waveFloorSize / 2) * -1;
+        
+        // Calculate base position (x, z)
+        const waveX = waveXOffset + (waveCol * cellSize) + (cellSize / 2);
+        const waveZ = waveZOffset + (waveRow * cellSize) + (cellSize / 2);
+        
+        // Wave parameters - scale with floor size
         const baseY = 2; // Base height above floor
-        const waveAmplitude = 1.5;
+        const waveAmplitude = Math.max(1.5, settings.floorSize / 10); // Scale amplitude with floor size
         const waveFrequency = 1;
         
         // Create unique wave phase for each photo based on position
@@ -349,9 +367,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         );
         
         updatePosition(
-          baseX,
+          waveX,
           waveY,
-          baseZ
+          waveZ
         );
         
         mesh.lookAt(camera.position);
