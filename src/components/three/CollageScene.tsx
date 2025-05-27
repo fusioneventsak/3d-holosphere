@@ -465,30 +465,34 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    const totalPhotos = Math.min(photos.length, settings.photoCount);
+    // Calculate total photos and dimensions
+    const totalPhotos = photos.length;
     
-    const aspectRatio = (window.innerWidth / window.innerHeight) * 2; // Increase horizontal spread
+    // Calculate grid dimensions based on aspect ratio
+    const aspectRatio = window.innerWidth / window.innerHeight;
     const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const gridHeight = Math.ceil(totalPhotos / gridWidth);
     
+    // Calculate spacing
     const photoHeight = settings.photoSize * 1.5;
     const verticalSpacing = photoHeight * 1.05;
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    // Base height from floor
-    const baseHeight = 2;
+    // Calculate base height including wall height setting
+    const baseHeight = settings.wallHeight || 2;
     
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
-      // Center grid horizontally
+      // Center the grid horizontally
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
       const x = gridXOffset + (col * horizontalSpacing);
       
-      // Position vertically from bottom up, adjusted by wall height setting
-      const y = baseHeight + settings.wallHeight + (row * verticalSpacing);
+      // Calculate vertical position based on row and wall height
+      const y = baseHeight + (row * verticalSpacing);
       
+      // Keep consistent Z position
       const z = 2;
       
       const position: [number, number, number] = [x, y, z];
