@@ -277,17 +277,17 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate position in the wall grid with spacing
         const gridIndex = index;
-        const row = Math.floor(gridIndex / gridWidth);
+        const gridRow = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
         
         // Center the grid
-        const xOffset = ((gridWidth - 1) * spacing) * -0.5;
-        const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+        const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
+        const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
         
         // Set position in grid
         updatePosition(
-          Math.fround(xOffset + (col * spacing)),
-          Math.fround(yOffset + ((gridHeight - 1 - row) * spacing)),
+          Math.fround(gridXOffset + (col * spacing)),
+          Math.fround(gridYOffset + ((gridHeight - 1 - gridRow) * spacing)),
           2 // Position photos above the floor
         );
         
@@ -322,6 +322,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave':
         // Calculate grid-based position for even distribution
+        const totalPhotos = photos?.length || 1;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const waveCol = index % gridSize;
         
@@ -331,8 +332,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Base position in grid
         const baseX = waveXOffset + (waveCol * spacing);
-        const row = Math.floor(index / gridSize);
-        const baseZ = zOffset + (row * spacing);
+        const waveRow = Math.floor(index / gridSize);
+        const baseZ = zOffset + (waveRow * spacing);
         
         // Wave parameters
         const baseY = 2; // Base height above floor
@@ -340,7 +341,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const waveFrequency = 1;
         
         // Create unique wave phase for each photo based on position
-        const phaseOffset = (waveCol + row) * Math.PI / 2;
+        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
         
         // Calculate wave height
         const waveY = baseY + (
