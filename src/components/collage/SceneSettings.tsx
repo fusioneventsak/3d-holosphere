@@ -99,7 +99,7 @@ const SceneSettings: React.FC = () => {
                   <input
                     type="range"
                     min="-2"
-                    max="8"
+                    max="30"
                     step="0.5"
                     value={settings.cameraHeight}
                     onChange={(e) => updateSettings({ 
@@ -144,14 +144,14 @@ const SceneSettings: React.FC = () => {
                   <select
                     value={settings.animationPattern}
                     onChange={(e) => updateSettings({ 
-                      animationPattern: e.target.value as 'float' | 'wave' | 'spiral' 
+                      animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
                     })}
                     className="w-full bg-black/30 border border-gray-700 rounded-md py-2 px-3 text-white"
                   >
+                    <option value="grid">Grid Wall</option>
                     <option value="float">Float</option>
                     <option value="wave">Wave</option>
                     <option value="spiral">Spiral</option>
-                    <option value="grid">Grid</option>
                   </select>
                 </div>
                 
@@ -207,7 +207,7 @@ const SceneSettings: React.FC = () => {
               </label>
               <input
                 type="range"
-                min="0.5"
+                min="0.1"
                 max="2"
                 step="0.1"
                 value={settings.photoSpacing}

@@ -249,7 +249,7 @@ const LoadingFallback: React.FC = () => {
 };
 
 // Component for individual photo planes
-const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index }) => {
+const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
   const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
@@ -326,11 +326,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           Math.fround(xOffset + (col * spacing)),
           Math.fround(yOffset + ((gridHeight - 1 - row) * spacing)),
-          2 // Position photos above the floor
+          wall === 'back' ? -2 : 2 // Position photos above the floor, front or back
         );
         
         // Keep photos facing forward
-        mesh.rotation.set(0, 0, 0);
+        mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
         break;
         
       case 'float':
@@ -351,7 +351,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           gridX + offsetX,
           floatY,
-          gridZ + offsetZ
+          (wall === 'back' ? -1 : 1) * (gridZ + offsetZ)
         );
         
         // Always face the camera
@@ -389,7 +389,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           baseX,
           waveY,
-          baseZ
+          (wall === 'back' ? -1 : 1) * baseZ
         );
         
         mesh.lookAt(camera.position);
@@ -416,7 +416,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           spiralX,
           Math.max(2, spiralY), // Keep above floor
-          spiralZ
+          (wall === 'back' ? -1 : 1) * spiralZ
         );
         
         mesh.lookAt(camera.position);
@@ -457,23 +457,32 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    // Calculate grid dimensions based on total photos
+    // Calculate total number of photos for display
     const totalPhotos = photos.length;
-    const photosPerWall = Math.ceil(totalPhotos / 2); // Split photos between front and back
+    
+    // Calculate how many photos to show on each side of the wall
+    const photosPerWall = Math.ceil(totalPhotos / 2);
+    
+    // Calculate grid dimensions based on aspect ratio
     const aspectRatio = window.innerWidth / window.innerHeight;
     const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
     const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
-    // Generate props for front wall
+    // Calculate compact spacing for solid wall effect
+    const spacing = settings.photoSize * (1 + settings.photoSpacing * 0.2); // Reduce spacing for solid wall effect
+    
+    // Generate props for front wall photos
     const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
+      
+      // Center the grid
       const gridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const gridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = gridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
+      
+      // Calculate position with minimal randomness for solid wall
+      const x = gridXOffset + (col * spacing);
+      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * spacing));
       
       // Create rotation value separately with let instead of including it directly in the object literal
       let photoRotation = randomRotation();
@@ -494,16 +503,18 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       };
     });
     
-    // Generate props for back wall (mirror of front wall)
+    // Generate props for back wall photos (mirror of front wall)
     const backProps = photos.slice(photosPerWall).map((photo, index) => {
-      const isUserPhoto = !photo.id.startsWith('stock-') && !photo.id.startsWith('empty-');
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
-      const spacing = settings.photoSize * (1 + settings.photoSpacing);
+      
+      // Center the grid
       const backGridXOffset = ((gridWidth - 1) * spacing) * -0.5;
       const backGridYOffset = ((gridHeight - 1) * spacing) * -0.5;
-      const x = backGridXOffset + (col * spacing) + (Math.random() - 0.5) * 0.2;
-      const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing) + (Math.random() - 0.5) * 0.2);
+      
+      // Calculate position with minimal randomness for solid wall
+      const x = backGridXOffset + (col * spacing);
+      const y = Math.max(0, backGridYOffset + ((gridHeight - 1 - row) * spacing));
       
       // Create rotation value separately with let instead of including it directly in the object literal
       let photoRotation = [0, Math.PI, 0] as [number, number, number]; // Rotate to face back
@@ -519,10 +530,50 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index,
+        index: index + photosPerWall,
         wall: 'back' as const
       };
     });
+    
+    // For a solid wall effect, create a grid with equal spacing
+    if (settings.animationPattern === 'grid') {
+      // Recalculate for a more compact grid layout
+      const compactSpacing = settings.photoSize * 1.05; // Very tight spacing
+      
+      // Update front wall positions
+      frontProps.forEach((prop, i) => {
+        const col = i % gridWidth;
+        const row = Math.floor(i / gridWidth);
+        
+        // Center the grid
+        const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
+        const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
+        
+        // Set exact position for solid wall
+        prop.position = [
+          gridXOffset + (col * compactSpacing),
+          gridYOffset + ((gridHeight - 1 - row) * compactSpacing) + 2,
+          2
+        ];
+      });
+      
+      // Update back wall positions
+      backProps.forEach((prop, i) => {
+        const col = i % gridWidth;
+        const row = Math.floor(i / gridWidth);
+        
+        // Center the grid
+        const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
+        const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
+        
+        // Set exact position for solid wall
+        prop.position = [
+          gridXOffset + (col * compactSpacing),
+          gridYOffset + ((gridHeight - 1 - row) * compactSpacing) + 2,
+          -2
+        ];
+      });
+    }
     
     return [...frontProps, ...backProps];
   }, [photos, settings]);

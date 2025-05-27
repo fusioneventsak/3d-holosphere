@@ -64,7 +64,7 @@ const debounce = (fn: Function, ms = 300) => {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   animationSpeed: 0.5,
-  animationEnabled: true,
+  animationEnabled: false,
   useStockPhotos: true,
   photoCount: 50,
   backgroundColor: '#000000',
@@ -76,9 +76,9 @@ const defaultSettings: SceneSettings = {
   cameraDistance: 25,
   cameraRotationEnabled: true,
   cameraRotationSpeed: 0.2,
-  cameraHeight: 2,
+  cameraHeight: 10,
   cameraEnabled: true,
-  spotlightCount: 1,
+  spotlightCount: 2,
   spotlightHeight: 15,
   spotlightDistance: 30,
   spotlightAngle: Math.PI / 6, // 30 degrees default
@@ -100,7 +100,7 @@ const defaultSettings: SceneSettings = {
   gridDivisions: 30,
   gridOpacity: 1.0,
   photoSize: 0.8,
-  photoSpacing: 2.0,
+  photoSpacing: 0.2,
 };
 
 export const useSceneStore = create<SceneState>()(
