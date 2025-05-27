@@ -465,19 +465,23 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
-    const totalPhotos = photos.length;
+    // Calculate total number of photos to display
+    const totalPhotos = Math.min(photos.length, settings.photoCount);
     
     // Calculate grid dimensions based on aspect ratio
     const aspectRatio = window.innerWidth / window.innerHeight;
     const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const gridHeight = Math.ceil(totalPhotos / gridWidth);
     
-    // Calculate spacing for vertical distribution
+    // Calculate photo dimensions and spacing
     const photoHeight = settings.photoSize * 1.5;
-    const verticalGap = photoHeight * 0.05;
-    const verticalSpacing = photoHeight + verticalGap;
-    
+    const verticalSpacing = photoHeight * 1.05; // Slight gap between rows
     const horizontalSpacing = settings.photoSize * 1.05;
+    
+    // Calculate minimum height to keep all photos above floor
+    const totalWallHeight = verticalSpacing * (gridHeight - 1);
+    const baseHeight = 2; // Minimum clearance above floor
+    const startY = (totalWallHeight / 2) + baseHeight;
     
     // Generate props for all photos in a single wall
     return photos.map((photo, index) => {
@@ -486,12 +490,13 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       
       // Center the grid
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       
+      // Calculate position
       const x = gridXOffset + (col * horizontalSpacing);
-      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing) + 3; // Ensure 3 units above floor
+      const y = startY - (row * verticalSpacing);
+      const z = 0;
       
-      const position: [number, number, number] = [x, y, 0];
+      const position: [number, number, number] = [x, y, z];
       const rotation: [number, number, number] = [0, 0, 0];
       
       return {
