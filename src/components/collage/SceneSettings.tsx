@@ -651,81 +651,99 @@ const SceneSettings: React.FC = () => {
             <Grid className="h-4 w-4 mr-2" />
             Grid
           </h4>
+          
           <div className="space-y-4">
-            <div className="flex items-center">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Wall Height</label>
               <input
-                type="checkbox" 
-                checked={settings.gridEnabled}
+                type="range"
+                min="2"
+                max="10"
+                step="0.5"
+                value={settings.wallHeight}
                 onChange={(e) => updateSettings({
-                  gridEnabled: e.target.checked
-                })} 
-                className="mr-2"
+                  wallHeight: parseFloat(e.target.value)
+                })}
+                className="w-full"
               />
-              <label className="text-sm text-gray-400">
-                Show Grid
-              </label>
             </div>
-
-            {settings.gridEnabled && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">Grid Color</label>
-                  <input
-                    type="color"
-                    value={settings.gridColor}
-                    onChange={(e) => updateSettings({
-                      gridColor: e.target.value
-                    })}
-                    className="w-full h-8 rounded cursor-pointer"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs text-gray-500">Grid Size</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="50"
-                    step="5"
-                    value={settings.gridSize}
-                    onChange={(e) => updateSettings({
-                      gridSize: parseFloat(e.target.value)
-                    })}
-                    className="w-full"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs text-gray-500">Grid Divisions</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="50"
-                    step="5"
-                    value={settings.gridDivisions}
-                    onChange={(e) => updateSettings({
-                      gridDivisions: parseFloat(e.target.value)
-                    })}
-                    className="w-full"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs text-gray-500">Grid Opacity</label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={settings.gridOpacity}
-                    onChange={(e) => updateSettings({
-                      gridOpacity: parseFloat(e.target.value)
-                    })}
-                    className="w-full"
-                  />
-                </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox" 
+                  checked={settings.gridEnabled}
+                  onChange={(e) => updateSettings({
+                    gridEnabled: e.target.checked
+                  })} 
+                  className="mr-2"
+                />
+                <label className="text-sm text-gray-400">
+                  Show Grid
+                </label>
               </div>
-            )}
+
+              {settings.gridEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Grid Color</label>
+                    <input
+                      type="color"
+                      value={settings.gridColor}
+                      onChange={(e) => updateSettings({
+                        gridColor: e.target.value
+                      })}
+                      className="w-full h-8 rounded cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500">Grid Size</label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="50"
+                      step="5"
+                      value={settings.gridSize}
+                      onChange={(e) => updateSettings({
+                        gridSize: parseFloat(e.target.value)
+                      })}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500">Grid Divisions</label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="50"
+                      step="5"
+                      value={settings.gridDivisions}
+                      onChange={(e) => updateSettings({
+                        gridDivisions: parseFloat(e.target.value)
+                      })}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-500">Grid Opacity</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={settings.gridOpacity}
+                      onChange={(e) => updateSettings({
+                        gridOpacity: parseFloat(e.target.value)
+                      })}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
