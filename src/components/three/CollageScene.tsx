@@ -686,5 +686,3 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
 };
 
 export default CollageScene;
-
-export default CollageScene;
