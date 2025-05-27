@@ -424,10 +424,12 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
+      {/* First render the floor with a lower renderOrder */}
       <mesh
-        rotation={[Math.PI / 2, 0, 0]}
-        position={[0, -2.001, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -2.01, 0]}
         receiveShadow
+        renderOrder={0}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -442,9 +444,10 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
         />
       </mesh>
       
+      {/* Then render the grid with a higher position and renderOrder */}
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -1.999, 0]}
+          position={[0, -2, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -481,26 +484,70 @@ type CollageSceneProps = {
 
 // Scene setup component
 const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
-  const { scene } = useThree();
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) }
+      },
+      vertexShader: gradientShader.vertexShader,
+      fragmentShader: gradientShader.fragmentShader,
+      depthWrite: false
+    });
+  }, []);
+  
+  useEffect(() => {
+    gradientMaterial.uniforms.colorA.value.set(settings.backgroundGradientStart);
+    gradientMaterial.uniforms.colorB.value.set(settings.backgroundGradientEnd);
+  }, [gradientMaterial, settings.backgroundGradientStart, settings.backgroundGradientEnd]);
+
+  const { camera } = useThree();
 
   useEffect(() => {
-    if (scene) {
-      scene.fog = new THREE.Fog(
-        settings.backgroundColor,
-        settings.fogNear,
-        settings.fogFar
-      );
+    if (camera) {
+      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.updateProjectionMatrix();
     }
-  }, [scene, settings.backgroundColor, settings.fogNear, settings.fogFar]);
+  }, [camera, settings.cameraHeight, settings.cameraDistance]);
 
   return (
     <>
+      {settings.backgroundGradient ? (
+        <mesh position={[0, 0, -1]}>
+          <planeGeometry args={[2, 2]} />
+          <primitive object={gradientMaterial} attach="material" />
+        </mesh>
+      ) : (
+        <color attach="background" args={[settings.backgroundColor]} />
+      )}
       <ambientLight intensity={settings.ambientLightIntensity} />
-      <directionalLight
-        position={[10, 10, 10]}
-        intensity={settings.directionalLightIntensity}
-        castShadow={true}
-      />
+      {Array.from({ length: settings.spotlightCount }).map((_, i) => {
+        const angle = (i / settings.spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * settings.spotlightDistance;
+        const z = Math.sin(angle) * settings.spotlightDistance;
+        const target = new THREE.Object3D();
+        target.position.set(0, -2, 0); // Target the floor
+
+        return (
+          <group key={i}>
+            <primitive object={target} />
+            <spotLight
+              position={[x, settings.spotlightHeight, z]}
+              intensity={settings.spotlightIntensity}
+              power={40}
+              color={settings.spotlightColor}
+             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              decay={1.5}
+              penumbra={settings.spotlightPenumbra}
+             distance={300}
+              target={target}
+              castShadow
+             shadow-mapSize={[2048, 2048]}
+              shadow-bias={-0.001}
+            />
+          </group>
+        );
+      })}
     </>
   );
 };
@@ -563,8 +610,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           {isSceneReady && (
             <>
               <CameraSetup settings={settings} />
-              <Floor settings={settings} />
               <SceneSetup settings={settings} />
+              <Floor settings={settings} />
               
               <OrbitControls 
                 makeDefault
