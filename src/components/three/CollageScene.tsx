@@ -167,7 +167,7 @@ const calculateOptimalFloorDimensions = (photoCount: number, spacing: number, as
 };
 
 // Scene setup component with camera initialization
-const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
+const SceneSetup: React.FC<{ settings: any, pattern: string }> = ({ settings, pattern }) => {
   const gradientMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -189,10 +189,15 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
   useEffect(() => {
     if (camera) {
-      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      // Set higher camera position for grid pattern to see the entire wall
+      if (pattern === 'grid') {
+        camera.position.set(0, settings.cameraHeight * 1.5, settings.cameraDistance * 1.2);
+      } else {
+        camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      }
       camera.updateProjectionMatrix();
     }
-  }, [camera, settings.cameraHeight, settings.cameraDistance]);
+  }, [camera, settings.cameraHeight, settings.cameraDistance, pattern]);
 
   return (
     <>
@@ -375,39 +380,37 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         gridRows = Math.ceil(totalPhotos / gridCols);
         
-        // Adjust spacing based on photoSpacing setting
-        // This is the key change - we map the spacing slider value to an actual spacing factor
-        // The spacing value (0.5 to 2.0) will be directly applied to both x and y
+        // Calculate solid wall effect with minimal spacing
+        // The spacing value now directly controls the gap between photos
         const basePhotoSize = settings.photoSize;
         
-        // Calculate the minimum spacing required to prevent overlap
-        const minSpacing = basePhotoSize * 0.2;
+        // Map photoSpacing to actual spacing (creating a solid wall effect)
+        // At minimum (0.5), photos will be completely adjacent (no gap)
+        // At maximum (2.0), photos will have visible spacing between them
+        const gapMultiplier = Math.max(0, settings.photoSpacing - 0.5) * 2; // 0 at min spacing, 1 at mid spacing, 3 at max spacing
+        const photoGap = basePhotoSize * 0.05 * gapMultiplier; // Very small gap at minimum spacing
         
-        // Calculate effective spacing that ensures photos don't overlap
-        // Map photoSpacing from 0.5-2.0 to a meaningful range
-        // At minimum (0.5), photos will be very close but not overlapping
-        // At maximum (2.0), photos will have significant spacing
-        const spacingFactor = settings.photoSpacing;
-        const effectiveSpacing = basePhotoSize * (0.2 + spacingFactor * 0.8);
+        // Calculate effective photo size with gap
+        const effectivePhotoWidth = basePhotoSize;
+        const effectivePhotoHeight = basePhotoSize * 1.5; // Account for photo aspect ratio
         
         // Position in wall grid
         const col = index % gridCols;
         const row = Math.floor(index / gridCols);
         
-        // Calculate grid dimensions based on spacing
-        const wallWidth = gridCols * (basePhotoSize + effectiveSpacing);
-        const wallHeight = gridRows * (basePhotoSize * 1.5 + effectiveSpacing); // Account for photo aspect ratio
+        // Calculate grid dimensions
+        const wallWidth = gridCols * (effectivePhotoWidth + photoGap);
+        const wallHeight = gridRows * (effectivePhotoHeight + photoGap);
         
         // Center the grid
-        const gridXOffset = (wallWidth / 2) - (basePhotoSize + effectiveSpacing) / 2;
-        const gridYOffset = (wallHeight / 2) - (basePhotoSize * 1.5 + effectiveSpacing) / 2;
+        const gridXOffset = (wallWidth / 2) - (effectivePhotoWidth / 2);
         
         // Ensure bottom row is above floor
-        const bottomRowY = floorLevel + minHeightAboveFloor + basePhotoSize;
+        const bottomRowY = floorLevel + minHeightAboveFloor + (effectivePhotoHeight / 2);
         
-        // Calculate positions with proper spacing in both directions
-        const xPos = gridXOffset - col * (basePhotoSize + effectiveSpacing);
-        const yPos = bottomRowY + row * (basePhotoSize * 1.5 + effectiveSpacing);
+        // Calculate positions with minimal gaps for solid wall effect
+        const xPos = gridXOffset - col * (effectivePhotoWidth + photoGap);
+        const yPos = bottomRowY + row * (effectivePhotoHeight + photoGap);
         const zPos = -5; // Fixed distance behind
         
         // Apply calculated position
@@ -592,8 +595,34 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         // For grid, position above floor in a wall
         const gridRows = Math.ceil(photos.length / cols);
         const gridRow = Math.floor(index / cols);
-        const wallBottomY = floorLevel + minHeightAboveFloor + 2; // Base height for bottom row
-        y = wallBottomY + (gridRow * spacing); // Stack vertically based on row
+        
+        // Calculate grid dimensions
+        const totalPhotos = photos.length;
+        let gridCols;
+        
+        // Dynamic grid sizing based on photo count
+        if (totalPhotos <= 100) {
+          gridCols = Math.ceil(Math.sqrt(totalPhotos));
+        } else {
+          const aspectRatio = 1.5;
+          gridCols = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
+        }
+        
+        const gridRows = Math.ceil(totalPhotos / gridCols);
+        
+        // For solid wall effect, minimal spacing between photos
+        const basePhotoSize = settings.photoSize;
+        const photoHeight = basePhotoSize * 1.5;
+        
+        // Calculate minimal gap (can be zero for perfect grid)
+        const gapMultiplier = Math.max(0, settings.photoSpacing - 0.5) * 2;
+        const photoGap = basePhotoSize * 0.05 * gapMultiplier;
+        
+        // Ensure bottom row is above floor
+        const bottomRowY = floorLevel + minHeightAboveFloor + (photoHeight / 2);
+        
+        // Position in stack based on row
+        y = bottomRowY + (gridRow * (photoHeight + photoGap));
       } else if (settings.animationPattern === 'float') {
         // For float, spread vertically based on index
         y = floorLevel + minHeightAboveFloor + (Math.random() * 20); // Start at random heights above floor
@@ -694,15 +723,21 @@ const Floor: React.FC<{ settings: any, photos: Photo[] }> = ({ settings, photos 
 };
 
 // Camera setup component
-const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
+const CameraSetup: React.FC<{ settings: any, pattern: string }> = ({ settings, pattern }) => {
   const { camera } = useThree();
 
   useEffect(() => {
     if (camera) {
-      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      // Adjust camera height based on pattern
+      if (pattern === 'grid') {
+        // For grid pattern, position camera higher to see the full wall
+        camera.position.set(0, settings.cameraHeight * 2, settings.cameraDistance * 1.2);
+      } else {
+        camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      }
       camera.updateProjectionMatrix();
     }
-  }, [camera, settings.cameraHeight, settings.cameraDistance]);
+  }, [camera, settings.cameraHeight, settings.cameraDistance, pattern]);
 
   return null;
 };
@@ -744,6 +779,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     setTimeout(() => setIsSceneReady(true), 100);
   };
 
+  // Set initial camera position based on pattern
+  const initialCameraHeight = settings.animationPattern === 'grid' 
+    ? settings.cameraHeight * 2 // Higher for grid pattern
+    : settings.cameraHeight;
+    
+  const initialCameraDistance = settings.animationPattern === 'grid'
+    ? settings.cameraDistance * 1.2 // Further back for grid pattern
+    : settings.cameraDistance;
+
   return (
     <div className="w-full h-full">
       <Canvas
@@ -762,15 +806,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
           fov: 60,
           near: 0.1,
           far: 2000,
-          position: [0, settings.cameraHeight, settings.cameraDistance]
+          position: [0, initialCameraHeight, initialCameraDistance]
         }}
         style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
       >
         <React.Suspense fallback={null}>
           {isSceneReady && (
             <>
-            <CameraSetup settings={settings} />
-            <SceneSetup settings={settings} />
+            <CameraSetup settings={settings} pattern={settings.animationPattern} />
+            <SceneSetup settings={settings} pattern={settings.animationPattern} />
             <Floor settings={settings} photos={displayedPhotos} />
             
             <OrbitControls 
