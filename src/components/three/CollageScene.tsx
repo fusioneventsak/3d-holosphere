@@ -375,40 +375,43 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         gridRows = Math.ceil(totalPhotos / gridCols);
         
-        // Calculate spacing - reduce for very large collections
-        let gridSpacing = spacing;
-        if (totalPhotos > 200) {
-          // Gradually reduce spacing as photo count increases
-          const reductionFactor = 1 - (Math.min(totalPhotos, 500) - 200) / 600;
-          gridSpacing = spacing * Math.max(0.5, reductionFactor);
-        }
+        // Adjust spacing based on photoSpacing setting
+        // This is the key change - we map the spacing slider value to an actual spacing factor
+        // The spacing value (0.5 to 2.0) will be directly applied to both x and y
+        const basePhotoSize = settings.photoSize;
+        
+        // Calculate the minimum spacing required to prevent overlap
+        const minSpacing = basePhotoSize * 0.2;
+        
+        // Calculate effective spacing that ensures photos don't overlap
+        // Map photoSpacing from 0.5-2.0 to a meaningful range
+        // At minimum (0.5), photos will be very close but not overlapping
+        // At maximum (2.0), photos will have significant spacing
+        const spacingFactor = settings.photoSpacing;
+        const effectiveSpacing = basePhotoSize * (0.2 + spacingFactor * 0.8);
         
         // Position in wall grid
         const col = index % gridCols;
         const row = Math.floor(index / gridCols);
         
-        // Calculate grid wall size based on the spacing
-        const wallWidth = gridCols * gridSpacing;
-        const wallHeight = gridRows * gridSpacing;
+        // Calculate grid dimensions based on spacing
+        const wallWidth = gridCols * (basePhotoSize + effectiveSpacing);
+        const wallHeight = gridRows * (basePhotoSize * 1.5 + effectiveSpacing); // Account for photo aspect ratio
         
-        // Center the grid on the wall
-        const gridXOffset = (wallWidth / 2) - (gridSpacing / 2);
-        const gridYOffset = (wallHeight / 2) - (gridSpacing / 2);
+        // Center the grid
+        const gridXOffset = (wallWidth / 2) - (basePhotoSize + effectiveSpacing) / 2;
+        const gridYOffset = (wallHeight / 2) - (basePhotoSize * 1.5 + effectiveSpacing) / 2;
         
-        // Calculate the minimum wall height to keep all photos above floor
-        const minimumWallHeight = floorLevel + minHeightAboveFloor + (gridRows * gridSpacing);
+        // Ensure bottom row is above floor
+        const bottomRowY = floorLevel + minHeightAboveFloor + basePhotoSize;
         
-        // Set position for grid pattern (wall of photos)
-        // Ensure the bottom row is always above the floor level
-        const bottomRowY = floorLevel + minHeightAboveFloor + 2; // Add 2 units clearance
-        const wallBottomY = bottomRowY;
-        const rowHeight = gridSpacing;
+        // Calculate positions with proper spacing in both directions
+        const xPos = gridXOffset - col * (basePhotoSize + effectiveSpacing);
+        const yPos = bottomRowY + row * (basePhotoSize * 1.5 + effectiveSpacing);
+        const zPos = -5; // Fixed distance behind
         
-        mesh.position.set(
-          gridXOffset - col * gridSpacing,             // X position (spread horizontally)
-          wallBottomY + row * rowHeight,               // Y position (always above floor)
-          -5                                           // Z position (fixed distance behind)
-        );
+        // Apply calculated position
+        mesh.position.set(xPos, yPos, zPos);
         
         // Face camera directly
         mesh.lookAt(camera.position);
