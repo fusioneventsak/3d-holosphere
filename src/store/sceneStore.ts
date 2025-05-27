@@ -12,9 +12,6 @@ export type SceneSettings = {
   backgroundGradientStart: string;
   backgroundGradientEnd: string;
   backgroundGradientAngle: number;
-  backgroundGradient: boolean;
-  backgroundColorSecondary: string;
-  backgroundGradientAngle: number;
   emptySlotColor: string;
   cameraDistance: number;
   cameraRotationEnabled: boolean;
