@@ -467,10 +467,11 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
   const photoProps = useMemo(() => {
     // Calculate total photos and dimensions
     const totalPhotos = photos.length;
+    const baseAspectRatio = settings.gridAspectRatio;
     
-    // Calculate grid dimensions based on aspect ratio
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
+    // Calculate optimal grid dimensions based on aspect ratio
+    const optimalWidth = Math.sqrt(totalPhotos * baseAspectRatio);
+    const gridWidth = Math.ceil(optimalWidth);
     const gridHeight = Math.ceil(totalPhotos / gridWidth);
     
     // Calculate spacing
@@ -493,7 +494,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const y = settings.wallHeight + (row * verticalSpacing);
       
       // Keep consistent Z position
-      const z = 2;
+      const z = wall === 'back' ? -2 : 2;
       
       const position: [number, number, number] = [x, y, z];
       const rotation: [number, number, number] = [0, 0, 0];
@@ -510,7 +511,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         size: settings.photoSize,
         photos: photos,
         index: index,
-        wall: 'front' as const // Keep single wall designation
+        wall: index % 2 === 0 ? 'front' as const : 'back' as const // Alternate between walls
       };
     });
   }, [photos, settings]);

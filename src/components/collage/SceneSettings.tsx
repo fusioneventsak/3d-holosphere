@@ -174,6 +174,32 @@ const SceneSettings: React.FC = () => {
                   </div>
                 )}
                 
+                {settings.animationPattern === 'grid' && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">
+                        Grid Aspect Ratio
+                      </label>
+                      <input
+                        type="range"
+                        min="0.25"
+                        max="4"
+                        step="0.25"
+                        value={settings.gridAspectRatio}
+                        onChange={(e) => updateSettings({
+                          gridAspectRatio: parseFloat(e.target.value)
+                        })}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Taller</span>
+                        <span>Square</span>
+                        <span>Wider</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
                     Animation Speed

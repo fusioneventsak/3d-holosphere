@@ -8,6 +8,7 @@ export type SceneSettings = {
   useStockPhotos: boolean;
   photoCount: number;
   wallHeight: number;
+  gridAspectRatio: number;
   backgroundColor: string;
   backgroundGradient: boolean;
   backgroundGradientStart: string;
@@ -64,6 +65,7 @@ const defaultSettings: SceneSettings = {
   animationSpeed: 0.5,
   animationEnabled: false,
   useStockPhotos: true,
+  gridAspectRatio: 1.0, // Default to square grid
   photoCount: 50,
   wallHeight: 12, // Increased default wall height for better visibility
   backgroundColor: '#000000',
