@@ -82,6 +82,50 @@ type Photo = {
   url: string;
 };
 
+// Helper function to generate random rotation
+const randomRotation = (): [number, number, number] => {
+  return [0, 0, 0]; // Keep photos straight
+};
+
+// Helper function to generate photo list
+const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
+  const result: Photo[] = [];
+  const userPhotos = photos.slice(0, maxCount);
+  
+  // Calculate number of slots to fill
+  const totalSlots = maxCount;
+  const emptySlots = totalSlots - userPhotos.length;
+  
+  if (useStockPhotos && stockPhotos.length > 0) {
+    // Mix user photos with stock photos
+    result.push(...userPhotos);
+    
+    // Fill remaining slots with stock photos
+    for (let i = 0; i < emptySlots; i++) {
+      result.push({
+        id: `stock-${i}`,
+        url: stockPhotos[i % stockPhotos.length]
+      });
+    }
+  } else {
+    // When stock photos are disabled, put user photos in front
+    // Fill background with empty slots first
+    for (let i = 0; i < emptySlots; i++) {
+      result.push({
+        id: `empty-${i}`,
+        url: ''
+      });
+    }
+    
+    // Then add user photos so they appear in the foreground
+    if (userPhotos.length > 0) {
+      result.push(...userPhotos);
+    }
+  }
+  
+  return result;
+};
+
 type PhotoPlaneProps = {
   url: string;
   position: [number, number, number];
@@ -433,6 +477,32 @@ const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
 type CollageSceneProps = {
   photos: Photo[];
+};
+
+// Scene setup component
+const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    if (scene) {
+      scene.fog = new THREE.Fog(
+        settings.backgroundColor,
+        settings.fogNear,
+        settings.fogFar
+      );
+    }
+  }, [scene, settings.backgroundColor, settings.fogNear, settings.fogFar]);
+
+  return (
+    <>
+      <ambientLight intensity={settings.ambientLightIntensity} />
+      <directionalLight
+        position={[10, 10, 10]}
+        intensity={settings.directionalLightIntensity}
+        castShadow={true}
+      />
+    </>
+  );
 };
 
 // Main scene component
