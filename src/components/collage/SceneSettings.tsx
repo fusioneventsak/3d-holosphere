@@ -657,8 +657,8 @@ const SceneSettings: React.FC = () => {
               <label className="block text-sm text-gray-400 mb-2">Wall Height</label>
               <input
                 type="range"
-                min="2"
-                max="10"
+                min="4"
+                max="20"
                 step="0.5"
                 value={settings.wallHeight}
                 onChange={(e) => updateSettings({
