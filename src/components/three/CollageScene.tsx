@@ -472,8 +472,16 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
     const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
-    // Calculate spacing for wall effect - use extremely tight spacing for solid wall
-    const compactSpacing = settings.photoSize * 1.01; // Super tight spacing for solid wall
+    // Calculate spacing for vertical distribution
+    // For photo height of 1.5 * size, we need at least that much vertical space
+    const photoHeight = settings.photoSize * 1.5;
+    // Add a small gap to prevent overlapping (5% of photo height)
+    const verticalGap = photoHeight * 0.05;
+    const verticalSpacing = photoHeight + verticalGap;
+    
+    // Calculate horizontal spacing
+    // This can be tighter to maintain the wall effect
+    const horizontalSpacing = settings.photoSize * 1.05; // Just a bit wider than the photo
     
     // Generate props for front wall photos
     const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
@@ -481,12 +489,12 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const row = Math.floor(index / gridWidth);
       
       // Center the grid
-      const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
+      const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       
       // Calculate position with no randomness for solid wall
-      const x = gridXOffset + (col * compactSpacing);
-      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * compactSpacing));
+      const x = gridXOffset + (col * horizontalSpacing);
+      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing);
       
       // Create rotation value separately to avoid assignment to constant
       let photoRotation: [number, number, number] = [0, 0, 0]; // Front facing
@@ -513,12 +521,12 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const row = Math.floor(index / gridWidth);
       
       // Center the grid (exact same positioning as front wall)
-      const gridXOffset = ((gridWidth - 1) * compactSpacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * compactSpacing) * -0.5;
+      const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       
       // Calculate position with no randomness for solid wall
-      const x = gridXOffset + (col * compactSpacing);
-      const y = Math.max(0, gridYOffset + ((gridHeight - 1 - row) * compactSpacing));
+      const x = gridXOffset + (col * horizontalSpacing);
+      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing);
       
       // Create rotation value separately to avoid assignment to constant
       let photoRotation: [number, number, number] = [0, Math.PI, 0]; // Back facing
