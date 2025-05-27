@@ -547,7 +547,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index + photosPerWall,
+        index: index + photosPerWall, // Add offset to ensure unique indexing
         wall: 'back' as const
       };
     });
@@ -657,16 +657,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     gl.shadowMap.enabled = true;
     gl.shadowMap.type = THREE.PCFSoftShadowMap;
-    gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFSoftShadowMap;
     gl.setClearColor(0x000000, 0);
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
     
     // Mark scene as ready after a short delay to ensure everything is initialized
     setTimeout(() => setIsSceneReady(true), 100);
-    gl.info.autoReset = true;
-    gl.physicallyCorrectLights = true;
   };
 
   return (
