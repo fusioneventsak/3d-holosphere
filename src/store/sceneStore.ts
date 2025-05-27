@@ -7,6 +7,7 @@ export type SceneSettings = {
   animationEnabled: boolean;
   useStockPhotos: boolean;
   photoCount: number;
+  wallHeight: number;
   backgroundColor: string;
   backgroundGradient: boolean;
   backgroundGradientStart: string;
@@ -64,6 +65,7 @@ const defaultSettings: SceneSettings = {
   animationEnabled: false,
   useStockPhotos: true,
   photoCount: 50,
+  wallHeight: 4, // Default wall height above floor
   backgroundColor: '#000000',
   backgroundGradient: false,
   backgroundGradientStart: '#000000',

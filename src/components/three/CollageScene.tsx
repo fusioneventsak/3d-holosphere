@@ -478,9 +478,9 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const verticalSpacing = photoHeight * 1.05; // Slight gap between rows
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    // Calculate minimum height to keep all photos above floor
-    const totalWallHeight = verticalSpacing * (gridHeight - 1);
-    const baseHeight = 2; // Minimum clearance above floor
+    // Position entire wall at specified height
+    const totalWallHeight = verticalSpacing * gridHeight;
+    const baseHeight = settings.wallHeight; // Use wall height setting
     const startY = (totalWallHeight / 2) + baseHeight;
     
     // Generate props for all photos in a single wall
