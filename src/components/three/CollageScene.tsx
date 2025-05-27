@@ -240,20 +240,19 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
-  // Wave animation specific refs
-  const wavePositionX = useRef<number>(0);
-  const wavePositionZ = useRef<number>(0);
-  const waveAmplitude = useRef<number>(Math.random() * 1 + 0.3); // Random amplitude between 0.3 and 1.3
-  const waveFrequency = useRef<number>(Math.random() * 0.4 + 0.3); // Random frequency between 0.3 and 0.7
+  // Wave position refs
+  const waveDistributionX = useRef<number>(0);
+  const waveDistributionZ = useRef<number>(0);
+  const waveAmplitude = useRef<number>(Math.random() * 1.2 + 0.5); // Random amplitude between 0.5 and 1.7
+  const waveFrequency = useRef<number>(Math.random() * 0.5 + 0.2); // Random frequency between 0.2 and 0.7
   const wavePhaseOffset = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
-  const waveHeightOffset = useRef<number>(Math.random() * 1.5 + 1); // Random base height between 1 and 2.5
+  const waveHeightOffset = useRef<number>(Math.random() * 1.5 + 1.5); // Random base height between 1.5 and 3
   
-  // Reset wave positions when spacing changes to apply spacing effect immediately
+  // Force recalculation of distribution when spacing or floor size changes
   useEffect(() => {
-    // Reset positions to force recalculation with new spacing
-    wavePositionX.current = 0;
-    wavePositionZ.current = 0;
-  }, [settings.photoSpacing]);
+    waveDistributionX.current = 0;
+    waveDistributionZ.current = 0;
+  }, [settings.photoSpacing, settings.floorSize]);
   
   const texture = useMemo(() => {
     if (!url) return null;
@@ -346,58 +345,53 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Use floor size to determine distribution area
-        const floorSize = settings.floorSize;
-        const totalPhotos = photos?.length || 1;
-        
-        // Initialize random positions if not already set
-        if (wavePositionX.current === 0 && wavePositionZ.current === 0) {
-          // Distribute photos across the floor plane based on spacing setting
-          // Higher spacing values = more spread out
-          const distributionArea = floorSize * (0.8 + settings.photoSpacing * 0.8);
+        // Initialize distribution positions if not set
+        if (waveDistributionX.current === 0 && waveDistributionZ.current === 0) {
+          // Use floor size and photo spacing to determine distribution area
+          const distributionArea = settings.floorSize * 0.9; // Use 90% of floor size for distribution
           
-          // Calculate spread based on photo index to ensure even distribution
-          const totalCols = Math.ceil(Math.sqrt(totalPhotos));
+          // Create an even grid distribution
+          const totalCols = Math.ceil(Math.sqrt(photos.length));
           const row = Math.floor(index / totalCols);
           const col = index % totalCols;
           
-          // Create grid with spacing influence
-          const cellSize = distributionArea / totalCols;
-          const xBase = (col - totalCols/2) * cellSize;
-          const zBase = (row - totalCols/2) * cellSize;
+          // Apply spacing to the grid
+          const cellSize = (distributionArea / totalCols) * (1 + settings.photoSpacing * 0.5);
           
-          // Add randomness proportional to spacing
-          const randomFactor = settings.photoSpacing * 0.5;
-          wavePositionX.current = xBase + (Math.random() - 0.5) * cellSize * randomFactor;
-          wavePositionZ.current = zBase + (Math.random() - 0.5) * cellSize * randomFactor;
+          // Center the grid on the floor
+          const halfGrid = (totalCols / 2) * cellSize;
+          const baseX = (col * cellSize) - halfGrid;
+          const baseZ = (row * cellSize) - halfGrid;
+          
+          // Add some controlled randomness
+          const randomAmount = cellSize * 0.3; // 30% of cell size
+          waveDistributionX.current = baseX + (Math.random() - 0.5) * randomAmount;
+          waveDistributionZ.current = baseZ + (Math.random() - 0.5) * randomAmount;
         }
         
-        // Create complex wave motion with multiple frequencies
-        const baseHeight = waveHeightOffset.current; // Random base height
+        // Wave motion calculation
+        const time1 = time.current * waveFrequency.current;
+        const time2 = time.current * (waveFrequency.current * 0.7);
         
-        // Main sine wave
-        const waveY = baseHeight + (
+        // Create complex wave with multiple frequencies
+        const waveY = 2 + // Base height above floor
           // Primary wave
-          Math.sin(time.current * 0.3 + wavePhaseOffset.current) * waveAmplitude.current +
-          // Secondary smaller wave
-          Math.sin(time.current * 0.7 + wavePhaseOffset.current * 2) * (waveAmplitude.current * 0.3) +
-          // Tertiary tiny ripple
-          Math.sin(time.current * 1.2 + wavePhaseOffset.current * 0.5) * (waveAmplitude.current * 0.1)
-        );
+          Math.sin(time1 + wavePhaseOffset.current) * waveAmplitude.current + 
+          // Secondary wave
+          Math.sin(time2 + wavePhaseOffset.current * 2) * (waveAmplitude.current * 0.3);
         
-        // Add subtle movement in X and Z directions for more natural effect
-        // Make drift amount affected by photoSpacing setting
-        const driftScale = 0.2 * (1 + settings.photoSpacing * 0.3);
-        const driftX = Math.sin(time.current * 0.1 + wavePhaseOffset.current) * driftScale;
-        const driftZ = Math.cos(time.current * 0.15 + wavePhaseOffset.current * 1.3) * driftScale;
+        // Apply subtle drift in X and Z for more natural motion
+        const driftScale = 0.15 * (1 + settings.photoSpacing * 0.3);
+        const driftX = Math.sin(time.current * 0.1 + index) * driftScale;
+        const driftZ = Math.cos(time.current * 0.15 + index * 1.3) * driftScale;
         
         updatePosition(
-          wavePositionX.current + driftX,
+          waveDistributionX.current + driftX,
           waveY,
-          wavePositionZ.current + driftZ
+          waveDistributionZ.current + driftZ
         );
         
-        // Always face the camera instead of tilting with the wave
+        // Always face the camera
         mesh.lookAt(camera.position);
         break;
         
