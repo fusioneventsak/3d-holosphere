@@ -324,14 +324,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Calculate grid-based position for even distribution
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const waveCol = index % gridSize;
-        const spacing = settings.photoSize * (1 + settings.photoSpacing);
         
         // Center the grid
-        const xOffset = ((gridSize - 1) * spacing) * -0.5;
+        const waveXOffset = ((gridSize - 1) * spacing) * -0.5;
         const zOffset = ((gridSize - 1) * spacing) * -0.5;
         
         // Base position in grid
-        const baseX = xOffset + (waveCol * spacing);
+        const baseX = waveXOffset + (waveCol * spacing);
         const row = Math.floor(index / gridSize);
         const baseZ = zOffset + (row * spacing);
         
