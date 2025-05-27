@@ -240,6 +240,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
+  // Random wave animation properties (unique to each photo)
+  const waveFrequency = useRef<number>(0.5 + Math.random() * 1.5); // Random frequency between 0.5-2.0
+  const wavePhase = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
+  const secondaryWaveAmplitude = useRef<number>(0.3 + Math.random() * 0.7); // Secondary wave amplitude
+  const secondaryWaveFrequency = useRef<number>(0.3 + Math.random() * 0.5); // Secondary wave frequency
+  const waveHeightOffset = useRef<number>(3 + Math.random() * 4); // Random base height (3-7 units above floor)
+  
   const texture = useMemo(() => {
     if (!url) return null;
     return loadTexture(url);
@@ -350,21 +357,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const waveZOffset = (waveFloorSize / 2) * -1;
         
         // Calculate base position (x, z)
-        const waveX = waveXOffset + (waveCol * cellSize) + (cellSize / 2);
-        const waveZ = waveZOffset + (waveRow * cellSize) + (cellSize / 2);
+        const waveX = waveXOffset + (waveCol * cellSize) + (cellSize / 2) + (Math.random() - 0.5) * (cellSize * 0.3);
+        const waveZ = waveZOffset + (waveRow * cellSize) + (cellSize / 2) + (Math.random() - 0.5) * (cellSize * 0.3);
         
         // Wave parameters - scale with floor size
-        const baseY = 2; // Base height above floor
+        const minHeight = 3; // Ensure photos never go below floor
         const waveAmplitude = Math.max(1.5, settings.floorSize / 10); // Scale amplitude with floor size
-        const waveFrequency = 1;
         
-        // Create unique wave phase for each photo based on position
-        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
+        // Complex wave motion combining multiple sine waves with different frequencies and phases
+        // Primary wave
+        const primaryWave = Math.sin(time.current * speed * waveFrequency.current + wavePhase.current) * waveAmplitude;
         
-        // Calculate wave height
-        const waveY = baseY + (
-          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
-        );
+        // Secondary wave (higher frequency, lower amplitude)
+        const secondaryWave = Math.sin(time.current * speed * secondaryWaveFrequency.current * 3 + wavePhase.current * 2) 
+          * waveAmplitude * secondaryWaveAmplitude.current;
+          
+        // Third harmonic wave (very subtle)
+        const tertiaryWave = Math.sin(time.current * speed * 5 + waveCol * 0.5) * 0.3;
+        
+        // Combine waves
+        const waveY = minHeight + waveHeightOffset.current + primaryWave + secondaryWave + tertiaryWave;
         
         updatePosition(
           waveX,
@@ -372,7 +384,17 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           waveZ
         );
         
-        mesh.lookAt(camera.position);
+        // Slightly tilt photos based on wave motion
+        const tiltX = Math.sin(time.current * speed * 0.5 + wavePhase.current) * 0.1;
+        const tiltZ = Math.cos(time.current * speed * 0.3 + wavePhase.current) * 0.1;
+        mesh.rotation.set(tiltX, 0, tiltZ);
+        
+        // Gently rotate to face the camera, but not completely
+        const lookAtVector = new THREE.Vector3().copy(camera.position).sub(mesh.position).normalize();
+        const currentDirection = new THREE.Vector3(0, 0, 1).applyQuaternion(mesh.quaternion);
+        const targetQuaternion = new THREE.Quaternion().setFromUnitVectors(currentDirection, lookAtVector);
+        mesh.quaternion.slerp(targetQuaternion, 0.03);
+        
         break;
         
       case 'spiral':
