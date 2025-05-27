@@ -248,6 +248,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const wavePhaseOffset = useRef<number>(Math.random() * Math.PI * 2); // Random phase offset
   const waveHeightOffset = useRef<number>(Math.random() * 1.5 + 1); // Random base height between 1 and 2.5
   
+  // Reset wave positions when spacing changes to apply spacing effect immediately
+  useEffect(() => {
+    // Reset positions to force recalculation with new spacing
+    wavePositionX.current = 0;
+    wavePositionZ.current = 0;
+  }, [settings.photoSpacing]);
+  
   const texture = useMemo(() => {
     if (!url) return null;
     return loadTexture(url);
@@ -345,12 +352,24 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Initialize random positions if not already set
         if (wavePositionX.current === 0 && wavePositionZ.current === 0) {
-          // Random positions within the floor bounds, but with some padding from edges
-          // Apply photoSpacing to control how spread out the photos are
-          const padding = floorSize * 0.1;
-          const distributionArea = floorSize * (0.5 + settings.photoSpacing * 0.5); // Make distribution area affected by spacing
-          wavePositionX.current = (Math.random() * distributionArea - distributionArea/2);
-          wavePositionZ.current = (Math.random() * distributionArea - distributionArea/2);
+          // Distribute photos across the floor plane based on spacing setting
+          // Higher spacing values = more spread out
+          const distributionArea = floorSize * (0.8 + settings.photoSpacing * 0.8);
+          
+          // Calculate spread based on photo index to ensure even distribution
+          const totalCols = Math.ceil(Math.sqrt(totalPhotos));
+          const row = Math.floor(index / totalCols);
+          const col = index % totalCols;
+          
+          // Create grid with spacing influence
+          const cellSize = distributionArea / totalCols;
+          const xBase = (col - totalCols/2) * cellSize;
+          const zBase = (row - totalCols/2) * cellSize;
+          
+          // Add randomness proportional to spacing
+          const randomFactor = settings.photoSpacing * 0.5;
+          wavePositionX.current = xBase + (Math.random() - 0.5) * cellSize * randomFactor;
+          wavePositionZ.current = zBase + (Math.random() - 0.5) * cellSize * randomFactor;
         }
         
         // Create complex wave motion with multiple frequencies
