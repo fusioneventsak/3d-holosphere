@@ -493,8 +493,11 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       // Calculate vertical position starting from the bottom of the wall
       const y = settings.wallHeight + (row * verticalSpacing);
       
-      // Keep consistent Z position
-      const z = wall === 'back' ? -2 : 2;
+      // Determine wall placement
+      const currentWall = index % 2 === 0 ? 'front' as const : 'back' as const;
+      
+      // Keep consistent Z position based on wall
+      const z = currentWall === 'back' ? -2 : 2;
       
       const position: [number, number, number] = [x, y, z];
       const rotation: [number, number, number] = [0, 0, 0];
@@ -511,7 +514,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         size: settings.photoSize,
         photos: photos,
         index: index,
-        wall: index % 2 === 0 ? 'front' as const : 'back' as const // Alternate between walls
+        wall: currentWall
       };
     });
   }, [photos, settings]);
