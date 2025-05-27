@@ -148,12 +148,31 @@ const SceneSettings: React.FC = () => {
                     })}
                     className="w-full bg-black/30 border border-gray-700 rounded-md py-2 px-3 text-white"
                   >
-                    <option value="grid">Grid Wall</option>
+                    <option value="grid">Photo Wall</option>
                     <option value="float">Float</option>
                     <option value="wave">Wave</option>
                     <option value="spiral">Spiral</option>
                   </select>
                 </div>
+                
+                {settings.animationPattern === 'grid' && (
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">
+                      Wall Height
+                    </label>
+                    <input
+                      type="range"
+                      min="2"
+                      max="20"
+                      step="0.5"
+                      value={settings.wallHeight}
+                      onChange={(e) => updateSettings({
+                        wallHeight: parseFloat(e.target.value)
+                      })}
+                      className="w-full"
+                    />
+                  </div>
+                )}
                 
                 <div>
                   <label className="block text-sm text-gray-400 mb-2">
@@ -653,21 +672,6 @@ const SceneSettings: React.FC = () => {
           </h4>
           
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">Wall Height</label>
-              <input
-                type="range"
-                min="4"
-                max="20"
-                step="0.5"
-                value={settings.wallHeight}
-                onChange={(e) => updateSettings({
-                  wallHeight: parseFloat(e.target.value)
-                })}
-                className="w-full"
-              />
-            </div>
-            
             <div className="space-y-4">
               <div className="flex items-center">
                 <input
