@@ -465,20 +465,30 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 // Photos container component
 const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
   const photoProps = useMemo(() => {
+    // Calculate total number of photos for display
+    const totalPhotos = photos.length;
+    
+    // Calculate how many photos to show on each side of the wall
+    const photosPerWall = Math.ceil(totalPhotos / 2);
+    
     // Calculate grid dimensions based on aspect ratio
     const aspectRatio = window.innerWidth / window.innerHeight;
-    const gridWidth = Math.ceil(Math.sqrt(photos.length * aspectRatio));
-    const gridHeight = Math.ceil(photos.length / gridWidth);
+    const gridWidth = Math.ceil(Math.sqrt(photosPerWall * aspectRatio));
+    const gridHeight = Math.ceil(photosPerWall / gridWidth);
     
     // Calculate spacing for vertical distribution
+    // For photo height of 1.5 * size, we need at least that much vertical space
     const photoHeight = settings.photoSize * 1.5;
+    // Add a small gap to prevent overlapping (5% of photo height)
     const verticalGap = photoHeight * 0.05;
     const verticalSpacing = photoHeight + verticalGap;
     
+    // Calculate horizontal spacing
+    // This can be tighter to maintain the wall effect
     const horizontalSpacing = settings.photoSize * 1.05; // Just a bit wider than the photo
     
-    // Generate props for all photos in a single wall
-    return photos.map((photo, index) => {
+    // Generate props for front wall photos
+    const frontProps = photos.slice(0, photosPerWall).map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
@@ -486,26 +496,63 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
       const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       
+      // Calculate position with no randomness for solid wall
       const x = gridXOffset + (col * horizontalSpacing);
-      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing) + 3; // Ensure minimum height above floor
+      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing);
       
-      const position: [number, number, number] = [x, y, 2]; // All photos on same Z plane
-      const rotation: [number, number, number] = [0, 0, 0];
+      // Create rotation value separately to avoid assignment to constant
+      let photoRotation: [number, number, number] = [0, 0, 0]; // Front facing
       
       return {
         key: photo.id,
         url: photo.url,
-        position,
-        rotation,
+        position: [x, y + 2, 2] as [number, number, number], // Position 2 units above floor
+        rotation: photoRotation,
         pattern: settings.animationPattern,
         speed: settings.animationSpeed,
         animationEnabled: settings.animationEnabled,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index
+        index: index,
+        wall: 'front' as const
       };
     });
+    
+    // Generate props for back wall photos (perfect mirror of front wall)
+    const backProps = photos.slice(photosPerWall).map((photo, index) => {
+      const col = index % gridWidth;
+      const row = Math.floor(index / gridWidth);
+      
+      // Center the grid (exact same positioning as front wall)
+      const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
+      
+      // Calculate position with no randomness for solid wall
+      const x = gridXOffset + (col * horizontalSpacing);
+      const y = gridYOffset + ((gridHeight - 1 - row) * verticalSpacing);
+      
+      // Create rotation value separately to avoid assignment to constant
+      let photoRotation: [number, number, number] = [0, Math.PI, 0]; // Back facing
+      
+      return {
+        key: `back-${photo.id}`,
+        url: photo.url,
+        // Critical: Position 2 units above floor, negative Z for back wall
+        position: [x, y + 2, -2] as [number, number, number],
+        rotation: photoRotation,
+        pattern: settings.animationPattern,
+        speed: settings.animationSpeed,
+        animationEnabled: settings.animationEnabled,
+        settings: settings,
+        size: settings.photoSize,
+        photos: photos,
+        index: index + photosPerWall, // Add offset to ensure unique indexing
+        wall: 'back' as const
+      };
+    });
+    
+    return [...frontProps, ...backProps];
   }, [photos, settings]);
 
   return (
@@ -680,3 +727,5 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
 };
 
 export default CollageScene;
+
+export default CollageScene
