@@ -412,8 +412,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Calculate Y position (continuous upward motion)
         // Map progress from 0-1 to a height range (-2 to 20)
         const minHeight = -2; // Start below the floor
-        const maxHeight = 20; // Maximum height
-        const floatY = minHeight + (maxHeight - minHeight) * floatProgress.current;
+        const floatMaxHeight = 20; // Maximum height
+        const floatY = minHeight + (floatMaxHeight - minHeight) * floatProgress.current;
         
         // Update position with continuous upward motion
         mesh.position.set(
@@ -457,7 +457,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // SPIRAL PATTERN: Spiral animation
         // ----------------------------------------
         // Spiral parameters
-        const maxHeight = 15;
+        const spiralMaxHeight = 15;
         const spiralRadius = Math.sqrt(photos.length) * (1 + settings.photoSpacing * 0.5);
         const verticalSpeed = speed * 0.5;
         const rotationSpeed = speed * 2;
@@ -470,7 +470,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const progress = t / (Math.PI * 2);
         const currentRadius = spiralRadius * (1 - progress);
         const spiralX = Math.cos(spiralAngle) * currentRadius * 2;
-        const spiralY = maxHeight * (1 - progress);
+        const spiralY = spiralMaxHeight * (1 - progress);
         const spiralZ = Math.sin(spiralAngle) * currentRadius * 2;
         
         // Update position for spiral
