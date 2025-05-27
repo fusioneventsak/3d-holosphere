@@ -467,34 +467,28 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
   const photoProps = useMemo(() => {
     const totalPhotos = Math.min(photos.length, settings.photoCount);
     
-    // Calculate dimensions prioritizing width over height
     const aspectRatio = (window.innerWidth / window.innerHeight) * 2; // Increase horizontal spread
     const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const gridHeight = Math.ceil(totalPhotos / gridWidth);
-    
     
     const photoHeight = settings.photoSize * 1.5;
     const verticalSpacing = photoHeight * 1.05;
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    // Calculate total wall height needed
-    const totalWallHeight = gridHeight * verticalSpacing;
-    
-    // Ensure wall starts at floor level and extends upward
-    const floorLevel = 2; // Distance above floor
+    // Base height from floor
+    const baseHeight = 2;
     
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
-      // Center horizontally
+      // Center grid horizontally
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
       const x = gridXOffset + (col * horizontalSpacing);
       
-      // Position vertically from bottom up
-      const y = floorLevel + (gridHeight - 1 - row) * verticalSpacing;
+      // Position vertically from bottom up, adjusted by wall height setting
+      const y = baseHeight + settings.wallHeight + (row * verticalSpacing);
       
-      // Keep consistent Z position
       const z = 2;
       
       const position: [number, number, number] = [x, y, z];
