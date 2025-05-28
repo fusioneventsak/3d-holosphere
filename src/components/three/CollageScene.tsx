@@ -327,20 +327,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate vertical position with continuous upward motion
         const maxHeight = settings.cameraHeight * 1.5;
-        const cycleHeight = maxHeight + Math.abs(baseHeight);
+        const cycleHeight = maxHeight + Math.abs(baseHeight) * 0.5; // Reduced cycle height for faster loops
         const verticalSpeed = settings.animationSpeed * 2;
         
         // Calculate current height using time and offset
         let y = baseHeight + ((time.current * verticalSpeed + floatYOffset.current) % cycleHeight);
         
         // Reset position when reaching max height
-        if (y >= maxHeight * 0.6) { // Start resetting earlier to maintain flow
+        if (y >= maxHeight * 0.4) { // Reset earlier for more continuous flow
           // Reset to bottom with new random horizontal position
           floatX.current = (Math.random() * 2 - 1) * floorRange;
           floatZ.current = (Math.random() * 2 - 1) * floorRange;
           y = baseHeight;
           // Reset offset for continuous flow
-          floatYOffset.current = Math.random() * 10; // Reduced range for tighter grouping
+          floatYOffset.current = Math.random() * 5; // Even tighter grouping
         }
         
         // Update position
