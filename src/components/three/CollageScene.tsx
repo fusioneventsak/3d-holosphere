@@ -235,8 +235,11 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const initialPosition = useRef<{x: number, z: number} | null>(null);
-  const floatOffset = useRef<number>(Math.random() * Math.PI * 2);
+  const initialPosition = useRef<{x: number, y: number, z: number}>({
+    x: (Math.random() - 0.5) * settings.floorSize * 0.8,
+    y: -10 - Math.random() * 10, // Start below floor at staggered heights
+    z: (Math.random() - 0.5) * settings.floorSize * 0.8
+  });
   const time = useRef<number>(0);
   const { camera } = useThree();
   
@@ -316,50 +319,38 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Initialize random positions if not set
-        const floorRange = settings.floorSize * 0.4;
-        if (!initialPosition.current) {
-          const angle = (index / totalPhotos) * Math.PI * 2;
+        const maxHeight = settings.cameraHeight * 2;
+        const verticalSpeed = settings.animationSpeed * 20;
+        
+        // Update position
+        initialPosition.current.y += verticalSpeed * delta;
+        
+        // Reset when photo reaches max height
+        if (initialPosition.current.y > maxHeight) {
+          const floorRange = settings.floorSize * 0.4;
           initialPosition.current = {
-            x: Math.cos(angle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5),
-            z: Math.sin(angle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5)
+            x: (Math.random() - 0.5) * floorRange,
+            y: -10 - Math.random() * 10, // Stagger start heights
+            z: (Math.random() - 0.5) * floorRange
           };
         }
         
-        const maxHeight = settings.cameraHeight * 1.5;
-        const cycleHeight = maxHeight + Math.abs(baseHeight);
-        const verticalSpeed = settings.animationSpeed * 1.5;
-        
-        // Calculate phase for this photo
-        const phase = (time.current * verticalSpeed + floatOffset.current) % (Math.PI * 2);
-        let y = baseHeight + (Math.sin(phase) * 0.5 + 0.5) * cycleHeight;
-        
-        // Add subtle horizontal movement
-        const wobbleAmount = 0.5;
-        const wobbleSpeed = 0.2;
-        const xOffset = Math.sin(time.current * wobbleSpeed + floatOffset.current) * wobbleAmount;
-        const zOffset = Math.cos(time.current * wobbleSpeed + floatOffset.current) * wobbleAmount;
-        
-        // Reset when reaching the top
-        if (phase > Math.PI) {
-          const newAngle = (index / totalPhotos) * Math.PI * 2 + Math.random() * Math.PI * 0.5;
-          initialPosition.current = {
-            x: Math.cos(newAngle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5),
-            z: Math.sin(newAngle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5)
-          };
-        }
+        // Add subtle drift
+        const driftAmount = 0.3;
+        const driftSpeed = 0.5;
+        const xDrift = Math.sin(time.current * driftSpeed + index) * driftAmount;
+        const zDrift = Math.cos(time.current * driftSpeed + index) * driftAmount;
         
         updatePosition(
-          initialPosition.current.x + xOffset,
-          y,
-          initialPosition.current.z + zOffset
+          initialPosition.current.x + xDrift,
+          initialPosition.current.y,
+          initialPosition.current.z + zDrift
         );
         
         // Always face camera
         const lookAtPos = camera.position.clone();
         lookAtPos.y = mesh.position.y; // Keep vertical alignment consistent
         mesh.lookAt(lookAtPos);
-        
         break;
       }
         
