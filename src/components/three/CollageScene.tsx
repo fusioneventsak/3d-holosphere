@@ -237,7 +237,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const floatX = useRef<number | null>(null);
   const floatZ = useRef<number | null>(null);
-  const floatYOffset = useRef<number>(Math.random() * 10); // Random initial height offset
+  const floatYOffset = useRef<number>(Math.random() * 20); // Increased offset range for better distribution
+  const floatStartDelay = useRef<number>(Math.random() * 5); // Random start delay for each photo
   const time = useRef<number>(0);
   const { camera } = useThree();
   
@@ -318,27 +319,35 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'float': {
         // Initialize random positions if not set
+        const floorRange = settings.floorSize * 0.45; // Use 90% of floor size
         if (floatX.current === null || floatZ.current === null) {
-          const floorRange = settings.floorSize * 0.45; // Use 90% of floor size
           floatX.current = (Math.random() * 2 - 1) * floorRange;
           floatZ.current = (Math.random() * 2 - 1) * floorRange;
+        }
+        
+        // Wait for start delay
+        if (time.current < floatStartDelay.current) {
+          updatePosition(floatX.current, baseHeight, floatZ.current);
+          return;
         }
         
         // Calculate vertical position with continuous upward motion
         const maxHeight = settings.cameraHeight * 1.5;
         const cycleHeight = maxHeight + Math.abs(baseHeight);
-        const verticalSpeed = settings.animationSpeed * 2;
+        const verticalSpeed = settings.animationSpeed * 1.5;
         
         // Calculate current height using time and offset
-        let y = baseHeight + ((time.current * verticalSpeed + floatYOffset.current) % cycleHeight);
+        const adjustedTime = time.current - floatStartDelay.current;
+        let y = baseHeight + ((adjustedTime * verticalSpeed + floatYOffset.current) % cycleHeight);
         
         // Reset position when reaching max height
         if (y >= maxHeight) {
           // Reset to bottom with new random horizontal position
-          const floorRange = settings.floorSize * 0.45;
           floatX.current = (Math.random() * 2 - 1) * floorRange;
           floatZ.current = (Math.random() * 2 - 1) * floorRange;
           y = baseHeight;
+          // Reset offset for continuous flow
+          floatYOffset.current = Math.random() * 20;
         }
         
         // Update position
