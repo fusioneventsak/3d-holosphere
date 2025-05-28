@@ -272,6 +272,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     const rows = Math.ceil(Math.sqrt(totalPhotos));
 
+    // Get base coordinates from initialPosition
+    const [baseX, baseY, baseZ] = initialPosition.current;
+
     switch (pattern) {
       case 'grid': {
         // Grid case scope
@@ -318,7 +321,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const verticalRange = settings.cameraHeight * 0.4;
         const floatY = baseHeight + Math.sin(phase) * verticalRange;
         
-        // Calculate drift motion
+        // Calculate drift motion using baseX and baseZ from initialPosition
         const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2);
         const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2);
         
