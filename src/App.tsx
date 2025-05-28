@@ -8,6 +8,7 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
+import CollageModerationPage from './pages/CollageModerationPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/collage/:code" element={<CollageViewerPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
+        <Route path="/moderation/:id" element={<CollageModerationPage />} />
       </Routes>
     </Router>
   );

@@ -25,6 +25,7 @@ type CollageState = {
   photos: Photo[];
   loading: boolean;
   error: string | null;
+  deletePhoto: (photoId: string) => Promise<void>;
   subscribeToPhotos: (collageId: string) => () => void;
   
   fetchCollages: () => Promise<void>;
@@ -47,15 +48,22 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       .channel(`photos:${collageId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'photos',
-          filter: `collage_id=eq.${collageId}`
-        },
+        [
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'photos',
+            filter: `collage_id=eq.${collageId}`
+          },
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'photos',
+            filter: `collage_id=eq.${collageId}`
+          }
+        ],
         async (payload) => {
-          const newPhoto = payload.new as Photo;
-          console.log('New photo received:', newPhoto);
+          console.log('Photo change received:', payload);
           
           // Fetch the latest photos to ensure correct order
           const { data, error } = await supabase
@@ -77,6 +85,52 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     return () => {
       subscription.unsubscribe();
     };
+  },
+
+  deletePhoto: async (photoId: string) => {
+    set({ loading: true, error: null });
+    try {
+      // First get the photo details to get the storage path
+      const { data: photo, error: fetchError } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('id', photoId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Extract storage path from URL
+      const url = new URL(photo.url);
+      const storagePath = url.pathname.split('/').slice(-2).join('/');
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('photos')
+        .remove([storagePath]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: deleteError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', photoId);
+
+      if (deleteError) throw deleteError;
+
+      // Update local state
+      set(state => ({
+        photos: state.photos.filter(p => p.id !== photoId),
+        loading: false,
+        error: null
+      }));
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'Failed to delete photo',
+        loading: false
+      });
+      throw error;
+    }
   },
 
   fetchCollages: async () => {
