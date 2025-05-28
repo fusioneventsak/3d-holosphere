@@ -578,24 +578,10 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <>
-      {settings.gridEnabled && isGridReady && (
-        <Grid
-          position={[0, 0, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={settings.gridColor}
-          sectionSize={3}
-          fadeDistance={settings.gridSize}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-        />
-      )}
+    <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, 0, 0]}
+        position={[0, -0.01, 0]}
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
@@ -611,7 +597,22 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           polygonOffsetFactor={-1}
         />
       </mesh>
-    </>
+      
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, 0.01, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={settings.gridSize}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
+    </group>
   );
 };
 
