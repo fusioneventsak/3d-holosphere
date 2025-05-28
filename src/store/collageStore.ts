@@ -133,12 +133,19 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('You must be logged in to create a collage');
+      }
+
       const code = nanoid(6).toLowerCase();
       
       const newCollage = {
         name,
         code,
-        user_id: null, // Remove user_id requirement
+        user_id: user.id
       };
 
       const { data, error } = await supabase
