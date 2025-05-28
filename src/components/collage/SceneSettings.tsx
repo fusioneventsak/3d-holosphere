@@ -208,7 +208,7 @@ const SceneSettings: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Floor Size
+                Floor Size: {settings.floorSize}
               </label>
               <input
                 type="range"
@@ -534,12 +534,27 @@ const SceneSettings: React.FC = () => {
                   <label className="block text-xs text-gray-400">Grid Size</label>
                   <input
                     type="range"
-                    min="10"
-                    max="50"
+                    min="20"
+                    max="200"
                     step="5"
                     value={settings.gridSize}
                     onChange={(e) => updateSettings({
                       gridSize: parseFloat(e.target.value)
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs text-gray-400">Grid Divisions</label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={settings.gridDivisions}
+                    onChange={(e) => updateSettings({
+                      gridDivisions: parseFloat(e.target.value)
                     })}
                     className="w-full bg-gray-800"
                   />

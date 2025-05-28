@@ -575,12 +575,12 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
       {settings.gridEnabled && isGridReady && (
         <Grid
           position={[0, -2, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
+          args={[settings.floorSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
           cellColor={settings.gridColor}
           sectionSize={3}
-          fadeDistance={30}
+          fadeDistance={settings.floorSize}
           fadeStrength={1}
           followCamera={false}
           infiniteGrid={false}
