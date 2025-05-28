@@ -237,20 +237,22 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const startDelay = useRef<number>(Math.random() * 2 * Math.PI);
   const time = useRef<number>(0);
-  const lastPattern = useRef<string>(pattern);
+  const patternRef = useRef<string>(pattern);
   const initialPosition = useRef({
     x: (Math.random() - 0.5) * settings.floorSize * 0.5,
     y: Math.random() * settings.cameraHeight * 0.5,
     z: (Math.random() - 0.5) * settings.floorSize * 0.5
   });
+  const transitionProgress = useRef<number>(0);
   const { camera, scene } = useThree();
   
   // Reset animation when pattern changes
   useEffect(() => {
-    if (lastPattern.current !== pattern) {
+    if (patternRef.current !== pattern) {
       time.current = 0;
+      transitionProgress.current = 0;
       startDelay.current = Math.random() * 2 * Math.PI;
-      lastPattern.current = pattern;
+      patternRef.current = pattern;
       
       // Reset initial position for new pattern
       initialPosition.current = {
@@ -275,6 +277,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   useFrame((state, delta) => {
     if (!meshRef.current || !animationEnabled || !camera) return;
     
+    // Handle pattern transition
+    if (transitionProgress.current < 1) {
+      transitionProgress.current = Math.min(1, transitionProgress.current + delta * 2);
+    }
+    
     const baseHeight = 4; // Minimum height above floor
     
     // Use consistent time steps for animations
@@ -282,7 +289,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     time.current = Math.fround(time.current + timeStep);
     
     const mesh = meshRef.current;
-    const phase = time.current + startDelay.current;
+    const phase = time.current + startDelay.current * transitionProgress.current;
 
     const totalPhotos = settings.photoCount;
     const { x: baseX, y: baseY, z: baseZ } = initialPosition.current;
@@ -331,11 +338,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
-        const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange;
+        const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange * transitionProgress.current;
         
         // Calculate drift motion using baseX and baseZ from initialPosition
-        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2);
-        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2);
+        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * transitionProgress.current;
+        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * transitionProgress.current;
         
         mesh.position.set(
           driftX,
@@ -366,11 +373,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Calculate wave motion
         const distance = Math.sqrt(xPos * xPos + zPos * zPos);
         const wavePhase = phase * 0.8 + distance * 0.1;
-        const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude + baseY * 0.3;
+        const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude * transitionProgress.current + baseY * 0.3;
         
         // Add slight circular motion
-        const circleX = Math.sin(phase * 0.2) * gridSpacing * 0.1;
-        const circleZ = Math.cos(phase * 0.2) * gridSpacing * 0.1;
+        const circleX = Math.sin(phase * 0.2) * gridSpacing * 0.1 * transitionProgress.current;
+        const circleZ = Math.cos(phase * 0.2) * gridSpacing * 0.1 * transitionProgress.current;
         
         mesh.position.set(
           xPos + circleX,
@@ -392,14 +399,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const heightStep = maxHeight / totalPhotos;
         
         const angle = (index * angleStep) + (phase * settings.animationSpeed);
-        const height = maxHeight - (index * heightStep);
-        const radius = maxRadius * (1 - (index / totalPhotos));
+        const height = (maxHeight - (index * heightStep)) * transitionProgress.current;
+        const radius = maxRadius * (1 - (index / totalPhotos)) * transitionProgress.current;
         
         const spiralX = Math.fround(Math.cos(angle) * radius + baseX * 0.1);
         const spiralZ = Math.fround(Math.sin(angle) * radius + baseZ * 0.1);
         
         // Add vertical oscillation
-        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2;
+        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2 * transitionProgress.current;
         
         mesh.position.set(
           spiralX,
