@@ -232,6 +232,8 @@ const LoadingFallback: React.FC = () => {
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const floatYOffset = useRef<number | null>(null);
+  const startDelay = useRef<number>(Math.random() * 5);
+  const elapsedTime = useRef<number>(0);
   const time = useRef<number>(0);
   const { camera } = useThree();
   
@@ -277,6 +279,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     switch (pattern) {
       case 'grid':
+        // Grid case scope
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
@@ -313,8 +316,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Set rotation based on wall
         mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
         break;
+      }
         
-      case 'float':
+      case 'float': {
+        // Float case scope
         // Define float animation boundaries
         const floatMinY = -settings.floorSize / 2; // Start well below floor
         const floatMaxY = settings.cameraHeight + 20; // End above camera
@@ -350,8 +355,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Always face the camera
         mesh.lookAt(camera.position);
         break;
+      }
         
-      case 'wave':
+      case 'wave': {
+        // Wave case scope
         // Calculate distribution across floor plane
         const totalArea = settings.floorSize * settings.floorSize;
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
@@ -385,8 +392,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         mesh.lookAt(camera.position);
         break;
+      }
         
-      case 'spiral':
+      case 'spiral': {
+        // Spiral case scope
         // Spiral parameters
         const maxHeight = 15;
         const spiralRadius = Math.sqrt(photos.length);
@@ -412,6 +421,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         mesh.lookAt(camera.position);
         break;
+      }
     }
   });
 
