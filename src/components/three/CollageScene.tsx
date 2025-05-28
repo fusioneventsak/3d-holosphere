@@ -405,8 +405,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const height = (maxHeight - (index * heightStep));
         const radius = maxRadius * (1 - (index / totalPhotos));
         
-        const spiralX = Math.fround(Math.cos(angle) * radius + baseX * 0.1);
-        const spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1);
+        let spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1);
         const spiralZ = Math.fround(Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1);
         
         // Add vertical oscillation
