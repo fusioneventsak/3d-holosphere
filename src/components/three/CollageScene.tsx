@@ -353,30 +353,44 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Calculate base grid for even distribution
         const gridSize = Math.ceil(Math.sqrt(photos.length * 1.2)); // Add some extra space
-        const spacing = settings.floorSize / gridSize * 0.8; // Tighter spacing
+        const spacing = settings.floorSize / gridSize * 0.6; // Even tighter spacing for denser distribution
         
         // Calculate initial grid position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
         // Center grid on floor
-        const baseX = (col - gridSize/2) * spacing + spacing/2;
-        const baseZ = (row - gridSize/2) * spacing + spacing/2;
+        const baseX = (col - gridSize/2) * spacing;
+        const baseZ = (row - gridSize/2) * spacing;
         
         // Animation parameters
-        const cycleHeight = 40; // Increased height range
-        const cycleDuration = 15 / speed; // Longer cycle for smoother motion
-        const phaseOffset = Math.sin(index * 2.37) * Math.PI; // Non-linear phase offset
-        const timeOffset = Math.cos(index * 1.73) * 5; // Time offset varies by photo
+        const cycleHeight = 50; // Total height of animation
+        const cycleDuration = 20 / speed; // Duration of one complete cycle
+        const overlap = 0.25; // Start next cycle when current is 75% complete
+        
+        // Create unique offsets for each photo
+        const uniqueOffset = (
+          Math.sin(index * 2.37) + 
+          Math.cos(index * 1.73) + 
+          Math.sin(index * 3.14)
+        ) * 0.3; // Combined phase offset
         
         // Calculate vertical position
-        const normalizedTime = ((time.current + timeOffset) % cycleDuration) / cycleDuration;
-        const y = normalizedTime * cycleHeight;
+        const adjustedTime = (time.current + uniqueOffset * cycleDuration) % (cycleDuration * (1 - overlap));
+        const progress = adjustedTime / cycleDuration;
+        const y = progress * cycleHeight;
         
         // Add organic motion
-        const driftScale = spacing * 0.4;
-        const driftX = Math.sin(time.current * 0.3 + phaseOffset) * driftScale;
-        const driftZ = Math.cos(time.current * 0.4 + phaseOffset * 1.2) * driftScale;
+        const driftScale = spacing * 0.3;
+        const driftX = (
+          Math.sin(time.current * 0.4 + uniqueOffset * Math.PI) + 
+          Math.cos(time.current * 0.3 + uniqueOffset * Math.PI * 2)
+        ) * driftScale;
+        
+        const driftZ = (
+          Math.cos(time.current * 0.3 + uniqueOffset * Math.PI) + 
+          Math.sin(time.current * 0.5 + uniqueOffset * Math.PI * 2)
+        ) * driftScale;
         
         updatePosition(
           baseX + driftX,
