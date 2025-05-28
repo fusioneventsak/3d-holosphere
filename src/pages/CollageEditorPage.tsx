@@ -7,7 +7,7 @@ import { useSceneStore } from '../store/sceneStore';
 
 const CollageEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentCollage, fetchCollageById } = useCollageStore();
+  const { currentCollage, fetchCollageById, photos } = useCollageStore();
   const { settings, updateSettings } = useSceneStore();
 
   useEffect(() => {
@@ -46,7 +46,7 @@ const CollageEditorPage: React.FC = () => {
     <div className="flex min-h-screen bg-gray-950">
       {/* 3D Scene */}
       <div className="flex-1 relative">
-        <CollageScene />
+        <CollageScene photos={photos} settings={settings} />
       </div>
 
       {/* Settings Panel */}
