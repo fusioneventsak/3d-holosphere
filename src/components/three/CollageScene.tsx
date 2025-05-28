@@ -336,7 +336,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Set position in grid - ensure both walls are positioned above the floor
         updatePosition(Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing)),
+          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
           2 // All photos on same wall
         );
         
@@ -388,14 +388,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Wave parameters
         const baseY = 4; // Increased base height above floor
-        const waveAmplitude = 2.5;
+        const waveAmplitude = 3.5;
         const waveFrequency = 1;
         
         // Create unique wave phase for each photo based on position
         const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
         
         // Calculate wave height
-        const waveY = baseY + (
+        const waveY = baseY + settings.wallHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
         
