@@ -351,34 +351,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Calculate grid-based distribution on the floor
-        const gridSize = Math.ceil(Math.sqrt(photos.length));
-        const spacing = settings.floorSize / gridSize;
+        // Calculate base grid for even distribution
+        const gridSize = Math.ceil(Math.sqrt(photos.length * 1.2)); // Add some extra space
+        const spacing = settings.floorSize / gridSize * 0.8; // Tighter spacing
         
-        // Calculate base position in grid
+        // Calculate initial grid position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
-        // Center the grid on the floor
+        // Center grid on floor
         const baseX = (col - gridSize/2) * spacing + spacing/2;
         const baseZ = (row - gridSize/2) * spacing + spacing/2;
         
-        // Calculate vertical motion
-        const cycleHeight = 30; // Total height of the animation cycle
-        const cycleDuration = 10 / speed; // Time to complete one cycle
-        const individualOffset = (index / photos.length) * cycleDuration; // Spread out the starting positions
+        // Animation parameters
+        const cycleHeight = 40; // Increased height range
+        const cycleDuration = 15 / speed; // Longer cycle for smoother motion
+        const phaseOffset = Math.sin(index * 2.37) * Math.PI; // Non-linear phase offset
+        const timeOffset = Math.cos(index * 1.73) * 5; // Time offset varies by photo
         
-        // Calculate vertical position with looping
-        let y = ((time.current + individualOffset) % cycleDuration) / cycleDuration * cycleHeight;
+        // Calculate vertical position
+        const normalizedTime = ((time.current + timeOffset) % cycleDuration) / cycleDuration;
+        const y = normalizedTime * cycleHeight;
         
-        // Add some horizontal drift
-        const driftScale = spacing * 0.3;
-        const driftX = Math.sin(time.current * 0.5 + index * 0.7) * driftScale;
-        const driftZ = Math.cos(time.current * 0.4 + index * 0.9) * driftScale;
+        // Add organic motion
+        const driftScale = spacing * 0.4;
+        const driftX = Math.sin(time.current * 0.3 + phaseOffset) * driftScale;
+        const driftZ = Math.cos(time.current * 0.4 + phaseOffset * 1.2) * driftScale;
         
         updatePosition(
           baseX + driftX,
-          y,
+          Math.max(2, y), // Keep above floor
           baseZ + driftZ
         );
         
