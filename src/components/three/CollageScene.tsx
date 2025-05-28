@@ -138,6 +138,9 @@ const cleanupOldTextures = () => {
 
 setInterval(cleanupOldTextures, 30000); // Run cleanup every 30 seconds
 
+// Define floor height as a constant since it's used in multiple components
+const FLOOR_HEIGHT = -2;
+
 type PhotoPlaneProps = {
   url: string;
   position: [number, number, number];
@@ -323,7 +326,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         mesh.position.set(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(floorHeight)),
+          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT)),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
@@ -533,7 +536,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
   const floorRef = useRef<THREE.Group>(null);
-  const floorHeight = -2;
 
   useEffect(() => {
     // Wait for scene to be ready before enabling grid
@@ -546,7 +548,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group ref={floorRef} position={[0, floorHeight, 0]}>
+    <group ref={floorRef} position={[0, FLOOR_HEIGHT, 0]}>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, 0, 0]} 
