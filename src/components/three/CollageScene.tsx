@@ -351,32 +351,35 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        const baseHeight = 4; // Define base height for float pattern
-        // Calculate even distribution across floor
-        const radius = settings.floorSize * 0.4; // Use 40% of floor size for distribution
-        const angle = (index / photos.length) * Math.PI * 2;
-        const ringOffset = (Math.random() * 0.5 + 0.5) * radius; // Vary distance from center
-
-        // Calculate base position using polar coordinates
-        const baseX = Math.cos(angle) * ringOffset;
-        const baseZ = Math.sin(angle) * ringOffset;
+        // Calculate grid-based distribution on the floor
+        const gridSize = Math.ceil(Math.sqrt(photos.length));
+        const spacing = settings.floorSize / gridSize;
         
-        // Add dynamic motion
-        const floatHeight = 8 + Math.sin(index * 0.7) * 4; // Height varies between 4-12
-        const timeScale = 0.5 + Math.sin(index * 1.3) * 0.3; // Unique time scale per photo
-        const verticalOffset = Math.sin(time.current * speed * timeScale + startDelay.current) * 2;
-        const horizontalScale = 2 + Math.sin(index * 2.1) * 1;
+        // Calculate base position in grid
+        const col = index % gridSize;
+        const row = Math.floor(index / gridSize);
         
-        // Add circular motion
-        const orbitSpeed = 0.2 + Math.sin(index * 0.9) * 0.1;
-        const orbitRadius = 1 + Math.sin(index * 1.5) * 0.5;
-        const orbitX = Math.cos(time.current * speed * orbitSpeed) * orbitRadius;
-        const orbitZ = Math.sin(time.current * speed * orbitSpeed) * orbitRadius;
+        // Center the grid on the floor
+        const baseX = (col - gridSize/2) * spacing + spacing/2;
+        const baseZ = (row - gridSize/2) * spacing + spacing/2;
+        
+        // Calculate vertical motion
+        const cycleHeight = 30; // Total height of the animation cycle
+        const cycleDuration = 10 / speed; // Time to complete one cycle
+        const individualOffset = (index / photos.length) * cycleDuration; // Spread out the starting positions
+        
+        // Calculate vertical position with looping
+        let y = ((time.current + individualOffset) % cycleDuration) / cycleDuration * cycleHeight;
+        
+        // Add some horizontal drift
+        const driftScale = spacing * 0.3;
+        const driftX = Math.sin(time.current * 0.5 + index * 0.7) * driftScale;
+        const driftZ = Math.cos(time.current * 0.4 + index * 0.9) * driftScale;
         
         updatePosition(
-          baseX + orbitX * horizontalScale,
-          baseHeight + floatHeight + verticalOffset,
-          baseZ + orbitZ * horizontalScale
+          baseX + driftX,
+          y,
+          baseZ + driftZ
         );
         
         // Always face the camera

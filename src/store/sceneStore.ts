@@ -31,7 +31,6 @@ export type SceneSettings = {
   floorColor: string;
   floorOpacity: number;
   floorSize: number;
-  floorSize: number;
   floorReflectivity: number;
   floorMetalness: number;
   floorRoughness: number;
@@ -90,8 +89,7 @@ const defaultSettings: SceneSettings = {
   floorEnabled: true,
   floorColor: '#1A1A1A',
   floorOpacity: 0.8,
-  floorSize: 100,
-  floorSize: 20,
+  floorSize: 50,
   floorReflectivity: 0.6,
   floorMetalness: 0.2,
   floorRoughness: 0.7,
