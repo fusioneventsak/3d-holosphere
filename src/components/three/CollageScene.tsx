@@ -209,8 +209,14 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
         const angle = (i / settings.spotlightCount) * Math.PI * 2;
         const x = Math.cos(angle) * settings.spotlightDistance;
         const z = Math.sin(angle) * settings.spotlightDistance;
+        
+        // Calculate target position based on tilt angle
+        const tiltDistance = Math.tan(settings.spotlightAngle) * settings.spotlightHeight;
+        const targetX = x + Math.cos(angle) * tiltDistance;
+        const targetZ = z + Math.sin(angle) * tiltDistance;
+        
         const target = new THREE.Object3D();
-        target.position.set(0, -2, 0); // Target the floor
+        target.position.set(targetX, -2, targetZ);
 
         return (
           <group key={i}>

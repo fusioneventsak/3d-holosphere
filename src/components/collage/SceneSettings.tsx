@@ -505,11 +505,28 @@ const SceneSettings: React.FC = () => {
               <input
                 type="range"
                 min="1"
-                max="50"
+                max="100"
                 step="1"
                 value={settings.spotlightIntensity}
                 onChange={(e) => updateSettings({ 
                   spotlightIntensity: parseFloat(e.target.value) 
+                })}
+                className="w-full bg-gray-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">
+                Spotlight Tilt
+              </label>
+              <input
+                type="range"
+                min="-1.5"
+                max="1.5"
+                step="0.1"
+                value={settings.spotlightAngle}
+                onChange={(e) => updateSettings({ 
+                  spotlightAngle: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
               />
