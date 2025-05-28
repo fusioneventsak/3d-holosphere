@@ -306,8 +306,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     const totalPhotos = photos?.length || 1;
     
     switch (pattern) {
-      case 'grid':
+      case 'grid': {
+        // Define base height at the start of the grid case
         const baseHeight = 4; // Ensure grid starts above floor
+        
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
@@ -335,18 +337,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
         
         // Set position in grid - ensure both walls are positioned above the floor
-        updatePosition(Math.fround(xOffset + (col * horizontalSpacing)),
+        updatePosition(
+          Math.fround(xOffset + (col * horizontalSpacing)),
           Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
           2 // All photos on same wall
         );
         
         // Set rotation based on wall
-          mesh.rotation.set(0, Math.PI, 0); // Back wall faces outward
+        mesh.rotation.set(0, Math.PI, 0); // Back wall faces outward
         // Keep photos facing forward
         mesh.rotation.set(0, 0, 0);
         break;
+      }
         
-      case 'float':
+      case 'float': {
+        const baseHeight = 4; // Define base height for float pattern
         // Calculate grid-based starting position
         const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
         const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
@@ -357,7 +362,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate floating motion
         const floatHeight = 15;
-        const floatY = Math.max(2, // Ensure minimum height of 2 above floor
+        const floatY = Math.max(baseHeight, // Ensure minimum height above floor
           (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
         );
         
@@ -370,8 +375,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Always face the camera
         mesh.lookAt(camera.position);
         break;
+      }
         
-      case 'wave':
+      case 'wave': {
+        const baseHeight = 4; // Define base height for wave pattern
         // Calculate distribution across floor plane
         const totalArea = settings.floorSize * settings.floorSize;
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
@@ -392,21 +399,23 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Create unique phase offset for each photo
         const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
         
-        // Calculate wave height using the baseHeight from grid case
+        // Calculate wave height using the baseHeight
         const waveY = baseHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
         
         updatePosition(
           xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
-          Math.max(2, waveY),
+          Math.max(baseHeight, waveY),
           zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
         );
         
         mesh.lookAt(camera.position);
         break;
+      }
         
-      case 'spiral':
+      case 'spiral': {
+        const baseHeight = 4; // Define base height for spiral pattern
         // Spiral parameters
         const maxHeight = 15;
         const spiralRadius = Math.sqrt(photos.length);
@@ -426,12 +435,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           spiralX,
-          Math.max(2, spiralY), // Ensure minimum height of 2 above floor
+          Math.max(baseHeight, spiralY), // Ensure minimum height above floor
           (wall === 'back' ? -1 : 1) * spiralZ // Flip Z for back wall
         );
         
         mesh.lookAt(camera.position);
         break;
+      }
     }
   });
 
