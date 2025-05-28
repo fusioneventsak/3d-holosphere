@@ -101,14 +101,8 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
   const result: Photo[] = [];
   const userPhotos = photos.slice(0, maxCount);
   
-  // Calculate the nearest complete grid size if in grid mode
-  const aspectRatio = window.innerWidth / window.innerHeight;
-  const baseGridWidth = Math.ceil(Math.sqrt(maxCount * aspectRatio));
-  const baseGridHeight = Math.ceil(maxCount / baseGridWidth);
-  const completeGridSize = baseGridWidth * baseGridHeight;
-  
   // Calculate number of slots to fill
-  const totalSlots = completeGridSize;
+  const totalSlots = maxCount;
   const emptySlots = totalSlots - userPhotos.length;
   
   if (useStockPhotos && stockPhotos.length > 0) {
@@ -333,7 +327,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
-        const col = index % gridWidth; // Fixed: Using index instead of undefined gridIndex
+        const col = index % gridWidth;
         
         // Center the grid
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
@@ -478,20 +472,24 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const totalPhotos = photos.length;
     const baseAspectRatio = settings.gridAspectRatio || 1;
     
-    // Calculate grid dimensions to ensure complete, symmetrical grid
-    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
-    const gridHeight = Math.ceil(totalPhotos / gridWidth);
-    const completeGridSize = gridWidth * gridHeight;
-    
-    // Ensure we're working with a complete grid
-    const adjustedPhotos = photos.slice(0, completeGridSize);
+    // Calculate grid dimensions based on aspect ratio
+    let gridWidth, gridHeight;
+    if (baseAspectRatio >= 1) {
+      // Wider grid
+      gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
+      gridHeight = Math.ceil(totalPhotos / gridWidth);
+    } else {
+      // Taller grid
+      gridHeight = Math.ceil(Math.sqrt(totalPhotos / baseAspectRatio));
+      gridWidth = Math.ceil(totalPhotos / gridHeight);
+    }
     
     // Calculate spacing
     const photoHeight = settings.photoSize * 1.5;
     const verticalSpacing = photoHeight * 1.05;
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    return adjustedPhotos.map((photo, index) => {
+    return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
@@ -668,16 +666,18 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
             <OrbitControls 
               makeDefault
               enableZoom={true}
-              enablePan={false}
+              enablePan={true}
               autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
               autoRotateSpeed={settings.cameraRotationSpeed}
               minDistance={5}
               maxDistance={100}
-              maxPolarAngle={Math.PI * 0.65}
+              minPolarAngle={0}
+              maxPolarAngle={Math.PI * 0.85}
               dampingFactor={0.1}
               enableDamping={true}
               rotateSpeed={0.8}
               zoomSpeed={0.8}
+              panSpeed={1.2}
             />
             
             <PhotosContainer photos={displayedPhotos} settings={settings} />
