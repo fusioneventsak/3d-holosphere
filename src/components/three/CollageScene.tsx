@@ -200,16 +200,16 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             <spotLight
               position={[x, settings.spotlightHeight, z]}
               intensity={settings.spotlightIntensity}
-              power={40}
+              power={60}
               color={settings.spotlightColor}
               angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
-              decay={1.5}
+              decay={1.2}
               penumbra={settings.spotlightPenumbra}
               distance={300}
               target={target}
               castShadow
               shadow-mapSize={[2048, 2048]}
-              shadow-bias={-0.001}
+              shadow-bias={-0.0005}
             />
           </group>
         );
@@ -541,11 +541,13 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         <meshStandardMaterial
           color={new THREE.Color(settings.floorColor)}
           transparent
+          envMapIntensity={1.5}
           opacity={settings.floorOpacity}
           metalness={settings.floorMetalness}
           roughness={settings.floorRoughness}
           side={THREE.DoubleSide}
           depthWrite={false}
+          reflectivity={settings.floorReflectivity}
           polygonOffset={true}
           polygonOffsetFactor={-1}
         />
