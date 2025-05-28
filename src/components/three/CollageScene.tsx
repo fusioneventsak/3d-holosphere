@@ -531,11 +531,24 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <>
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -1.999, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.6}
+          cellColor={settings.gridColor}
+          sectionSize={5}
+          fadeDistance={30}
+          fadeStrength={0.5}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, -2, 0]} 
         receiveShadow 
-        renderOrder={0}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -548,22 +561,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           depthWrite={true}
         />
       </mesh>
-      {settings.gridEnabled && isGridReady && (
-        <Grid
-          position={[0, -2, 0]}
-          renderOrder={1}
-          renderOrder={1}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
-          cellThickness={0.6}
-          cellColor={settings.gridColor}
-          sectionSize={5}
-          fadeDistance={30}
-          fadeStrength={0.5}
-          followCamera={false}
-          infiniteGrid={false}
-        />
-      )}
     </>
   );
 };
