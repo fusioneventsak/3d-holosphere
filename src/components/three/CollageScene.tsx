@@ -304,36 +304,29 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
         if (baseAspectRatio >= 1) {
-          // Wider grid
           gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
           gridHeight = Math.ceil(totalPhotos / gridWidth);
         } else {
-          // Taller grid
           gridHeight = Math.ceil(Math.sqrt(totalPhotos / baseAspectRatio));
           gridWidth = Math.ceil(totalPhotos / gridHeight);
         }
         
-        // Create tight spacing for a solid wall effect
-        // Use photo dimensions - width and 1.5x height for portrait orientation
         const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
         const verticalSpacing = settings.photoSize * 1.5 * (1 + settings.photoSpacing);
         
-        // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
         const col = index % gridWidth;
         
-        // Center the grid
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-        const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
+        const yOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
+        const baseHeight = 2; // Minimum height above floor
         
-        // Set position in grid - ensure both walls are positioned above the floor
         mesh.position.set(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
+          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(floorHeight)),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
-        // Set rotation based on wall
         mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
         break;
       }
@@ -540,6 +533,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
   const floorRef = useRef<THREE.Group>(null);
+  const floorHeight = -2;
 
   useEffect(() => {
     // Wait for scene to be ready before enabling grid
@@ -552,7 +546,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group ref={floorRef} position={[0, -2, 0]}>
+    <group ref={floorRef} position={[0, floorHeight, 0]}>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, 0, 0]} 
