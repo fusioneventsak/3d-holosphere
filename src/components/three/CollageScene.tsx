@@ -307,8 +307,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     switch (pattern) {
       case 'grid': {
-        // Define base height at the start of the grid case
-        const baseHeight = 4; // Ensure grid starts above floor
+        // Define minimum height for all patterns
+        const minHeight = 4; // Ensure grid starts above floor
         
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
@@ -326,12 +326,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Create tight spacing for a solid wall effect
         // Use photo dimensions - width and 1.5x height for portrait orientation
         const baseWidth = settings.photoSize;
-        const baseHeight = settings.photoSize * 1.5;
+        const photoHeight = settings.photoSize * 1.5;
         
         // Calculate spacing based on photo size and spacing factor
         const spacing = settings.photoSpacing;
         const horizontalSpacing = baseWidth * (1 + spacing);
-        const verticalSpacing = baseHeight * (1 + spacing);
+        const verticalSpacing = photoHeight * (1 + spacing);
         
         // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
@@ -344,7 +344,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Set position in grid - ensure both walls are positioned above the floor
         updatePosition(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
+          Math.fround(minHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
           2 // All photos on same wall
         );
         
@@ -395,7 +395,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'wave': {
-        const baseHeight = 4; // Define base height for wave pattern
+        // Use minHeight defined above
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
         const spacing = settings.floorSize / photosPerRow;
         
@@ -424,7 +424,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           xPos + xDrift,
-          Math.max(baseHeight, waveY),
+          Math.max(minHeight, waveY),
           zPos + zDrift
         );
         
@@ -433,7 +433,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'spiral': {
-        const baseHeight = 4; // Define base height for spiral pattern
         // Spiral parameters
         const maxHeight = 15;
         const spiralRadius = Math.sqrt(photos.length);
@@ -453,7 +452,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           spiralX,
-          Math.max(baseHeight, spiralY), // Ensure minimum height above floor
+          Math.max(minHeight, spiralY), // Ensure minimum height above floor
           (wall === 'back' ? -1 : 1) * spiralZ // Flip Z for back wall
         );
         
