@@ -518,6 +518,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: SceneSettings }> = 
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
+  const floorRef = useRef<THREE.Mesh>(null);
 
   useEffect(() => {
     // Wait for scene to be ready before enabling grid
@@ -531,9 +532,25 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <>
+      <mesh
+        ref={floorRef}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <meshStandardMaterial
+          color={new THREE.Color(settings.floorColor)}
+          transparent
+          opacity={settings.floorOpacity}
+          metalness={settings.floorMetalness}
+          roughness={settings.floorRoughness}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -2, 0]}
+          position={[0, -1.999, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -545,21 +562,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           infiniteGrid={false}
         />
       )}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2.001, 0]}
-      >
-        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-        <meshStandardMaterial
-          color={new THREE.Color(settings.floorColor)}
-          receiveShadow
-          transparent
-          opacity={settings.floorOpacity}
-          metalness={settings.floorMetalness}
-          roughness={settings.floorRoughness}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
     </>
   );
 };
