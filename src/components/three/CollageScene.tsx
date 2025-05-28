@@ -235,10 +235,8 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const floatX = useRef<number | null>(null);
-  const floatZ = useRef<number | null>(null);
-  const floatYOffset = useRef<number>(Math.random() * 20); // Increased offset range for better distribution
-  const floatStartDelay = useRef<number>(Math.random() * 5); // Random start delay for each photo
+  const initialPosition = useRef<{x: number, z: number} | null>(null);
+  const floatOffset = useRef<number>(Math.random() * Math.PI * 2);
   const time = useRef<number>(0);
   const { camera } = useThree();
   
@@ -319,39 +317,48 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'float': {
         // Initialize random positions if not set
-        const floorRange = settings.floorSize * 0.45; // Use 90% of floor size
-        if (floatX.current === null || floatZ.current === null) {
-          floatX.current = (Math.random() * 2 - 1) * floorRange;
-          floatZ.current = (Math.random() * 2 - 1) * floorRange;
+        const floorRange = settings.floorSize * 0.4;
+        if (!initialPosition.current) {
+          const angle = (index / totalPhotos) * Math.PI * 2;
+          initialPosition.current = {
+            x: Math.cos(angle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5),
+            z: Math.sin(angle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5)
+          };
         }
         
-        // Calculate vertical position with continuous upward motion
-        const maxHeight = settings.cameraHeight * 1.2; // Reduced max height
-        const cycleHeight = maxHeight + Math.abs(baseHeight); // Full cycle height
-        const verticalSpeed = settings.animationSpeed * 2;
+        const maxHeight = settings.cameraHeight * 1.5;
+        const cycleHeight = maxHeight + Math.abs(baseHeight);
+        const verticalSpeed = settings.animationSpeed * 1.5;
         
-        // Calculate current height using time and offset
-        let y = baseHeight + ((time.current * verticalSpeed + floatYOffset.current) % cycleHeight);
+        // Calculate phase for this photo
+        const phase = (time.current * verticalSpeed + floatOffset.current) % (Math.PI * 2);
+        let y = baseHeight + (Math.sin(phase) * 0.5 + 0.5) * cycleHeight;
         
-        // Reset position when reaching max height
-        if (y >= maxHeight * 0.25) { // Reset much earlier for continuous stream
-          // Reset to bottom with new random horizontal position
-          floatX.current = (Math.random() * 2 - 1) * floorRange;
-          floatZ.current = (Math.random() * 2 - 1) * floorRange;
-          y = baseHeight;
-          // Reset offset for continuous flow
-          floatYOffset.current = Math.random() * 2; // Minimal offset for tighter grouping
+        // Add subtle horizontal movement
+        const wobbleAmount = 0.5;
+        const wobbleSpeed = 0.2;
+        const xOffset = Math.sin(time.current * wobbleSpeed + floatOffset.current) * wobbleAmount;
+        const zOffset = Math.cos(time.current * wobbleSpeed + floatOffset.current) * wobbleAmount;
+        
+        // Reset when reaching the top
+        if (phase > Math.PI) {
+          const newAngle = (index / totalPhotos) * Math.PI * 2 + Math.random() * Math.PI * 0.5;
+          initialPosition.current = {
+            x: Math.cos(newAngle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5),
+            z: Math.sin(newAngle) * (Math.random() * floorRange * 0.5 + floorRange * 0.5)
+          };
         }
         
-        // Update position
         updatePosition(
-          floatX.current,
+          initialPosition.current.x + xOffset,
           y,
-          floatZ.current
+          initialPosition.current.z + zOffset
         );
         
         // Always face camera
-        mesh.lookAt(camera.position);
+        const lookAtPos = camera.position.clone();
+        lookAtPos.y = mesh.position.y; // Keep vertical alignment consistent
+        mesh.lookAt(lookAtPos);
         
         break;
       }
