@@ -237,13 +237,22 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const startDelay = useRef<number>(Math.random() * Math.PI * 2);
   const time = useRef<number>(0);
+  const lastPattern = useRef<string>(pattern);
   const initialPosition = useRef({
     x: (Math.random() - 0.5) * settings.floorSize * 0.5,
     y: Math.random() * settings.cameraHeight * 0.5,
     z: (Math.random() - 0.5) * settings.floorSize * 0.5
   });
   const orbitRadius = useRef<number>(Math.random() * 5 + 10);
-  const { camera } = useThree();
+  const { camera, scene } = useThree();
+  
+  // Reset animation when pattern changes
+  useEffect(() => {
+    if (lastPattern.current !== pattern) {
+      time.current = 0;
+      lastPattern.current = pattern;
+    }
+  }, [pattern]);
   
   const texture = useMemo(() => {
     if (!url) return null;
@@ -645,18 +654,19 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
               <OrbitControls 
                 makeDefault
                 enableZoom={true}
-                enablePan={true}
+                enablePan={false}
                 autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
                 autoRotateSpeed={settings.cameraRotationSpeed}
                 minDistance={5}
                 maxDistance={100}
                 minPolarAngle={0}
                 maxPolarAngle={Math.PI * 0.85}
-                dampingFactor={0.1}
                 enableDamping={true}
+                dampingFactor={0.1}
                 rotateSpeed={0.8}
                 zoomSpeed={0.8}
-                panSpeed={1.2}
+                screenSpacePanning={false}
+                target={[0, Math.max(0, settings.wallHeight), 0]}
               />
               
               <PhotosContainer photos={displayedPhotos} settings={settings} />
