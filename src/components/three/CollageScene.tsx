@@ -204,7 +204,7 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             <spotLight
               position={[x, settings.spotlightHeight, z]}
               intensity={settings.spotlightIntensity}
-              power={40}
+              power={20}
               color={settings.spotlightColor}
               angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
               decay={1.5}
@@ -213,7 +213,7 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               target={target}
               castShadow
               shadow-mapSize={[2048, 2048]}
-              shadow-bias={-0.001}
+              shadow-bias={0}
             />
           </group>
         );
@@ -435,15 +435,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       <mesh ref={meshRef} position={position} rotation={rotation}>
         <planeGeometry args={[size, size * 1.5]} />
         <meshStandardMaterial 
-          color={settings.emptySlotColor}
-          metalness={0}
-          roughness={1}
+          color={new THREE.Color(settings.emptySlotColor)}
+          metalness={0.2}
+          roughness={0.8}
           side={THREE.DoubleSide}
           transparent={false}
           opacity={1}
-          depthWrite={false}
+          depthWrite={true}
           castShadow
           receiveShadow
+          renderOrder={1}
         />
       </mesh>
     );
@@ -458,8 +459,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         transparent={false}
         opacity={1}
         toneMapped={true}
-        depthWrite={true}
+        depthWrite={false}
         depthTest={true}
+        metalness={0.1}
+        roughness={0.9}
+        castShadow
+        receiveShadow
+        renderOrder={2}
       />
     </mesh>
   );
@@ -553,7 +559,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, -2, 0]} 
-        receiveShadow={false}
+        receiveShadow={true}
         renderOrder={0}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
@@ -565,10 +571,11 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           metalness={settings.floorMetalness}
           roughness={settings.floorRoughness}
           side={THREE.DoubleSide}
-          depthWrite={false}
+          depthWrite={true}
           reflectivity={0.5}
           polygonOffset={true}
           polygonOffsetFactor={-1}
+          receiveShadow
         />
       </mesh>
       
