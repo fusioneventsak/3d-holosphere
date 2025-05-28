@@ -393,36 +393,34 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'wave': {
-        // Use minHeight defined above
-        // Use smaller distribution area for wave pattern
         const distributionArea = settings.floorSize * 0.6; // Use 60% of floor size
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
         const baseSpacing = (distributionArea / photosPerRow) * (1 + settings.photoSpacing);
         
-        // Create unique phase offsets for each photo
-        const uniquePhase = (
-          Math.sin(index * 2.37) * Math.PI + 
-          Math.cos(index * 1.73) * Math.PI + 
-          Math.sin(index * 0.91) * Math.PI
-        );
+        // Create unique phase offset for each photo using prime numbers
+        const phaseOffset = (
+          Math.sin(index * 2.37) +
+          Math.cos(index * 1.73) +
+          Math.sin(index * 3.17)
+        ) * Math.PI;
         
         const waveGridX = index % photosPerRow;
         const waveGridZ = Math.floor(index / photosPerRow);
         
+        // Base position in the grid
         const xPos = (waveGridX * baseSpacing) - (distributionArea * 0.5) + (baseSpacing * 0.5);
         const zPos = (waveGridZ * baseSpacing) - (distributionArea * 0.5) + (baseSpacing * 0.5);
         
-        // Multiple wave frequencies for more organic motion
-        const waveY = Math.max(4, settings.wallHeight + (
-          Math.sin(time.current * speed * 0.8 + uniquePhase) * 3.0 +
-          Math.cos(time.current * speed * 0.5 + uniquePhase * 0.7) * 2.0 +
-          Math.sin(time.current * speed * 0.3 + uniquePhase * 1.3) * 1.5
-        ));
+        // Calculate vertical position with continuous motion
+        const baseHeight = 4; // Minimum height above floor
+        const waveHeight = 8; // Total height of wave motion
+        const normalizedTime = (time.current * speed + phaseOffset) % (Math.PI * 2);
+        const waveY = baseHeight + (Math.sin(normalizedTime) + 1) * (waveHeight * 0.5);
         
-        // Independent horizontal drifting
+        // Add subtle horizontal drift
         const driftScale = baseSpacing * 0.2;
-        const xDrift = Math.sin(time.current * speed * 0.4 + uniquePhase) * driftScale;
-        const zDrift = Math.cos(time.current * speed * 0.3 + uniquePhase * 1.2) * driftScale;
+        const xDrift = Math.sin(normalizedTime * 0.5) * driftScale;
+        const zDrift = Math.cos(normalizedTime * 0.7) * driftScale;
         
         updatePosition(
           xPos + xDrift,
