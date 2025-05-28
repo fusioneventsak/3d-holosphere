@@ -379,39 +379,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave': {
         const baseHeight = 4; // Define base height for wave pattern
-        // Calculate distribution across floor plane
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
         const spacing = settings.floorSize / photosPerRow;
         
-        // Calculate grid position
         const waveGridX = index % photosPerRow;
         const waveGridZ = Math.floor(index / photosPerRow);
         
-        // Center the grid and calculate base position
         const xPos = (waveGridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
-        // Wave parameters
-        const waveAmplitude = 4;
-        const waveFrequency = 1.2;
+        // Create unique wave parameters for each photo
+        const uniqueFreq = 0.8 + (Math.sin(index * 3.14159) * 0.4); // Frequency varies between 0.4 and 1.2
+        const uniquePhase = index * 0.7 + Math.sin(index * 0.5) * Math.PI; // Non-linear phase offset
+        const uniqueAmplitude = 2 + Math.cos(index * 1.3) * 1; // Amplitude varies between 1 and 3
         
-        // Create unique phase offset for each photo
-        const phaseOffset = index * (Math.PI / 4);
-        
-        // Calculate wave height using the baseHeight
+        // Combine multiple wave motions with different frequencies
         const waveY = baseHeight + (
-          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
+          Math.sin(time.current * speed * uniqueFreq + uniquePhase) * uniqueAmplitude +
+          Math.sin(time.current * speed * 0.5 + uniquePhase * 1.3) * 0.8 +
+          Math.cos(time.current * speed * 0.3 + uniquePhase * 0.7) * 0.5
         );
         
-        // Add continuous motion in all dimensions
-        const motionScale = 1.5;
-        const xMotion = Math.sin(time.current * speed * 0.7 + phaseOffset) * motionScale;
-        const zMotion = Math.cos(time.current * speed * 0.5 + phaseOffset) * motionScale;
+        // Add organic horizontal motion
+        const driftScale = 2;
+        const xDrift = Math.sin(time.current * speed * 0.4 + uniquePhase) * driftScale;
+        const zDrift = Math.cos(time.current * speed * 0.3 + uniquePhase * 1.2) * driftScale;
         
         updatePosition(
-          xPos + xMotion,
+          xPos + xDrift,
           Math.max(baseHeight, waveY),
-          zPos + zMotion
+          zPos + zDrift
         );
         
         mesh.lookAt(camera.position);
