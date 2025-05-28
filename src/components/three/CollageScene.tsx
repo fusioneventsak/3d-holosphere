@@ -530,25 +530,11 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group renderOrder={1}>
-      {settings.gridEnabled && isGridReady && (
-        <Grid
-          position={[0, -2, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={settings.gridColor}
-          sectionSize={3}
-          fadeDistance={30}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-        />
-      )}
+    <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2.001, 0]}
-        renderOrder={0}
+        position={[0, -2.002, 0]}
+        renderOrder={1}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -561,6 +547,21 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           side={THREE.DoubleSide}
         />
       </mesh>
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -2.001, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={30}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+          renderOrder={2}
+        />
+      )}
     </group>
   );
 };
