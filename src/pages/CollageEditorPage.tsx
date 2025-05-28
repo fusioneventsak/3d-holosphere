@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Settings, Image } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { useSceneStore } from '../store/sceneStore';
 import Layout from '../components/layout/Layout';
@@ -9,10 +9,13 @@ import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import CollagePhotos from '../components/collage/CollagePhotos';
 
+type Tab = 'settings' | 'photos';
+
 const CollageEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
   const { settings, updateSettings, resetSettings } = useSceneStore();
+  const [activeTab, setActiveTab] = React.useState<Tab>('settings');
 
   useEffect(() => {
     if (id) {
@@ -80,33 +83,63 @@ const CollageEditorPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex space-x-4 mb-6">
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'settings'
+                ? 'bg-purple-600 text-white'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Scene Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('photos')}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'photos'
+                ? 'bg-purple-600 text-white'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            <Image className="h-4 w-4 mr-2" />
+            Photos
+          </button>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Settings Panel */}
-          <div className="w-full lg:w-80">
-            <SceneSettings
-              settings={settings}
-              onSettingsChange={updateSettings}
-              onReset={resetSettings}
-            />
+          {/* Left Panel */}
+          <div className="w-full lg:w-80 overflow-y-auto max-h-[calc(100vh-240px)]">
+            <div className="sticky top-0">
+              {activeTab === 'settings' ? (
+                <SceneSettings
+                  settings={settings}
+                  onSettingsChange={updateSettings}
+                  onReset={resetSettings}
+                />
+              ) : (
+                <div className="space-y-6">
+                  <PhotoUploader collageId={currentCollage.id} />
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-4">
+                    <h3 className="text-lg font-medium mb-4">Uploaded Photos</h3>
+                    <CollagePhotos collageId={currentCollage.id} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Main Content */}
           <div className="flex-1">
-            <div className="bg-black/30 backdrop-blur-sm rounded-lg border border-white/10 mb-6">
-              <div className="h-[60vh]">
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg border border-white/10">
+              <div className="h-[calc(100vh-240px)]">
                 <CollageScene
                   photos={photos}
                   settings={settings}
                   onSettingsChange={updateSettings}
                 />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <PhotoUploader collageId={currentCollage.id} />
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-4">
-                <h3 className="text-lg font-medium mb-4">Uploaded Photos</h3>
-                <CollagePhotos collageId={currentCollage.id} />
               </div>
             </div>
           </div>
