@@ -404,6 +404,91 @@ const SceneSettings: React.FC = () => {
                 />
                 
                 <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spotlight Height
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="50"
+                    step="1"
+                    value={settings.spotlightHeight}
+                    onChange={(e) => updateSettings({ 
+                      spotlightHeight: parseFloat(e.target.value) 
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spotlight Distance
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={settings.spotlightDistance}
+                    onChange={(e) => updateSettings({ 
+                      spotlightDistance: parseFloat(e.target.value) 
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spotlight Width
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    value={settings.spotlightWidth}
+                    onChange={(e) => updateSettings({ 
+                      spotlightWidth: parseFloat(e.target.value) 
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spotlight Intensity
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={settings.spotlightIntensity}
+                    onChange={(e) => updateSettings({ 
+                      spotlightIntensity: parseFloat(e.target.value) 
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spotlight Softness
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={settings.spotlightPenumbra}
+                    onChange={(e) => updateSettings({ 
+                      spotlightPenumbra: parseFloat(e.target.value) 
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs text-gray-400">Number of Spotlights</label>
                   <input
                     type="range"
