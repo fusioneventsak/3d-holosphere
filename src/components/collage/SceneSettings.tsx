@@ -210,7 +210,7 @@ const SceneSettings: React.FC = () => {
               <label className="block text-sm text-gray-300 mb-2">
                 Floor Size
                 <span className="ml-2 text-xs text-gray-400">
-                  {Math.round(settings.floorSize)}
+                  {Math.round(settings.floorSize)} units
                 </span>
               </label>
               <input
@@ -220,7 +220,8 @@ const SceneSettings: React.FC = () => {
                 step="10"
                 value={settings.floorSize}
                 onChange={(e) => updateSettings({ 
-                  floorSize: parseFloat(e.target.value)
+                  floorSize: parseFloat(e.target.value),
+                  gridSize: parseFloat(e.target.value)
                 }, true)}
                 className="w-full bg-gray-800"
               />
@@ -467,7 +468,7 @@ const SceneSettings: React.FC = () => {
                   <label className="block text-sm text-gray-300 mb-2">
                     Floor Size
                     <span className="ml-2 text-xs text-gray-400">
-                      {Math.round(settings.floorSize)}
+                      {Math.round(settings.floorSize)} units
                     </span>
                   </label>
                   <input
@@ -563,7 +564,8 @@ const SceneSettings: React.FC = () => {
                     step="5"
                     value={settings.gridSize}
                     onChange={(e) => updateSettings({
-                      gridSize: parseFloat(e.target.value)
+                      gridSize: parseFloat(e.target.value),
+                      floorSize: parseFloat(e.target.value)
                     }, true)}
                     className="w-full bg-gray-800"
                   />
