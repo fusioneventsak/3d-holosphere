@@ -19,7 +19,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-white">Scene Settings</h3>
         <button
-          onClick={resetSettings}
+          onClick={onReset}
           className="text-sm text-gray-400 hover:text-white transition-colors"
         >
           Reset
@@ -39,7 +39,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="checkbox"
                 checked={settings.cameraEnabled}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   cameraEnabled: e.target.checked 
                 })}
                 className="mr-2 bg-gray-800 border-gray-700"
@@ -55,7 +55,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   <input
                     type="checkbox"
                     checked={settings.cameraRotationEnabled}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       cameraRotationEnabled: e.target.checked 
                     })}
                     className="mr-2 bg-gray-800 border-gray-700"
@@ -76,7 +76,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       max="2"
                       step="0.1"
                       value={settings.cameraRotationSpeed}
-                      onChange={(e) => updateSettings({ 
+                      onChange={(e) => onSettingsChange({ 
                         cameraRotationSpeed: parseFloat(e.target.value) 
                       })}
                       className="w-full bg-gray-800"
@@ -94,7 +94,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="50"
                     step="0.5"
                     value={settings.cameraDistance}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       cameraDistance: parseFloat(e.target.value) 
                     }, true)}
                     className="w-full bg-gray-800"
@@ -111,7 +111,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="60"
                     step="0.5"
                     value={settings.cameraHeight}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       cameraHeight: parseFloat(e.target.value) 
                     }, true)}
                     className="w-full bg-gray-800"
@@ -134,7 +134,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="checkbox"
                 checked={settings.animationEnabled}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   animationEnabled: e.target.checked 
                 })}
                 className="mr-2 bg-gray-800 border-gray-700"
@@ -152,7 +152,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   </label>
                   <select
                     value={settings.animationPattern}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
                     })}
                     className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
@@ -174,7 +174,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="2"
                     step="0.1"
                     value={settings.animationSpeed}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       animationSpeed: parseFloat(e.target.value) 
                     })}
                     className="w-full bg-gray-800"
@@ -199,7 +199,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               max="30"
               step="0.5"
               value={settings.wallHeight}
-              onChange={(e) => updateSettings({ 
+              onChange={(e) => onSettingsChange({ 
                 wallHeight: parseFloat(e.target.value) 
               })}
               className="w-full bg-gray-800"
@@ -226,7 +226,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="300"
                 step="10"
                 value={settings.floorSize}
-                onChange={(e) => updateSettings({ floorSize: parseFloat(e.target.value) }, true)}
+                onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -241,7 +241,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="2"
                 step="0.1"
                 value={settings.photoSize}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   photoSize: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -259,7 +259,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="1"
                 step="0.05"
                 value={settings.photoSpacing}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   photoSpacing: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -283,7 +283,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="checkbox"
                 checked={settings.useStockPhotos}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   useStockPhotos: e.target.checked 
                 })}
                 className="mr-2 bg-gray-800 border-gray-700"
@@ -303,7 +303,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="500"
                 step="10"
                 value={settings.photoCount}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   photoCount: parseInt(e.target.value)
                 })}
                 className="flex-1 bg-gray-800"
@@ -313,7 +313,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 min="5"
                 max="500"
                 value={settings.photoCount}
-                onChange={(e) => updateSettings({
+                onChange={(e) => onSettingsChange({
                   photoCount: parseInt(e.target.value)
                 })}
                 className="w-16 bg-gray-800 border border-gray-700 rounded-md py-1 px-2 text-white text-sm"
@@ -338,7 +338,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   <input
                     type="checkbox"
                     checked={settings.backgroundGradient}
-                    onChange={(e) => updateSettings({
+                    onChange={(e) => onSettingsChange({
                       backgroundGradient: e.target.checked
                     })}
                     className="bg-gray-800 border-gray-700"
@@ -353,7 +353,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     <input
                       type="color"
                       value={settings.backgroundGradientStart}
-                      onChange={(e) => updateSettings({
+                      onChange={(e) => onSettingsChange({
                         backgroundGradientStart: e.target.value
                       })}
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -365,7 +365,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     <input
                       type="color"
                       value={settings.backgroundGradientEnd}
-                      onChange={(e) => updateSettings({
+                      onChange={(e) => onSettingsChange({
                         backgroundGradientEnd: e.target.value
                       })}
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -376,7 +376,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 <input
                   type="color"
                   value={settings.backgroundColor}
-                  onChange={(e) => updateSettings({
+                  onChange={(e) => onSettingsChange({
                     backgroundColor: e.target.value
                   })}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -391,7 +391,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="color"
                 value={settings.emptySlotColor}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   emptySlotColor: e.target.value 
                 })}
                 className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -406,7 +406,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 <input
                   type="color"
                   value={settings.spotlightColor}
-                  onChange={(e) => updateSettings({ 
+                  onChange={(e) => onSettingsChange({ 
                     spotlightColor: e.target.value 
                   })}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -420,7 +420,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="4"
                     step="1"
                     value={settings.spotlightCount}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       spotlightCount: parseInt(e.target.value) 
                     })}
                     className="w-full bg-gray-800"
@@ -439,7 +439,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="2"
                 step="0.1"
                 value={settings.ambientLightIntensity}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   ambientLightIntensity: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -466,7 +466,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="50"
                 step="1"
                 value={settings.spotlightHeight}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightHeight: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -483,7 +483,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="100"
                 step="5"
                 value={settings.spotlightDistance}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightDistance: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -500,7 +500,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="1"
                 step="0.1"
                 value={settings.spotlightWidth}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightWidth: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -517,7 +517,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="100"
                 step="1"
                 value={settings.spotlightIntensity}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightIntensity: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -534,7 +534,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="1.5"
                 step="0.1"
                 value={settings.spotlightAngle}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightAngle: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -551,7 +551,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 max="1"
                 step="0.1"
                 value={settings.spotlightPenumbra}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   spotlightPenumbra: parseFloat(e.target.value) 
                 })}
                 className="w-full bg-gray-800"
@@ -572,7 +572,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="checkbox"
                 checked={settings.floorEnabled}
-                onChange={(e) => updateSettings({ 
+                onChange={(e) => onSettingsChange({ 
                   floorEnabled: e.target.checked 
                 })}
                 className="mr-2 bg-gray-800 border-gray-700"
@@ -595,7 +595,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="300"
                     step="10"
                     value={settings.floorSize}
-                    onChange={(e) => updateSettings({ floorSize: parseFloat(e.target.value) }, true)}
+                    onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -607,7 +607,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   <input
                     type="color"
                     value={settings.floorColor}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       floorColor: e.target.value 
                     })}
                     className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -624,7 +624,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="1"
                     step="0.1"
                     value={settings.floorOpacity}
-                    onChange={(e) => updateSettings({ 
+                    onChange={(e) => onSettingsChange({ 
                       floorOpacity: parseFloat(e.target.value) 
                     })}
                     className="w-full bg-gray-800"
@@ -646,7 +646,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <input
                 type="checkbox" 
                 checked={settings.gridEnabled}
-                onChange={(e) => updateSettings({
+                onChange={(e) => onSettingsChange({
                   gridEnabled: e.target.checked
                 })} 
                 className="mr-2 bg-gray-800 border-gray-700"
@@ -663,7 +663,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   <input
                     type="color"
                     value={settings.gridColor}
-                    onChange={(e) => updateSettings({
+                    onChange={(e) => onSettingsChange({
                       gridColor: e.target.value
                     })}
                     className="w-full h-8 rounded cursor-pointer bg-gray-800"
@@ -681,7 +681,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="300"
                     step="10"
                     value={settings.gridSize}
-                    onChange={(e) => updateSettings({ gridSize: parseFloat(e.target.value) }, true)}
+                    onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -694,7 +694,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="100"
                     step="5"
                     value={settings.gridDivisions}
-                    onChange={(e) => updateSettings({
+                    onChange={(e) => onSettingsChange({
                       gridDivisions: parseFloat(e.target.value)
                     })}
                     className="w-full bg-gray-800"
@@ -709,7 +709,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     max="1"
                     step="0.1"
                     value={settings.gridOpacity}
-                    onChange={(e) => updateSettings({
+                    onChange={(e) => onSettingsChange({
                       gridOpacity: parseFloat(e.target.value)
                     })}
                     className="w-full bg-gray-800"
