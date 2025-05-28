@@ -375,7 +375,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Calculate grid-based position for even distribution
         const waveGridSize = Math.ceil(Math.sqrt(photos.length));
         const waveCol = index % waveGridSize;
-        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing * 3);
+        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing * 2);
         
         // Center the grid
         const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
@@ -384,15 +384,15 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Base position in grid
         const baseX = waveXOffset + (waveCol * waveSpacing);
         const waveRow = Math.floor(index / waveGridSize);
-        const baseZ = waveZOffset + (waveRow * waveSpacing);
+        const baseZ = 2; // All photos on same Z plane
         
         // Wave parameters
         const baseY = 4; // Increased base height above floor
         const waveAmplitude = 3.5;
         const waveFrequency = 1;
         
-        // Create unique wave phase for each photo based on position
-        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
+        // Create random phase offset for each photo
+        const phaseOffset = Math.sin(index * 1.7) * Math.PI * 2;
         
         // Calculate wave height
         const waveY = baseY + settings.wallHeight + (
@@ -402,7 +402,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           baseX,
           Math.max(2, waveY), // Ensure minimum height of 2 above floor
-          (wall === 'back' ? -1 : 1) * baseZ // Flip Z for back wall
+          baseZ // All photos on same Z plane
         );
         
         mesh.lookAt(camera.position);
