@@ -316,11 +316,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
+        const floatY = baseHeight + Math.sin(phase) * verticalRange;
         
-        // Calculate base position using initial random position
-        const baseX = initialPosition.current[0];
-        const baseY = initialPosition.current[1];
-        const baseZ = initialPosition.current[2];
+        // Calculate drift motion
+        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2);
+        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2);
         
         mesh.position.set(
           driftX,
