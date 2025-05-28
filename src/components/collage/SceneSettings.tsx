@@ -542,8 +542,7 @@ const SceneSettings: React.FC = () => {
                     step="5"
                     value={settings.gridSize}
                     onChange={(e) => updateSettings({
-                      gridSize: parseFloat(e.target.value),
-                      floorSize: parseFloat(e.target.value)
+                      gridSize: parseFloat(e.target.value)
                     }, true)}
                     className="w-full bg-gray-800"
                   />
