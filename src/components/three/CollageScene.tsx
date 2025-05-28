@@ -371,37 +371,41 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Calculate grid-based position for even distribution
-        const waveGridSize = Math.ceil(Math.sqrt(photos.length));
-        const waveCol = index % waveGridSize;
-        const waveSpacing = settings.photoSize * 1.2; // Use tighter spacing for wave pattern
+        // Calculate grid dimensions based on aspect ratio
+        const waveAspectRatio = window.innerWidth / window.innerHeight;
+        const waveGridWidth = Math.ceil(Math.sqrt(photos.length * waveAspectRatio));
+        const waveGridHeight = Math.ceil(photos.length / waveGridWidth);
+        
+        // Calculate spacing based on user settings
+        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing);
         
         // Center the grid
-        const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
-        const waveZOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
+        const waveXOffset = ((waveGridWidth - 1) * waveSpacing) * -0.5;
+        const waveZOffset = ((waveGridHeight - 1) * waveSpacing) * -0.5;
         
         // Base position in grid
+        const waveCol = index % waveGridWidth;
+        const waveRow = Math.floor(index / waveGridWidth);
         const baseX = waveXOffset + (waveCol * waveSpacing);
-        const waveRow = Math.floor(index / waveGridSize);
         const baseZ = waveZOffset + (waveRow * waveSpacing);
         
         // Wave parameters
         const baseY = 2; // Base height above floor
-        const waveAmplitude = 1.5;
-        const waveFrequency = 1;
+        const waveAmplitude = 2;
+        const waveFrequency = 0.8;
         
         // Create unique wave phase for each photo based on position
         const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
         
         // Calculate wave height
         const waveY = baseY + (
-          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
+          Math.sin(time.current * speed * waveFrequency + phaseOffset + baseX * 0.2) * waveAmplitude
         );
         
         updatePosition(
           baseX,
           Math.max(2, waveY), // Ensure minimum height of 2 above floor
-          (wall === 'back' ? -1 : 1) * baseZ // Flip Z for back wall
+          baseZ
         );
         
         mesh.lookAt(camera.position);
