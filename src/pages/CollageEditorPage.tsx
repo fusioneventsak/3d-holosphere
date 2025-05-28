@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Settings, Image } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Settings, Image, Shield } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { useSceneStore } from '../store/sceneStore';
 import Layout from '../components/layout/Layout';
@@ -16,6 +16,7 @@ const CollageEditorPage: React.FC = () => {
   const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
   const { settings, updateSettings, resetSettings } = useSceneStore();
   const [activeTab, setActiveTab] = React.useState<Tab>('settings');
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (id) {
@@ -107,6 +108,13 @@ const CollageEditorPage: React.FC = () => {
             <Image className="h-4 w-4 mr-2" />
             Photos
           </button>
+          <button
+            onClick={() => navigate(`/moderation/${currentCollage.id}`)}
+            className="flex items-center px-4 py-2 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 hover:text-purple-200 transition-colors"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Moderate Photos
+          </button>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -122,10 +130,6 @@ const CollageEditorPage: React.FC = () => {
               ) : (
                 <div className="space-y-6">
                   <PhotoUploader collageId={currentCollage.id} />
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-4">
-                    <h3 className="text-lg font-medium mb-4">Uploaded Photos</h3>
-                    <CollagePhotos collageId={currentCollage.id} />
-                  </div>
                 </div>
               )}
             </div>
