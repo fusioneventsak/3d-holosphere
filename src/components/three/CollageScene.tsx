@@ -378,12 +378,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const spacing = settings.floorSize / photosPerRow;
         
         // Calculate grid position
-        const gridX = index % photosPerRow;
-        const gridZ = Math.floor(index / photosPerRow);
+        const waveGridX = index % photosPerRow;
+        const waveGridZ = Math.floor(index / photosPerRow);
         
         // Center the grid and calculate base position
-        const xPos = (gridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
-        const zPos = (gridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        const xPos = (waveGridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
         // Wave parameters
         const baseHeight = 4; // Base height above floor
