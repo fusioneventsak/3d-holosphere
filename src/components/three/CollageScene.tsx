@@ -355,17 +355,18 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Fixed grid size for stable distribution
+        // Calculate distribution area based on floor size
+        const distributionArea = settings.floorSize * 0.8; // Use 80% of floor size
         const gridSize = Math.ceil(Math.sqrt(photos.length));
-        const spacing = settings.floorSize / gridSize;
+        const baseSpacing = (distributionArea / gridSize) * (1 + settings.photoSpacing);
         
         // Calculate fixed base position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
         // Create stable base positions
-        const baseX = (col - gridSize/2) * spacing;
-        const baseZ = (row - gridSize/2) * spacing;
+        const baseX = (col - gridSize/2) * baseSpacing;
+        const baseZ = (row - gridSize/2) * baseSpacing;
         
         // Animation parameters
         const cycleHeight = 30;
@@ -395,14 +396,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave': {
         // Use minHeight defined above
+        // Use smaller distribution area for wave pattern
+        const distributionArea = settings.floorSize * 0.6; // Use 60% of floor size
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
-        const spacing = settings.floorSize / photosPerRow;
+        const baseSpacing = (distributionArea / photosPerRow) * (1 + settings.photoSpacing);
         
         const waveGridX = index % photosPerRow;
         const waveGridZ = Math.floor(index / photosPerRow);
         
-        const xPos = (waveGridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
-        const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        const xPos = (waveGridX * baseSpacing) - (distributionArea * 0.5) + (baseSpacing * 0.5);
+        const zPos = (waveGridZ * baseSpacing) - (distributionArea * 0.5) + (baseSpacing * 0.5);
         
         // Create unique wave parameters for each photo
         const uniqueFreq = 0.8 + (Math.sin(index * 3.14159) * 0.4); // Frequency varies between 0.4 and 1.2
