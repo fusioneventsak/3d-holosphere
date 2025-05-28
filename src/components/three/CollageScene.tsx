@@ -262,6 +262,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   useFrame((state, delta) => {
     if (!meshRef.current || !animationEnabled || !camera) return;
     
+    // Base height for all animation patterns
+    const baseHeight = 4; // Ensure elements start above floor
+    
     // Use consistent time steps for animations
     const timeStep = Math.fround(delta * speed);
     elapsedTime.current = Math.fround(elapsedTime.current + timeStep);
@@ -287,7 +290,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     switch (pattern) {
       case 'grid':
-        const baseHeight = 4; // Ensure grid starts above floor
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
