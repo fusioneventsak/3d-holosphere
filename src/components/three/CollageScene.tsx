@@ -160,7 +160,7 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       fragmentShader: gradientShader.fragmentShader,
       depthWrite: false
     });
-  }, []);
+  }, [settings]);
   
   useEffect(() => {
     gradientMaterial.uniforms.colorA.value.set(settings.backgroundGradientStart);
@@ -661,28 +661,28 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <React.Suspense fallback={<LoadingFallback />}>
           {isSceneReady && (
             <>
-            <CameraSetup settings={settings} />
-            <Floor settings={settings} />
-            <SceneSetup settings={settings} />
-            
-            <OrbitControls 
-              makeDefault
-              enableZoom={true}
-              enablePan={true}
-              autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-              autoRotateSpeed={settings.cameraRotationSpeed}
-              minDistance={5}
-              maxDistance={100}
-              minPolarAngle={0}
-              maxPolarAngle={Math.PI * 0.85}
-              dampingFactor={0.1}
-              enableDamping={true}
-              rotateSpeed={0.8}
-              zoomSpeed={0.8}
-              panSpeed={1.2}
-            />
-            
-            <PhotosContainer photos={displayedPhotos} settings={settings} />
+              <CameraSetup settings={settings} />
+              <Floor settings={settings} />
+              <SceneSetup settings={settings} />
+              
+              <OrbitControls 
+                makeDefault
+                enableZoom={true}
+                enablePan={true}
+                autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+                autoRotateSpeed={settings.cameraRotationSpeed}
+                minDistance={5}
+                maxDistance={100}
+                minPolarAngle={0}
+                maxPolarAngle={Math.PI * 0.85}
+                dampingFactor={0.1}
+                enableDamping={true}
+                rotateSpeed={0.8}
+                zoomSpeed={0.8}
+                panSpeed={1.2}
+              />
+              
+              <PhotosContainer photos={displayedPhotos} settings={settings} />
             </>
           )}
         </React.Suspense>
