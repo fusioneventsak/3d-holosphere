@@ -354,7 +354,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         lookAtPos.y = mesh.position.y; // Keep vertical alignment consistent
         mesh.lookAt(lookAtPos);
         break;
-      }@@
+      }
         
       case 'wave': {
         // Wave case scope
