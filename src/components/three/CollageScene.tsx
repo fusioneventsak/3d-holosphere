@@ -572,20 +572,6 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
 
   return (
     <>
-      {settings.gridEnabled && isGridReady && (
-        <Grid
-          position={[0, -1.8, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={settings.gridColor}
-          sectionSize={3}
-          fadeDistance={settings.gridSize}
-          fadeStrength={1}
-          followCamera={false}
-          infiniteGrid={false}
-        />
-      )}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -2, 0]}
@@ -603,6 +589,20 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           side={THREE.DoubleSide}
         />
       </mesh>
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -1.5, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={settings.gridSize}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
     </>
   );
 };
