@@ -208,6 +208,23 @@ const SceneSettings: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
+                Floor Size
+              </label>
+              <input
+                type="range"
+                min="20"
+                max="200"
+                step="10"
+                value={settings.floorSize}
+                onChange={(e) => updateSettings({ 
+                  floorSize: parseFloat(e.target.value) 
+                })}
+                className="w-full bg-gray-800"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">
                 Photo Size
               </label>
               <input

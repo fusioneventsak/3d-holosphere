@@ -380,7 +380,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave': {
         const baseHeight = 4; // Define base height for wave pattern
         // Calculate distribution across floor plane
-        const totalArea = settings.floorSize * settings.floorSize;
         const photosPerRow = Math.ceil(Math.sqrt(photos.length));
         const spacing = settings.floorSize / photosPerRow;
         
@@ -393,21 +392,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
         // Wave parameters
-        const waveAmplitude = 2;
-        const waveFrequency = 0.8;
+        const waveAmplitude = 4;
+        const waveFrequency = 1.2;
         
         // Create unique phase offset for each photo
-        const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
+        const phaseOffset = index * (Math.PI / 4);
         
         // Calculate wave height using the baseHeight
         const waveY = baseHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
         
+        // Add continuous motion in all dimensions
+        const motionScale = 1.5;
+        const xMotion = Math.sin(time.current * speed * 0.7 + phaseOffset) * motionScale;
+        const zMotion = Math.cos(time.current * speed * 0.5 + phaseOffset) * motionScale;
+        
         updatePosition(
-          xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
+          xPos + xMotion,
           Math.max(baseHeight, waveY),
-          zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
+          zPos + zMotion
         );
         
         mesh.lookAt(camera.position);
