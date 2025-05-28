@@ -578,10 +578,10 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group>
+    <>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.01, 0]}
+        position={[0, -2, 0]}
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
@@ -592,15 +592,13 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           metalness={settings.floorMetalness}
           roughness={settings.floorRoughness}
           side={THREE.DoubleSide}
-          depthWrite={true}
-          polygonOffset={true}
-          polygonOffsetFactor={-1}
+          depthWrite={false}
         />
       </mesh>
       
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, 0.01, 0]}
+          position={[0, -1.99, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -612,7 +610,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           infiniteGrid={false}
         />
       )}
-    </group>
+    </>
   );
 };
 
