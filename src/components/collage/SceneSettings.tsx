@@ -217,19 +217,58 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Floor Size
-                <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorSize)} units</span>
+                Grid Aspect Ratio
               </label>
-              <input
-                type="range"
-                min="50"
-                max="300"
-                step="10"
-                value={settings.floorSize}
-                onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
-                className="w-full bg-gray-800"
-              />
+              <select
+                value={settings.gridAspectRatioPreset}
+                onChange={(e) => {
+                  const preset = e.target.value as SceneSettings['gridAspectRatioPreset'];
+                  let ratio = settings.gridAspectRatio;
+                  
+                  switch (preset) {
+                    case '1:1': ratio = 1; break;
+                    case '4:3': ratio = 1.333333; break;
+                    case '16:9': ratio = 1.777778; break;
+                    case '21:9': ratio = 2.333333; break;
+                    case 'custom': break; // Keep current ratio
+                  }
+                  
+                  onSettingsChange({
+                    gridAspectRatioPreset: preset,
+                    gridAspectRatio: ratio
+                  });
+                }}
+                className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+              >
+                <option value="1:1">Square (1:1)</option>
+                <option value="4:3">Standard (4:3)</option>
+                <option value="16:9">Widescreen (16:9)</option>
+                <option value="21:9">Ultrawide (21:9)</option>
+                <option value="custom">Custom</option>
+              </select>
             </div>
+            
+            {settings.gridAspectRatioPreset === 'custom' && (
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Custom Ratio
+                  <span className="ml-2 text-xs text-gray-400">
+                    {settings.gridAspectRatio.toFixed(2)}:1
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3"
+                  step="0.1"
+                  value={settings.gridAspectRatio}
+                  onChange={(e) => onSettingsChange({
+                    gridAspectRatio: parseFloat(e.target.value)
+                  })}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            )}
             
             <div>
               <label className="block text-sm text-gray-300 mb-2">
