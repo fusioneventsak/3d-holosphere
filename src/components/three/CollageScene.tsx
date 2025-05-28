@@ -13,21 +13,22 @@ type Photo = {
 const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): (Photo & { wall?: 'front' | 'back' })[] => {
   const result: Photo[] = [];
   const userPhotos = photos.slice(0, maxCount);
-  
-  // Calculate number of slots to fill
   const totalSlots = maxCount;
   const emptySlots = totalSlots - userPhotos.length;
   
   if (useStockPhotos && stockPhotos.length > 0) {
-    // Mix user photos with stock photos
-    result.push(...userPhotos);
-    
-    // Fill remaining slots with stock photos
-    for (let i = 0; i < emptySlots; i++) {
-      result.push({
-        id: `stock-${i}`,
-        url: stockPhotos[i % stockPhotos.length]
-      });
+    // Distribute photos evenly across the grid
+    for (let i = 0; i < totalSlots; i++) {
+      if (i < userPhotos.length) {
+        result.push(userPhotos[i]);
+      } else {
+        // Use stock photos in a repeating pattern
+        const stockIndex = (i - userPhotos.length) % stockPhotos.length;
+        result.push({
+          id: `stock-${i}`,
+          url: stockPhotos[stockIndex]
+        });
+      }
     }
   } else {
     // Split photos between front and back walls
@@ -57,6 +58,22 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
           wall: 'back'
         });
       }
+    }
+  }
+  
+  // Ensure we have exactly maxCount photos
+  while (result.length < maxCount) {
+    if (useStockPhotos && stockPhotos.length > 0) {
+      result.push({
+        id: `stock-fill-${result.length}`,
+        url: stockPhotos[result.length % stockPhotos.length]
+      });
+    } else {
+      result.push({
+        id: `empty-${result.length}`,
+        url: '',
+        wall: result.length % 2 === 0 ? 'front' : 'back'
+      });
     }
   }
   
