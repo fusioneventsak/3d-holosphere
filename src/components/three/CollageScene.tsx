@@ -326,12 +326,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Create tight spacing for a solid wall effect
         // Use photo dimensions - width and 1.5x height for portrait orientation
         const baseWidth = settings.photoSize;
-        const photoHeight = settings.photoSize * 1.5;
+        const baseHeight = settings.photoSize * 1.5;
         
-        // Calculate spacing with a multiplier to make the slider more effective
-        const spacingMultiplier = settings.photoSpacing * 2; // Double the effect
-        const horizontalSpacing = baseWidth * (1 + spacingMultiplier);
-        const verticalSpacing = photoHeight * (1 + spacingMultiplier);
+        // Calculate spacing based on photo size and spacing factor
+        const spacing = settings.photoSpacing;
+        const horizontalSpacing = baseWidth * (1 + spacing);
+        const verticalSpacing = baseHeight * (1 + spacing);
         
         // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
@@ -513,9 +513,9 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     // Calculate spacing
     const photoHeight = settings.photoSize * 1.5;
-    const spacingMultiplier = settings.photoSpacing * 2; // Double the effect
-    const verticalSpacing = photoHeight * (1 + spacingMultiplier);
-    const horizontalSpacing = settings.photoSize * (1 + spacingMultiplier);
+    const spacing = settings.photoSpacing;
+    const verticalSpacing = photoHeight * (1 + spacing);
+    const horizontalSpacing = settings.photoSize * (1 + spacing);
     
     return photos.map((photo, index) => {
       const col = index % gridWidth;
