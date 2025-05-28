@@ -322,34 +322,40 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Float case scope
         // Define float animation boundaries
         const floatMinY = -settings.floorSize / 2; // Start well below floor
-        const floatMaxY = settings.cameraHeight + 20; // End above camera
+        const floatMaxY = settings.cameraHeight * 2; // Extend range for smoother looping
         const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.5;
+        const floatSpeedFactor = 0.2;
         
-        // Initialize float offset if not set
+        // Initialize float offset with random phase
         if (floatYOffset.current === null) {
-          // Distribute photos evenly across the vertical range
-          floatYOffset.current = (index / photos.length) * floatRange;
+          // Random initial offset between 0 and floatRange
+          floatYOffset.current = Math.random() * floatRange;
         }
         
         // Update vertical position
-        floatYOffset.current = (floatYOffset.current + timeStep * speed * floatSpeedFactor) % floatRange;
+        const individualSpeed = floatSpeedFactor * (0.8 + Math.sin(index * 2.37) * 0.2);
+        floatYOffset.current = (floatYOffset.current + timeStep * speed * individualSpeed) % floatRange;
         const newY = floatMinY + floatYOffset.current;
         
         // Calculate grid position for even distribution across floor plane
         const gridSize = Math.ceil(Math.sqrt(photos.length));
         const cellSize = settings.floorSize / gridSize;
-        const col = index % gridSize;
-        const row = Math.floor(index / gridSize);
+        
+        // Spiral distribution for base positions
+        const angle = (index / photos.length) * Math.PI * 2;
+        const radius = (index / photos.length) * (settings.floorSize * 0.4);
+        const baseX = Math.cos(angle) * radius;
+        const baseZ = Math.sin(angle) * radius;
         
         // Center the grid and add slight offset for natural look
-        const xPos = (col * cellSize) - (settings.floorSize * 0.5) + (cellSize * 0.5);
-        const zPos = (row * cellSize) - (settings.floorSize * 0.5) + (cellSize * 0.5);
+        const wobblePhase = time.current * 0.5 + index * 0.1;
+        const wobbleX = Math.sin(wobblePhase) * 0.5;
+        const wobbleZ = Math.cos(wobblePhase * 1.3) * 0.5;
         
         updatePosition(
-          xPos + (Math.sin(time.current + index) * 0.5), // Slight horizontal drift
+          baseX + wobbleX,
           newY,
-          zPos + (Math.cos(time.current + index) * 0.5) // Slight depth drift
+          baseZ + wobbleZ
         );
         
         // Always face the camera
