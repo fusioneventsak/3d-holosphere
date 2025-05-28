@@ -535,7 +535,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       <mesh
         ref={floorRef}
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2, 0]}
+        position={[0, -2.001, 0]}
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
@@ -550,7 +550,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       </mesh>
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -1.999, 0]}
+          position={[0, -2, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
