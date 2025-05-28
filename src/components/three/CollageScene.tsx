@@ -386,14 +386,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
         // Wave parameters
-        const baseHeight = 4; // Base height above floor
         const waveAmplitude = 2;
         const waveFrequency = 0.8;
         
         // Create unique phase offset for each photo
         const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
         
-        // Calculate wave height
+        // Calculate wave height using the baseHeight from grid case
         const waveY = baseHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
