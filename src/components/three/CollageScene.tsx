@@ -309,27 +309,28 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'grid':
         // Calculate grid dimensions
         const aspectRatio = window.innerWidth / window.innerHeight;
-        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * aspectRatio)) * 2;
-        const gridHeight = Math.ceil(totalPhotos / gridWidth) * 0.5;
+        const baseAspectRatio = settings.gridAspectRatio || 1;
+        const gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
+        const gridHeight = Math.ceil(totalPhotos / gridWidth);
         
         // Create tight spacing for a solid wall effect
         // Use photo dimensions - width and 1.5x height for portrait orientation
         const horizontalSpacing = settings.photoSize * 1.05; // Just a bit wider than photo width
         const verticalSpacing = settings.photoSize * 1.55; // Just a bit taller than photo height
         
-        // Calculate position in the wall grid with wall height offset
+        // Calculate position in the wall grid
         const gridIndex = index;
         const row = Math.floor(gridIndex / gridWidth);
         const col = gridIndex % gridWidth;
         
         // Center the grid
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-        const yOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
+        const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
         
         // Set position in grid - ensure both walls are positioned above the floor
         updatePosition(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(settings.wallHeight + (row * verticalSpacing)), // Use wall height as base
+          Math.fround(yOffset + (row * verticalSpacing)),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
@@ -467,11 +468,10 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
   const photoProps = useMemo(() => {
     // Calculate total photos and dimensions
     const totalPhotos = photos.length;
-    const baseAspectRatio = settings.gridAspectRatio;
+    const baseAspectRatio = settings.gridAspectRatio || 1;
     
     // Calculate optimal grid dimensions based on aspect ratio
-    const optimalWidth = Math.sqrt(totalPhotos * baseAspectRatio);
-    const gridWidth = Math.ceil(optimalWidth);
+    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
     const gridHeight = Math.ceil(totalPhotos / gridWidth);
     
     // Calculate spacing
@@ -479,19 +479,17 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     const verticalSpacing = photoHeight * 1.05;
     const horizontalSpacing = settings.photoSize * 1.05;
     
-    // Calculate base height including wall height setting
-    const baseHeight = settings.wallHeight || 2;
-    
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
       // Center the grid horizontally and adjust for wall height
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       const x = gridXOffset + (col * horizontalSpacing);
       
       // Calculate vertical position starting from the bottom of the wall
-      const y = settings.wallHeight + (row * verticalSpacing);
+      const y = settings.wallHeight + gridYOffset + (row * verticalSpacing);
       
       // Determine wall placement
       const currentWall = index % 2 === 0 ? 'front' as const : 'back' as const;
