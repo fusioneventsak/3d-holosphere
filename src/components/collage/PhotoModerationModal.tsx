@@ -1,0 +1,121 @@
+import React, { useState } from 'react';
+import { X, Trash2, AlertCircle } from 'lucide-react';
+import { useCollageStore } from '../../store/collageStore';
+
+type Photo = {
+  id: string;
+  url: string;
+};
+
+type PhotoModerationModalProps = {
+  photos: Photo[];
+  onClose: () => void;
+};
+
+const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onClose }) => {
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const { deletePhoto } = useCollageStore();
+
+  const handleDeletePhoto = async (photo: Photo) => {
+    setDeletingPhotoId(photo.id);
+    try {
+      await deletePhoto(photo.id);
+    } catch (error) {
+      console.error('Failed to delete photo:', error);
+    } finally {
+      setDeletingPhotoId(null);
+      if (selectedPhoto?.id === photo.id) {
+        setSelectedPhoto(null);
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+      <div className="bg-gray-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white">Photo Moderation</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+          >
+            <X className="h-6 w-6 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+          {photos.map((photo) => (
+            <div
+              key={photo.id}
+              className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
+              onClick={() => setSelectedPhoto(photo)}
+            >
+              <img
+                src={photo.url}
+                alt="Collage photo"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePhoto(photo);
+                  }}
+                  className="p-2 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                  disabled={deletingPhotoId === photo.id}
+                >
+                  {deletingPhotoId === photo.id ? (
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Trash2 className="h-5 w-5 text-white" />
+                  )}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {photos.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-400">
+              <AlertCircle className="h-12 w-12 mb-4" />
+              <p className="text-lg">No photos to moderate</p>
+            </div>
+          )}
+        </div>
+
+        {selectedPhoto && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90">
+            <div className="relative max-w-4xl max-h-[90vh]">
+              <img
+                src={selectedPhoto.url}
+                alt="Full size"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+              />
+              <div className="absolute top-4 right-4 flex space-x-2">
+                <button
+                  onClick={() => handleDeletePhoto(selectedPhoto)}
+                  className="p-2 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                  disabled={deletingPhotoId === selectedPhoto.id}
+                >
+                  {deletingPhotoId === selectedPhoto.id ? (
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Trash2 className="h-5 w-5 text-white" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedPhoto(null)}
+                  className="p-2 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors"
+                >
+                  <X className="h-5 w-5 text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PhotoModerationModal;
