@@ -270,7 +270,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
 
     // Get total photos to display
     const totalPhotos = photos?.length || 1;
-    
+
     switch (pattern) {
       case 'grid': {
         // Grid case scope
@@ -311,11 +311,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
         break;
       }
-        
+
       case 'float': {
         // Float animation constants
-        const maxSpread = 30; // Limit spread to keep photos visible
-        const verticalSpeed = settings.animationSpeed * 2;
+        const maxSpread = settings.floorSize * 0.4; // Use floor size to determine spread
+        const verticalRange = settings.cameraHeight * 0.4; // Scale vertical movement with camera height
         
         // Calculate base position from grid
         const gridSize = Math.ceil(Math.sqrt(photos.length));
@@ -324,7 +324,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const baseZ = (gridPosition.current[1] - gridSize/2) * spacing;
         
         // Calculate floating motion
-        const floatY = baseHeight + (Math.sin(time.current + startDelay.current) * 2 + 1) * 5;
+        const floatY = baseHeight + (Math.sin(time.current + startDelay.current) * verticalRange);
         
         // Add gentle drift
         const driftX = Math.sin(time.current * 0.5 + index) * 1.5;
@@ -332,7 +332,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         mesh.position.set(
           baseX + driftX,
-          floatY,
+          Math.max(baseHeight, floatY), // Ensure minimum height
           baseZ + driftZ
         );
         
@@ -342,121 +342,60 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         mesh.lookAt(lookAtPos);
         break;
       }
-      
-      case 'wave': {
-        const maxSpread = 40;
-        const gridSize = Math.ceil(Math.sqrt(photos.length));
-        const spacing = maxSpread / gridSize;
-        
-        // Calculate base grid position
-        const baseX = (gridPosition.current[0] - gridSize/2) * spacing;
-        const baseZ = (gridPosition.current[1] - gridSize/2) * spacing;
-        
-        // Wave parameters
-        const waveHeight = 3;
-        const waveFreq = 1;
-        
-        // Calculate wave motion
-        const waveY = baseHeight + Math.sin(
-          time.current * waveFreq + 
-          (baseX * 0.3) + 
-          (baseZ * 0.2)
-        ) * waveHeight;
-        
-        mesh.position.set(
-          baseX,
-          waveY,
-          baseZ
-        );
-        
-        // Look at camera
-        mesh.lookAt(camera.position);
-        break;
-      }
-      
-      case 'spiral': {
-        const maxRadius = 20;
-        const heightRange = 15;
-        
-        // Calculate spiral parameters
-        const angle = (index / photos.length) * Math.PI * 2 + time.current;
-        const radius = Math.min(
-          ((photos.length - index) / photos.length) * maxRadius,
-          maxRadius
-        );
-        
-        // Calculate position
-        const spiralX = Math.cos(angle) * radius;
-        const spiralY = baseHeight + (index / photos.length) * heightRange;
-        const spiralZ = Math.sin(angle) * radius;
-        
-        mesh.position.set(
-          spiralX,
-          spiralY,
-          spiralZ
-        );
-        
-        // Look at camera
-        mesh.lookAt(camera.position);
-        break;
-      }
-        
+
       case 'wave': {
         // Wave case scope
-        const waveAmplitude = 4;
-        const waveFrequency = 1.2;
+        const waveAmplitude = settings.cameraHeight * 0.2; // Scale wave height with camera
+        const waveFrequency = settings.animationSpeed * 2;
         const gridSize = Math.ceil(Math.sqrt(photos.length));
         const spacing = settings.floorSize / gridSize;
         
         // Calculate grid position
         const waveGridX = index % gridSize;
         const waveGridZ = Math.floor(index / gridSize);
+        const phaseOffset = (waveGridX + waveGridZ) * 0.5;
         
         // Center the grid and calculate base position
         const xPos = (waveGridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
-        // Create unique phase offset for each photo
-        const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
-        
         // Calculate wave height with continuous motion
-        const waveY = baseHeight + waveAmplitude + 
-          (Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude);
+        const waveY = baseHeight + 
+          (Math.sin(time.current * waveFrequency + phaseOffset) * waveAmplitude);
         
         mesh.position.set(
-          xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
-          waveY,
-          zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
+          xPos + Math.sin(time.current * 0.2 + phaseOffset) * 0.5,
+          Math.max(baseHeight, waveY),
+          zPos + Math.cos(time.current * 0.2 + phaseOffset) * 0.5
         );
         
+        // Look at camera while maintaining vertical orientation
         mesh.lookAt(camera.position);
         break;
       }
-        
+
       case 'spiral': {
         // Spiral case scope
-        const spiralMaxHeight = maxHeight;
-        const spiralRadius = Math.sqrt(photos.length) * 1.5;
-        const verticalSpeed = speed * 0.8;
-        const rotationSpeed = speed * 1.5;
+        const maxRadius = settings.floorSize * 0.3;
+        const maxHeight = settings.cameraHeight * 1.2;
+        const verticalSpeed = settings.animationSpeed;
+        const rotationSpeed = settings.animationSpeed * 2;
         
         // Calculate time-based position
-        const t = ((time.current * verticalSpeed + (index / photos.length)) % 1) * Math.PI * 2;
-        const spiralAngle = t + time.current * rotationSpeed;
+        const progress = (time.current * verticalSpeed + (index / photos.length)) % 1;
+        const angle = progress * Math.PI * 2 + time.current * rotationSpeed;
         
         // Calculate spiral position
-        const progress = t / (Math.PI * 2);
-        const currentRadius = spiralRadius * (1 - progress);
-        const spiralX = Math.cos(spiralAngle) * currentRadius;
-        const spiralY = spiralMaxHeight * (1 - progress);
-        const spiralZ = Math.sin(spiralAngle) * currentRadius;
+        const radius = maxRadius * (1 - progress);
+        const height = maxHeight * (1 - progress);
         
         mesh.position.set(
-          spiralX,
-          Math.max(baseHeight, spiralY), // Ensure minimum height above floor
-          spiralZ
+          Math.cos(angle) * radius,
+          Math.max(baseHeight, baseHeight + height),
+          Math.sin(angle) * radius
         );
         
+        // Look at camera while maintaining vertical orientation
         mesh.lookAt(camera.position);
         break;
       }
