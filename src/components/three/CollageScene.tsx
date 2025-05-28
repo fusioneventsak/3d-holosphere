@@ -13,17 +13,15 @@ type Photo = {
 const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): (Photo & { wall?: 'front' | 'back' })[] => {
   const result: Photo[] = [];
   const userPhotos = photos.slice(0, maxCount);
-  const totalSlots = maxCount;
-  const emptySlots = totalSlots - userPhotos.length;
   
   if (useStockPhotos && stockPhotos.length > 0) {
-    // Distribute photos evenly across the grid
-    for (let i = 0; i < totalSlots; i++) {
+    // Fill all slots with either user photos or stock photos
+    for (let i = 0; i < maxCount; i++) {
       if (i < userPhotos.length) {
         result.push(userPhotos[i]);
       } else {
-        // Use stock photos in a repeating pattern
-        const stockIndex = (i - userPhotos.length) % stockPhotos.length;
+        // Ensure even distribution of stock photos
+        const stockIndex = Math.floor(Math.random() * stockPhotos.length);
         result.push({
           id: `stock-${i}`,
           url: stockPhotos[stockIndex]
@@ -32,7 +30,7 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
     }
   } else {
     // Split photos between front and back walls
-    const photosPerWall = Math.ceil(totalSlots / 2);
+    const photosPerWall = Math.ceil(maxCount / 2);
     
     // Add empty slots and photos to front wall
     for (let i = 0; i < photosPerWall; i++) {
@@ -48,7 +46,7 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
     }
     
     // Add empty slots and remaining photos to back wall
-    for (let i = photosPerWall; i < totalSlots; i++) {
+    for (let i = photosPerWall; i < maxCount; i++) {
       if (i < userPhotos.length) {
         result.push({ ...userPhotos[i], wall: 'back' });
       } else {
@@ -62,19 +60,8 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
   }
   
   // Ensure we have exactly maxCount photos
-  while (result.length < maxCount) {
-    if (useStockPhotos && stockPhotos.length > 0) {
-      result.push({
-        id: `stock-fill-${result.length}`,
-        url: stockPhotos[result.length % stockPhotos.length]
-      });
-    } else {
-      result.push({
-        id: `empty-${result.length}`,
-        url: '',
-        wall: result.length % 2 === 0 ? 'front' : 'back'
-      });
-    }
+  if (result.length > maxCount) {
+    result.length = maxCount;
   }
   
   return result;
@@ -338,20 +325,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Float case scope
         // Define float animation boundaries
-        const floatMinY = -2; // Start just below floor
+        const floatMinY = 2; // Start above floor
         const floatMaxY = settings.cameraHeight * 4; // Increased max height for more dramatic effect
         const floatRange = floatMaxY - floatMinY;
         const floatSpeedFactor = 0.5; // Increased base speed factor
         
         // Initialize float offset with random phase
         if (floatYOffset.current === null) {
-          floatYOffset.current = Math.random() * floatRange * 2; // Double range for more variation
+          floatYOffset.current = Math.random() * floatRange; // Single range for more consistent distribution
         }
         
         // Update vertical position
         const individualSpeed = floatSpeedFactor * (0.8 + Math.random() * 0.4) * Math.pow(settings.animationSpeed, 1.5);
         floatYOffset.current = (floatYOffset.current + timeStep * speed * individualSpeed) % floatRange;
-        const newY = floatMinY + floatYOffset.current;
+        const newY = Math.max(floatMinY, floatMinY + floatYOffset.current);
         
         // Calculate grid position for even distribution across floor plane
         const gridSize = Math.ceil(Math.sqrt(photos.length));
