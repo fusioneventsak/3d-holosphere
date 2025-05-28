@@ -374,38 +374,38 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave':
         // Calculate grid-based position for even distribution
         const waveGridSize = Math.ceil(Math.sqrt(photos.length));
-        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing);
+        const waveCol = index % waveGridSize;
+        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing * 3);
         
         // Center the grid
-        const waveWidth = waveGridSize * waveSpacing;
-        const waveXOffset = -waveWidth / 2;
+        const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
+        const waveZOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
         
         // Base position in grid
-        const waveCol = index % waveGridSize;
-        const row = Math.floor(index / waveGridSize);
         const baseX = waveXOffset + (waveCol * waveSpacing);
-        const baseZ = 2; // All photos on same Z plane
+        const waveRow = Math.floor(index / waveGridSize);
+        const baseZ = waveZOffset + (waveRow * waveSpacing);
         
         // Wave parameters
-        const baseY = 4; // Base height above floor
-        const waveAmplitude = 2;
-        const waveFrequency = 2;
+        const baseY = 4; // Increased base height above floor
+        const waveAmplitude = 3.5;
+        const waveFrequency = 1;
         
         // Create unique wave phase for each photo based on position
-        const phaseOffset = (waveCol / waveGridSize) * Math.PI * 2;
+        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
         
         // Calculate wave height
-        const waveY = baseY + (
+        const waveY = baseY + settings.wallHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
         
         updatePosition(
           baseX,
-          Math.max(2, waveY),
-          baseZ
+          Math.max(2, waveY), // Ensure minimum height of 2 above floor
+          (wall === 'back' ? -1 : 1) * baseZ // Flip Z for back wall
         );
         
-        mesh.rotation.set(0, 0, 0); // Keep photos facing forward
+        mesh.lookAt(camera.position);
         break;
         
       case 'spiral':
