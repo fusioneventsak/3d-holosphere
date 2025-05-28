@@ -307,6 +307,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     switch (pattern) {
       case 'grid':
+        const baseHeight = 4; // Ensure grid starts above floor
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
@@ -335,7 +336,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Set position in grid - ensure both walls are positioned above the floor
         updatePosition(Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(yOffset + (row * verticalSpacing)),
+          Math.fround(baseHeight + yOffset + (row * verticalSpacing)),
           2 // All photos on same wall
         );
         
@@ -373,20 +374,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave':
         // Calculate grid-based position for even distribution
         const waveGridSize = Math.ceil(Math.sqrt(photos.length));
-        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing);
+        const waveCol = index % waveGridSize;
+        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing * 3);
         
         // Center the grid
         const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
         const waveZOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
         
         // Base position in grid
-        const waveCol = index % waveGridSize;
         const baseX = waveXOffset + (waveCol * waveSpacing);
         const waveRow = Math.floor(index / waveGridSize);
         const baseZ = waveZOffset + (waveRow * waveSpacing);
         
         // Wave parameters
-        const baseY = 2; // Base height above floor
+        const baseY = 4; // Increased base height above floor
         const waveAmplitude = 2.5;
         const waveFrequency = 1;
         
@@ -394,9 +395,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
         
         // Calculate wave height
-        const waveY = baseY + Math.max(0, (
+        const waveY = baseY + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
-        ));
+        );
         
         updatePosition(
           baseX,
