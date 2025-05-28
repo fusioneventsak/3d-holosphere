@@ -5,45 +5,86 @@ import { Grid, Palette, CameraIcon, ImageIcon, Square } from 'lucide-react';
 const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
   const result: Photo[] = [];
   const userPhotos = photos.slice(0, maxCount);
-  
-  // Calculate number of slots to fill
   const totalSlots = maxCount;
-  const emptySlots = totalSlots - userPhotos.length;
+  
+  // Calculate slots per side (front and back walls)
+  const slotsPerSide = Math.ceil(totalSlots / 2);
+  const userPhotosPerSide = Math.ceil(userPhotos.length / 2);
+  const emptySlotsPerSide = slotsPerSide - userPhotosPerSide;
   
   if (useStockPhotos && stockPhotos.length > 0) {
     // Mix user photos with stock photos
     result.push(...userPhotos);
     
     // Fill remaining slots with stock photos
-    for (let i = 0; i < emptySlots; i++) {
+    for (let i = 0; i < (totalSlots - userPhotos.length); i++) {
       result.push({
         id: `stock-${i}`,
         url: stockPhotos[i % stockPhotos.length]
       });
     }
   } else {
-    // Calculate empty slots for before and after user photos
-    const emptySlotsBefore = Math.floor(emptySlots / 2);
-    const emptySlotsAfter = emptySlots - emptySlotsBefore;
+    // Front wall
+    const frontEmptySlotsBefore = Math.floor(emptySlotsPerSide / 2);
+    const frontEmptySlotsAfter = emptySlotsPerSide - frontEmptySlotsBefore;
     
-    // Add empty slots before user photos
-    for (let i = 0; i < emptySlotsBefore; i++) {
+    // Add empty slots before front photos
+    for (let i = 0; i < frontEmptySlotsBefore; i++) {
       result.push({
-        id: `empty-${i}`,
-        url: ''
+        id: `empty-front-before-${i}`,
+        url: '',
+        wall: 'front'
       });
     }
     
-    // Add user photos in the middle
-    if (userPhotos.length > 0) {
-      result.push(...userPhotos);
+    // Add first half of user photos
+    for (let i = 0; i < userPhotosPerSide; i++) {
+      if (userPhotos[i]) {
+        result.push({
+          ...userPhotos[i],
+          wall: 'front'
+        });
+      }
     }
     
-    // Add remaining empty slots after user photos
-    for (let i = 0; i < emptySlotsAfter; i++) {
+    // Add empty slots after front photos
+    for (let i = 0; i < frontEmptySlotsAfter; i++) {
       result.push({
-        id: `empty-after-${i}`,
-        url: ''
+        id: `empty-front-after-${i}`,
+        url: '',
+        wall: 'front'
+      });
+    }
+    
+    // Back wall
+    const backEmptySlotsBefore = Math.floor(emptySlotsPerSide / 2);
+    const backEmptySlotsAfter = emptySlotsPerSide - backEmptySlotsBefore;
+    
+    // Add empty slots before back photos
+    for (let i = 0; i < backEmptySlotsBefore; i++) {
+      result.push({
+        id: `empty-back-before-${i}`,
+        url: '',
+        wall: 'back'
+      });
+    }
+    
+    // Add second half of user photos
+    for (let i = userPhotosPerSide; i < userPhotos.length; i++) {
+      if (userPhotos[i]) {
+        result.push({
+          ...userPhotos[i],
+          wall: 'back'
+        });
+      }
+    }
+    
+    // Add empty slots after back photos
+    for (let i = 0; i < backEmptySlotsAfter; i++) {
+      result.push({
+        id: `empty-back-after-${i}`,
+        url: '',
+        wall: 'back'
       });
     }
   }
