@@ -309,7 +309,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'grid': {
         // Define base height at the start of the grid case
         const baseHeight = 4; // Ensure grid starts above floor
-        
+
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
@@ -325,8 +325,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Create tight spacing for a solid wall effect
         // Use photo dimensions - width and 1.5x height for portrait orientation
-        const horizontalSpacing = settings.photoSize * settings.photoSpacing; // Scale spacing by photoSpacing
-        const verticalSpacing = settings.photoSize * 1.5 * settings.photoSpacing; // Scale spacing by photoSpacing
+        const baseWidth = settings.photoSize;
+        const baseHeight = settings.photoSize * 1.5;
+        const spacing = settings.photoSpacing;
+        
+        const horizontalSpacing = baseWidth * (1 + spacing);
+        const verticalSpacing = baseHeight * (1 + spacing);
         
         // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
@@ -508,8 +512,8 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     // Calculate spacing
     const photoHeight = settings.photoSize * 1.5;
-    const verticalSpacing = photoHeight * settings.photoSpacing;
-    const horizontalSpacing = settings.photoSize * settings.photoSpacing;
+    const verticalSpacing = photoHeight * (1 + settings.photoSpacing);
+    const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
     
     return photos.map((photo, index) => {
       const col = index % gridWidth;

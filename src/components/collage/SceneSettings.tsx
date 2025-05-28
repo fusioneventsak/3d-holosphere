@@ -242,12 +242,12 @@ const SceneSettings: React.FC = () => {
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Photo Spacing
-                <span className="ml-2 text-xs text-gray-400">{settings.photoSpacing.toFixed(2)}x</span>
+                <span className="ml-2 text-xs text-gray-400">{(settings.photoSpacing * 100).toFixed(0)}%</span>
               </label>
               <input
                 type="range"
-                min="0.2"
-                max="5"
+                min="0"
+                max="2"
                 step="0.05"
                 value={settings.photoSpacing}
                 onChange={(e) => updateSettings({ 
@@ -256,7 +256,7 @@ const SceneSettings: React.FC = () => {
                 className="w-full bg-gray-800"
               />
               <p className="mt-1 text-xs text-gray-400">
-                Adjust spacing between photos (smaller values = tighter grid)
+                Adjust gap between photos (0% = no gap, 100% = photo-sized gap)
               </p>
             </div>
           </div>
