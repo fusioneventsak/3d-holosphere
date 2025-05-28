@@ -1,285 +1,702 @@
-import React from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
+import * as THREE from 'three';
+
+// Create gradient background shader
+const gradientShader = {
+  uniforms: {
+    colorA: { value: new THREE.Color() },
+    colorB: { value: new THREE.Color() },
+    gradientAngle: { value: 0 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 colorA;
+    uniform vec3 colorB;
+    varying vec2 vUv;
+    
+    void main() {
+      gl_FragColor = vec4(mix(colorA, colorB, 1.0 - vUv.y), 1.0);
+    }
+  `
+};
+
 import { useSceneStore } from '../../store/sceneStore';
+import { getStockPhotos } from '../../lib/stockPhotos';
 
-interface SceneSettingsProps {
-  className?: string;
-}
+// Create a shared texture loader with memory management
+const textureLoader = new THREE.TextureLoader();
+const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
-const SceneSettings: React.FC<SceneSettingsProps> = ({ className = '' }) => {
+const loadTexture = (url: string): THREE.Texture => {
+  if (textureCache.has(url)) {
+    const entry = textureCache.get(url)!;
+    entry.lastUsed = Date.now();
+    return entry.texture;
+  }
+  
+  const texture = textureLoader.load(url);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 1;
+  
+  textureCache.set(url, {
+    texture,
+    lastUsed: Date.now()
+  });
+  return texture;
+};
+
+const cleanupTexture = (url: string) => {
+  if (textureCache.has(url)) {
+    const entry = textureCache.get(url)!;
+    entry.texture.dispose();
+    textureCache.delete(url);
+  }
+};
+
+// Cleanup old textures periodically
+const cleanupOldTextures = () => {
+  const now = Date.now();
+  const maxAge = 60000; // 1 minute
+  
+  for (const [url, entry] of textureCache.entries()) {
+    if (now - entry.lastUsed > maxAge) {
+      cleanupTexture(url);
+    }
+  }
+};
+
+setInterval(cleanupOldTextures, 30000); // Run cleanup every 30 seconds
+
+type Photo = {
+  id: string;
+  url: string;
+};
+
+type PhotoPlaneProps = {
+  url: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  pattern: 'float' | 'wave' | 'spiral' | 'grid';
+  speed: number;
+  animationEnabled: boolean;
+  size: number;
+  settings: any;
+  photos: Photo[];
+  index: number;
+  wall?: 'front' | 'back';
+};
+
+// Helper functions
+const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
+  const result: Photo[] = [];
+  const userPhotos = photos.slice(0, maxCount);
+  
+  // Calculate the nearest complete grid size if in grid mode
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const baseGridWidth = Math.ceil(Math.sqrt(maxCount * aspectRatio));
+  const baseGridHeight = Math.ceil(maxCount / baseGridWidth);
+  const completeGridSize = baseGridWidth * baseGridHeight;
+  
+  // Calculate number of slots to fill
+  const totalSlots = completeGridSize;
+  const emptySlots = totalSlots - userPhotos.length;
+  
+  if (useStockPhotos && stockPhotos.length > 0) {
+    // Mix user photos with stock photos
+    result.push(...userPhotos);
+    
+    // Fill remaining slots with stock photos
+    for (let i = 0; i < emptySlots; i++) {
+      result.push({
+        id: `stock-${i}`,
+        url: stockPhotos[i % stockPhotos.length]
+      });
+    }
+  } else {
+    // When stock photos are disabled, put user photos in front
+    // Fill background with empty slots first
+    for (let i = 0; i < emptySlots; i++) {
+      result.push({
+        id: `empty-${i}`,
+        url: ''
+      });
+    }
+    
+    // Then add user photos so they appear in the foreground
+    if (userPhotos.length > 0) {
+      result.push(...userPhotos);
+    }
+  }
+  
+  return result;
+};
+
+// Helper to generate random positions for photos
+const randomPosition = (index: number, total: number, settings: any, isUserPhoto: boolean): [number, number, number] => {
+  // Calculate spacing between photos first
+  const spacing = settings.photoSize * (1 + settings.photoSpacing);
+  
+  const aspectRatio = window.innerWidth / window.innerHeight;
+  const gridWidth = Math.ceil(Math.sqrt(total * aspectRatio));
+  const gridHeight = Math.ceil(total / gridWidth);
+  
+  // Add some randomness to the grid position
+  const randomOffset = () => (Math.random() - 0.5) * settings.photoSpacing;
+  
+  // Calculate base grid position
+  const col = index % gridWidth;
+  const row = Math.floor(index / gridWidth);
+  
+  // Center the grid
+  const xOffset = ((gridWidth - 1) * spacing) * -0.5;
+  const yOffset = ((gridHeight - 1) * spacing) * -0.5;
+  
+  // Calculate position with random offset
+  const x = xOffset + (col * spacing) + randomOffset();
+  const y = yOffset + ((gridHeight - 1 - row) * spacing) + randomOffset();
+  const z = 2; // Keep photos above floor
+
+  return [x, y, z];
+};
+
+// Helper to generate random rotation for photos
+const randomRotation = (): [number, number, number] => {
+  return [0, 0, 0]; // Keep photos straight
+};
+
+// Scene setup component with camera initialization
+const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
+        colorB: { value: new THREE.Color(settings.backgroundGradientEnd) }
+      },
+      vertexShader: gradientShader.vertexShader,
+      fragmentShader: gradientShader.fragmentShader,
+      depthWrite: false
+    });
+  }, []);
+  
+  useEffect(() => {
+    gradientMaterial.uniforms.colorA.value.set(settings.backgroundGradientStart);
+    gradientMaterial.uniforms.colorB.value.set(settings.backgroundGradientEnd);
+  }, [gradientMaterial, settings.backgroundGradientStart, settings.backgroundGradientEnd]);
+
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (camera) {
+      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, settings.cameraHeight, settings.cameraDistance]);
+
+  return (
+    <>
+      {settings.backgroundGradient ? (
+        <mesh position={[0, 0, -1]}>
+          <planeGeometry args={[2, 2]} />
+          <primitive object={gradientMaterial} attach="material" />
+        </mesh>
+      ) : (
+        <color attach="background" args={[settings.backgroundColor]} />
+      )}
+      <ambientLight intensity={settings.ambientLightIntensity} />
+      {Array.from({ length: settings.spotlightCount }).map((_, i) => {
+        const angle = (i / settings.spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * settings.spotlightDistance;
+        const z = Math.sin(angle) * settings.spotlightDistance;
+        const target = new THREE.Object3D();
+        target.position.set(0, -2, 0); // Target the floor
+
+        return (
+          <group key={i}>
+            <primitive object={target} />
+            <spotLight
+              position={[x, settings.spotlightHeight, z]}
+              intensity={settings.spotlightIntensity}
+              power={40}
+              color={settings.spotlightColor}
+             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              decay={1.5}
+              penumbra={settings.spotlightPenumbra}
+             distance={300}
+              target={target}
+              castShadow
+             shadow-mapSize={[2048, 2048]}
+              shadow-bias={-0.001}
+            />
+          </group>
+        );
+      })}
+    </>
+  );
+};
+
+// Loading fallback component
+const LoadingFallback: React.FC = () => {
+  return (
+    <mesh position={[0, 0, 0]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="white" />
+    </mesh>
+  );
+};
+
+// Component for individual photo planes
+const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const initialPosition = useRef<[number, number, number]>(position);
+  const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
+  const gridPosition = useRef<[number, number]>([
+    Math.floor(index % Math.sqrt(photos.length)),
+    Math.floor(index / Math.sqrt(photos.length))
+  ]);
+  const orbitRadius = useRef<number>(Math.random() * 3 + 5); // Random orbit radius between 5-8
+  const randomOffset = useRef<[number, number, number]>([
+    (Math.random() - 0.5) * 2,
+    Math.random() * 0.5,
+    (Math.random() - 0.5) * 2
+  ]);
+  const elapsedTime = useRef<number>(0);
+  const time = useRef<number>(0);
+  const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
+  const { camera } = useThree();
+  
+  const texture = useMemo(() => {
+    if (!url) return null;
+    return loadTexture(url);
+  }, [url]);
+  
+  useEffect(() => {
+    return () => {
+      if (url) cleanupTexture(url);
+    };
+  }, [url]);
+  
+  useFrame((state, delta) => {
+    if (!meshRef.current || !animationEnabled || !camera) return;
+    
+    // Use consistent time steps for animations
+    const timeStep = Math.fround(delta * speed);
+    elapsedTime.current = Math.fround(elapsedTime.current + timeStep);
+    time.current = Math.fround(time.current + timeStep);
+    
+    // Wait for start delay before beginning animation
+    if (elapsedTime.current < startDelay.current) {
+      return;
+    }
+    
+    const mesh = meshRef.current;
+    // Ensure position updates use consistent precision
+    const updatePosition = (x: number, y: number, z: number) => {
+      mesh.position.set(
+        Math.fround(x),
+        Math.fround(y),
+        Math.fround(z)
+      );
+    };
+
+    // Get total photos to display
+    const totalPhotos = photos?.length || 1;
+    
+    switch (pattern) {
+      case 'grid':
+        // Calculate grid dimensions
+        const baseAspectRatio = settings.gridAspectRatio || 1;
+        let gridWidth, gridHeight;
+        if (baseAspectRatio >= 1) {
+          // Wider grid
+          gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
+          gridHeight = Math.ceil(totalPhotos / gridWidth);
+        } else {
+          // Taller grid
+          gridHeight = Math.ceil(Math.sqrt(totalPhotos / baseAspectRatio));
+          gridWidth = Math.ceil(totalPhotos / gridHeight);
+        }
+        
+        // Create tight spacing for a solid wall effect
+        // Use photo dimensions - width and 1.5x height for portrait orientation
+        const horizontalSpacing = settings.photoSize * 1.05; // Just a bit wider than photo width
+        const verticalSpacing = settings.photoSize * 1.55; // Just a bit taller than photo height
+        
+        // Calculate position in the wall grid
+        const row = Math.floor(index / gridWidth);
+        const col = index % gridWidth; // Fixed: Using index instead of undefined gridIndex
+        
+        // Center the grid
+        const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+        const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
+        
+        // Set position in grid - ensure both walls are positioned above the floor
+        updatePosition(Math.fround(xOffset + (col * horizontalSpacing)),
+          Math.fround(yOffset + (row * verticalSpacing)),
+          2 // All photos on same wall
+        );
+        
+        // Set rotation based on wall
+          mesh.rotation.set(0, Math.PI, 0); // Back wall faces outward
+        // Keep photos facing forward
+        mesh.rotation.set(0, 0, 0);
+        break;
+        
+      case 'float':
+        // Calculate grid-based starting position
+        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
+        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
+        
+        // Add random offset for natural distribution
+        const offsetX = randomOffset.current[0] * settings.photoSize;
+        const offsetZ = randomOffset.current[2] * settings.photoSize;
+        
+        // Calculate floating motion
+        const floatHeight = 15;
+        const floatY = Math.max(2, // Ensure minimum height of 2 above floor
+          (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
+        );
+        
+        updatePosition(
+          gridX + offsetX,
+          floatY,
+          (wall === 'back' ? -1 : 1) * (gridZ + offsetZ) // Flip Z for back wall
+        );
+        
+        // Always face the camera
+        mesh.lookAt(camera.position);
+        break;
+        
+      case 'wave':
+        // Calculate grid-based position for even distribution
+        const waveGridSize = Math.ceil(Math.sqrt(photos.length));
+        const waveCol = index % waveGridSize;
+        const waveSpacing = settings.photoSize * 1.2; // Use tighter spacing for wave pattern
+        
+        // Center the grid
+        const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
+        const waveZOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
+        
+        // Base position in grid
+        const baseX = waveXOffset + (waveCol * waveSpacing);
+        const waveRow = Math.floor(index / waveGridSize);
+        const baseZ = waveZOffset + (waveRow * waveSpacing);
+        
+        // Wave parameters
+        const baseY = 2; // Base height above floor
+        const waveAmplitude = 1.5;
+        const waveFrequency = 1;
+        
+        // Create unique wave phase for each photo based on position
+        const phaseOffset = (waveCol + waveRow) * Math.PI / 2;
+        
+        // Calculate wave height
+        const waveY = baseY + (
+          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
+        );
+        
+        updatePosition(
+          baseX,
+          Math.max(2, waveY), // Ensure minimum height of 2 above floor
+          (wall === 'back' ? -1 : 1) * baseZ // Flip Z for back wall
+        );
+        
+        mesh.lookAt(camera.position);
+        break;
+        
+      case 'spiral':
+        // Spiral parameters
+        const maxHeight = 15;
+        const spiralRadius = Math.sqrt(photos.length);
+        const verticalSpeed = speed * 0.5;
+        const rotationSpeed = speed * 2;
+        
+        // Calculate time-based position
+        const t = ((time.current * verticalSpeed + (index / photos.length)) % 1) * Math.PI * 2;
+        const spiralAngle = t + time.current * rotationSpeed;
+        
+        // Calculate spiral position
+        const progress = t / (Math.PI * 2);
+        const currentRadius = spiralRadius * (1 - progress);
+        const spiralX = Math.cos(spiralAngle) * currentRadius * 2;
+        const spiralY = maxHeight * (1 - progress);
+        const spiralZ = Math.sin(spiralAngle) * currentRadius * 2;
+        
+        updatePosition(
+          spiralX,
+          Math.max(2, spiralY), // Ensure minimum height of 2 above floor
+          (wall === 'back' ? -1 : 1) * spiralZ // Flip Z for back wall
+        );
+        
+        mesh.lookAt(camera.position);
+        break;
+    }
+  });
+
+  if (!url) {
+    return (
+      <mesh ref={meshRef} position={position} rotation={rotation}>
+        <planeGeometry args={[size, size * 1.5, 1, 1]} />
+        <meshPhysicalMaterial 
+          color={settings.emptySlotColor}
+          metalness={0.8}
+          roughness={0.2} 
+          clearcoat={0.5}
+          clearcoatRoughness={0.3}
+        />
+      </mesh>
+    );
+  }
+
+  return (
+    <mesh ref={meshRef} position={position} rotation={rotation}>
+      <planeGeometry args={[size, size * 1.5]} />
+      <meshStandardMaterial 
+        map={texture || null}
+        side={THREE.DoubleSide}
+        castShadow
+        receiveShadow
+        transparent={false}
+        toneMapped={true}
+      />
+    </mesh>
+  );
+};
+
+// Photos container component
+const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos, settings }) => {
+  const photoProps = useMemo(() => {
+    const totalPhotos = photos.length;
+    const baseAspectRatio = settings.gridAspectRatio || 1;
+    
+    // Calculate grid dimensions to ensure complete, symmetrical grid
+    const gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
+    const gridHeight = Math.ceil(totalPhotos / gridWidth);
+    const completeGridSize = gridWidth * gridHeight;
+    
+    // Ensure we're working with a complete grid
+    const adjustedPhotos = photos.slice(0, completeGridSize);
+    
+    // Calculate spacing
+    const photoHeight = settings.photoSize * 1.5;
+    const verticalSpacing = photoHeight * 1.05;
+    const horizontalSpacing = settings.photoSize * 1.05;
+    
+    return adjustedPhotos.map((photo, index) => {
+      const col = index % gridWidth;
+      const row = Math.floor(index / gridWidth);
+      
+      // Center the grid horizontally and vertically
+      const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
+      const gridYOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
+      const x = gridXOffset + (col * horizontalSpacing);
+      const y = gridYOffset + (row * verticalSpacing);
+      
+      // All photos on the same wall
+      const z = 2;
+      
+      const position: [number, number, number] = [x, y, z];
+      const rotation: [number, number, number] = [0, 0, 0];
+      
+      return {
+        key: photo.id,
+        url: photo.url,
+        position,
+        rotation,
+        pattern: settings.animationPattern,
+        speed: settings.animationSpeed,
+        animationEnabled: settings.animationEnabled,
+        settings: settings,
+        size: settings.photoSize,
+        photos: photos,
+        index: index
+      };
+    });
+  }, [photos, settings]);
+
+  return (
+    <>
+      {photoProps.map((props) => (
+        <PhotoPlane 
+          key={props.key} 
+          {...props} 
+        />
+      ))}
+    </>
+  );
+};
+
+// Floor component with Grid
+const Floor: React.FC<{ settings: any }> = ({ settings }) => {
+  const { scene } = useThree();
+  const [isGridReady, setIsGridReady] = React.useState(false);
+
+  useEffect(() => {
+    // Wait for scene to be ready before enabling grid
+    if (scene) {
+      const timeout = setTimeout(() => setIsGridReady(true), 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [scene]);
+
+  if (!settings.floorEnabled) return null;
+
+  return (
+    <>
+      {settings.gridEnabled && isGridReady && (
+        <Grid
+          position={[0, -2, 0]}
+          args={[settings.gridSize, settings.gridDivisions]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={3}
+          fadeDistance={30}
+          fadeStrength={1}
+          followCamera={false}
+          infiniteGrid={false}
+        />
+      )}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -2.001, 0]}
+      >
+        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <meshStandardMaterial
+          color={new THREE.Color(settings.floorColor)}
+          receiveShadow
+          transparent
+          opacity={settings.floorOpacity}
+          metalness={settings.floorMetalness}
+          roughness={settings.floorRoughness}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
+  );
+};
+
+// Camera setup component
+const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (camera) {
+      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, settings.cameraHeight, settings.cameraDistance]);
+
+  return null;
+};
+
+type CollageSceneProps = {
+  photos: Photo[];
+};
+
+// Main scene component
+const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
   const settings = useSceneStore((state) => state.settings);
-  const updateSettings = useSceneStore((state) => state.updateSettings);
+  const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isSceneReady, setIsSceneReady] = React.useState(false);
 
-  const handleChange = (key: string, value: any) => {
-    updateSettings({ [key]: value });
+  useEffect(() => {
+    getStockPhotos().then(setStockPhotos);
+  }, []);
+
+  const displayedPhotos = useMemo(() => 
+    generatePhotoList(
+      Array.isArray(photos) ? photos : [],
+      settings.photoCount,
+      settings.useStockPhotos,
+      stockPhotos
+    ),
+    [photos, settings.photoCount, settings.useStockPhotos, stockPhotos]
+  );
+
+  const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
+    gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    gl.setClearColor(0x000000, 0);
+    gl.info.autoReset = true;
+    gl.physicallyCorrectLights = true;
+    
+    // Mark scene as ready after a short delay to ensure everything is initialized
+    setTimeout(() => setIsSceneReady(true), 100);
   };
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Animation</h3>
-        <div className="grid gap-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.animationEnabled}
-              onChange={(e) => handleChange('animationEnabled', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span>Enable Animation</span>
-          </label>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Pattern</label>
-            <select
-              value={settings.animationPattern}
-              onChange={(e) => handleChange('animationPattern', e.target.value)}
-              className="w-full rounded border-gray-300"
-            >
-              <option value="float">Float</option>
-              <option value="wave">Wave</option>
-              <option value="spiral">Spiral</option>
-              <option value="grid">Grid</option>
-            </select>
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Speed</label>
-            <input
-              type="range"
-              min="0.1"
-              max="2"
-              step="0.1"
-              value={settings.animationSpeed}
-              onChange={(e) => handleChange('animationSpeed', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Camera</h3>
-        <div className="grid gap-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.cameraEnabled}
-              onChange={(e) => handleChange('cameraEnabled', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span>Enable Camera Controls</span>
-          </label>
-          
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.cameraRotationEnabled}
-              onChange={(e) => handleChange('cameraRotationEnabled', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span>Auto Rotate</span>
-          </label>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Rotation Speed</label>
-            <input
-              type="range"
-              min="0.1"
-              max="5"
-              step="0.1"
-              value={settings.cameraRotationSpeed}
-              onChange={(e) => handleChange('cameraRotationSpeed', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Lighting</h3>
-        <div className="grid gap-2">
-          <div className="space-y-1">
-            <label className="block text-sm">Ambient Light Intensity</label>
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={settings.ambientLightIntensity}
-              onChange={(e) => handleChange('ambientLightIntensity', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Spotlight Intensity</label>
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={settings.spotlightIntensity}
-              onChange={(e) => handleChange('spotlightIntensity', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Spotlight Color</label>
-            <input
-              type="color"
-              value={settings.spotlightColor}
-              onChange={(e) => handleChange('spotlightColor', e.target.value)}
-              className="w-full h-8 rounded"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Background</h3>
-        <div className="grid gap-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.backgroundGradient}
-              onChange={(e) => handleChange('backgroundGradient', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span>Use Gradient Background</span>
-          </label>
-          
-          {settings.backgroundGradient ? (
+    <div className="w-full h-full">
+      <Canvas
+        ref={canvasRef}
+        gl={{ 
+          antialias: true,
+          powerPreference: "high-performance",
+          precision: "highp",
+          logarithmicDepthBuffer: true
+        }}
+        dpr={[1, 1.5]}
+        frameloop="always"
+        performance={{ min: 0.8 }}
+        onCreated={handleCreated}
+        camera={{
+          fov: 60,
+          near: 0.1,
+          far: 2000,
+          position: [0, settings.cameraHeight, settings.cameraDistance]
+        }}
+        style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
+      >
+        <React.Suspense fallback={<LoadingFallback />}>
+          {isSceneReady && (
             <>
-              <div className="space-y-1">
-                <label className="block text-sm">Gradient Start Color</label>
-                <input
-                  type="color"
-                  value={settings.backgroundGradientStart}
-                  onChange={(e) => handleChange('backgroundGradientStart', e.target.value)}
-                  className="w-full h-8 rounded"
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm">Gradient End Color</label>
-                <input
-                  type="color"
-                  value={settings.backgroundGradientEnd}
-                  onChange={(e) => handleChange('backgroundGradientEnd', e.target.value)}
-                  className="w-full h-8 rounded"
-                />
-              </div>
-            </>
-          ) : (
-            <div className="space-y-1">
-              <label className="block text-sm">Background Color</label>
-              <input
-                type="color"
-                value={settings.backgroundColor}
-                onChange={(e) => handleChange('backgroundColor', e.target.value)}
-                className="w-full h-8 rounded"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Floor</h3>
-        <div className="grid gap-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.floorEnabled}
-              onChange={(e) => handleChange('floorEnabled', e.target.checked)}
-              className="rounded border-gray-300"
+            <CameraSetup settings={settings} />
+            <Floor settings={settings} />
+            <SceneSetup settings={settings} />
+            
+            <OrbitControls 
+              makeDefault
+              enableZoom={true}
+              enablePan={false}
+              autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+              autoRotateSpeed={settings.cameraRotationSpeed}
+              minDistance={5}
+              maxDistance={100}
+              maxPolarAngle={Math.PI * 0.65}
+              dampingFactor={0.1}
+              enableDamping={true}
+              rotateSpeed={0.8}
+              zoomSpeed={0.8}
             />
-            <span>Show Floor</span>
-          </label>
-          
-          {settings.floorEnabled && (
-            <>
-              <div className="space-y-1">
-                <label className="block text-sm">Floor Color</label>
-                <input
-                  type="color"
-                  value={settings.floorColor}
-                  onChange={(e) => handleChange('floorColor', e.target.value)}
-                  className="w-full h-8 rounded"
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="block text-sm">Floor Opacity</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={settings.floorOpacity}
-                  onChange={(e) => handleChange('floorOpacity', parseFloat(e.target.value))}
-                  className="w-full"
-                />
-              </div>
-              
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={settings.gridEnabled}
-                  onChange={(e) => handleChange('gridEnabled', e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <span>Show Grid</span>
-              </label>
+            
+            <PhotosContainer photos={displayedPhotos} settings={settings} />
             </>
           )}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Photos</h3>
-        <div className="grid gap-2">
-          <div className="space-y-1">
-            <label className="block text-sm">Photo Count</label>
-            <input
-              type="range"
-              min="1"
-              max="500"
-              step="1"
-              value={settings.photoCount}
-              onChange={(e) => handleChange('photoCount', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <span className="text-sm text-gray-500">{settings.photoCount} photos</span>
+        </React.Suspense>
+      </Canvas>
+      {!isSceneReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="mt-2 text-gray-400">Loading scene...</p>
           </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm">Photo Size</label>
-            <input
-              type="range"
-              min="0.5"
-              max="5"
-              step="0.1"
-              value={settings.photoSize}
-              onChange={(e) => handleChange('photoSize', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-          
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.useStockPhotos}
-              onChange={(e) => handleChange('useStockPhotos', e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            <span>Fill Empty Slots with Stock Photos</span>
-          </label>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
-export default SceneSettings;
+export default CollageScene;
+
+export default CollageScene
