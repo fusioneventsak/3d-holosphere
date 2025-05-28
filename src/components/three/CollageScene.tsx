@@ -351,50 +351,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Calculate base grid for even distribution
-        const gridSize = Math.ceil(Math.sqrt(photos.length * 1.2)); // Add some extra space
-        const spacing = settings.floorSize / gridSize * 0.8; // Adjust spacing based on floor size
+        // Fixed grid size for stable distribution
+        const gridSize = Math.ceil(Math.sqrt(photos.length));
+        const spacing = settings.floorSize / gridSize;
         
-        // Calculate initial grid position
+        // Calculate fixed base position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
-        // Center grid on floor
-        const baseX = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.5;
-        const baseZ = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.5;
+        // Create stable base positions
+        const baseX = (col - gridSize/2) * spacing;
+        const baseZ = (row - gridSize/2) * spacing;
         
         // Animation parameters
-        const cycleHeight = 50; // Total height of animation
-        const cycleDuration = 20 / speed; // Duration of one complete cycle
-        const overlap = 0.5; // Increase overlap for smoother transitions
+        const cycleHeight = 30;
+        const cycleDuration = 15;
+        const phaseOffset = (Math.sin(index * 2.37) + Math.cos(index * 1.73)) * Math.PI;
         
-        // Create unique offsets for each photo
-        const uniqueOffset = (
-          Math.sin(index * 2.37) + 
-          Math.cos(index * 1.73) + 
-          Math.sin(index * 3.14)
-        ) * 0.5; // Increased offset for more variation
+        // Calculate smooth vertical motion
+        const normalizedTime = (time.current * speed + phaseOffset) % cycleDuration;
+        const progress = normalizedTime / cycleDuration;
+        const y = -2 + progress * cycleHeight;
         
-        // Calculate vertical position
-        const adjustedTime = (time.current + uniqueOffset * cycleDuration) % (cycleDuration * (1 - overlap));
-        const progress = adjustedTime / cycleDuration;
-        const y = -2 + (progress * cycleHeight); // Start from below floor (-2)
-        
-        // Add organic motion
-        const driftScale = spacing * 0.3;
-        const driftX = (
-          Math.sin(time.current * 0.4 + uniqueOffset * Math.PI) + 
-          Math.cos(time.current * 0.3 + uniqueOffset * Math.PI * 2)
-        ) * driftScale;
-        
-        const driftZ = (
-          Math.cos(time.current * 0.3 + uniqueOffset * Math.PI) + 
-          Math.sin(time.current * 0.5 + uniqueOffset * Math.PI * 2)
-        ) * driftScale;
+        // Add subtle, stable drift
+        const driftScale = spacing * 0.2;
+        const driftX = Math.sin(time.current * 0.3 + phaseOffset) * driftScale;
+        const driftZ = Math.cos(time.current * 0.3 + phaseOffset) * driftScale;
         
         updatePosition(
           baseX + driftX,
-          y, // Allow photos to go below floor
+          y,
           baseZ + driftZ
         );
         
