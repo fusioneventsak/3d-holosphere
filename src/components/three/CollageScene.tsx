@@ -319,27 +319,29 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        const maxHeight = settings.cameraHeight * 2;
-        const verticalSpeed = settings.animationSpeed * 20;
+        // Constants for animation
+        const maxHeight = settings.cameraHeight * 2.5;
+        const verticalSpeed = settings.animationSpeed * 15;
+        const floorRange = settings.floorSize * 0.8;
+        const startHeight = -15;
         
-        // Update position
-        initialPosition.current.y += verticalSpeed * delta;
+        // Calculate vertical position with continuous loop
+        initialPosition.current.y += verticalSpeed * delta * 1.5;
         
         // Reset when photo reaches max height
         if (initialPosition.current.y > maxHeight) {
-          const floorRange = settings.floorSize * 0.4;
           initialPosition.current = {
             x: (Math.random() - 0.5) * floorRange,
-            y: -10 - Math.random() * 10, // Stagger start heights
+            y: startHeight - (Math.random() * 10), // Stagger reset heights
             z: (Math.random() - 0.5) * floorRange
           };
         }
         
-        // Add subtle drift
-        const driftAmount = 0.3;
-        const driftSpeed = 0.5;
-        const xDrift = Math.sin(time.current * driftSpeed + index) * driftAmount;
-        const zDrift = Math.cos(time.current * driftSpeed + index) * driftAmount;
+        // Calculate drift based on initial position
+        const driftScale = 0.2;
+        const driftSpeed = 0.8;
+        const xDrift = Math.sin(time.current * driftSpeed + index * 0.5) * driftScale;
+        const zDrift = Math.cos(time.current * driftSpeed + index * 0.7) * driftScale;
         
         updatePosition(
           initialPosition.current.x + xDrift,
@@ -347,12 +349,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           initialPosition.current.z + zDrift
         );
         
-        // Always face camera
+        // Face camera while maintaining vertical alignment
         const lookAtPos = camera.position.clone();
         lookAtPos.y = mesh.position.y; // Keep vertical alignment consistent
         mesh.lookAt(lookAtPos);
         break;
-      }
+      }@@
         
       case 'wave': {
         // Wave case scope
