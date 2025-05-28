@@ -539,6 +539,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: SceneSettings }> = 
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene } = useThree();
   const [isGridReady, setIsGridReady] = React.useState(false);
+  const floorRef = useRef<THREE.Group>(null);
 
   useEffect(() => {
     // Wait for scene to be ready before enabling grid
@@ -551,10 +552,10 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group>
+    <group ref={floorRef} position={[0, -2, 0]}>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
-        position={[0, -2, 0]} 
+        position={[0, 0, 0]} 
         receiveShadow={true}
         renderOrder={0}
       >
@@ -577,7 +578,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -1.999, 0]}
+          position={[0, 0.001, 0]}
           args={[settings.floorSize, settings.floorSize, settings.gridDivisions, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.6}
@@ -682,6 +683,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
                 makeDefault
                 enableZoom={true}
                 enablePan={true}
+                target={[0, 0, 0]}
                 autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
                 autoRotateSpeed={settings.cameraRotationSpeed}
                 minDistance={5}
@@ -692,8 +694,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
                 dampingFactor={0.05}
                 rotateSpeed={0.8}
                 zoomSpeed={0.8}
-                screenSpacePanning={true}
-                target={[0, Math.max(2, settings.wallHeight / 2), 0]}
+                screenSpacePanning={false}
               />
               
               <PhotosContainer photos={displayedPhotos} settings={settings} />
