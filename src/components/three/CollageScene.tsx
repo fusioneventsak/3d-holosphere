@@ -320,20 +320,26 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'float': {
         // Constants for animation
-        const maxHeight = settings.cameraHeight * 2.5;
+        const maxHeight = settings.cameraHeight * 1.5; // Lower max height for quicker loop
         const verticalSpeed = settings.animationSpeed * 15;
         const floorRange = settings.floorSize * 0.8;
-        const startHeight = -15;
+        const startHeight = -5; // Start closer to floor
         
         // Calculate vertical position with continuous loop
         initialPosition.current.y += verticalSpeed * delta * 1.5;
         
         // Reset when photo reaches max height
         if (initialPosition.current.y > maxHeight) {
+          // Calculate grid-based position for even distribution
+          const gridSize = Math.ceil(Math.sqrt(photos.length));
+          const cellSize = floorRange / gridSize;
+          const gridX = (index % gridSize - gridSize / 2) * cellSize;
+          const gridZ = (Math.floor(index / gridSize) - gridSize / 2) * cellSize;
+          
           initialPosition.current = {
-            x: (Math.random() - 0.5) * floorRange,
+            x: gridX + (Math.random() - 0.5) * cellSize * 0.5, // Add slight randomness within cell
             y: startHeight - (Math.random() * 10), // Stagger reset heights
-            z: (Math.random() - 0.5) * floorRange
+            z: gridZ + (Math.random() - 0.5) * cellSize * 0.5
           };
         }
         
