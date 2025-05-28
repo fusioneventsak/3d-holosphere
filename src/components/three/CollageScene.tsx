@@ -327,7 +327,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate position in the wall grid
         const row = Math.floor(index / gridWidth);
-        const col = gridIndex % gridWidth;
+        const col = index % gridWidth;
         
         // Center the grid
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
