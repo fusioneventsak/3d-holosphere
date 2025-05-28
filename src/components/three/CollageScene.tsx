@@ -434,13 +434,17 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   if (!url) {
     return (
       <mesh ref={meshRef} position={position} rotation={rotation}>
-        <planeGeometry args={[size, size * 1.5, 1, 1]} />
-        <meshPhysicalMaterial 
+        <planeGeometry args={[size, size * 1.5]} />
+        <meshStandardMaterial 
           color={settings.emptySlotColor}
-          metalness={0.8}
-          roughness={0.2} 
-          clearcoat={0.5}
-          clearcoatRoughness={0.3}
+          metalness={0}
+          roughness={1}
+          side={THREE.DoubleSide}
+          transparent={true}
+          opacity={0.8}
+          depthWrite={true}
+          castShadow
+          receiveShadow
         />
       </mesh>
     );
