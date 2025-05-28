@@ -353,32 +353,32 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Calculate base grid for even distribution
         const gridSize = Math.ceil(Math.sqrt(photos.length * 1.2)); // Add some extra space
-        const spacing = settings.floorSize / gridSize * 0.6; // Even tighter spacing for denser distribution
+        const spacing = settings.floorSize / gridSize * 0.8; // Adjust spacing based on floor size
         
         // Calculate initial grid position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
         // Center grid on floor
-        const baseX = (col - gridSize/2) * spacing;
-        const baseZ = (row - gridSize/2) * spacing;
+        const baseX = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.5;
+        const baseZ = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.5;
         
         // Animation parameters
         const cycleHeight = 50; // Total height of animation
         const cycleDuration = 20 / speed; // Duration of one complete cycle
-        const overlap = 0.25; // Start next cycle when current is 75% complete
+        const overlap = 0.5; // Increase overlap for smoother transitions
         
         // Create unique offsets for each photo
         const uniqueOffset = (
           Math.sin(index * 2.37) + 
           Math.cos(index * 1.73) + 
           Math.sin(index * 3.14)
-        ) * 0.3; // Combined phase offset
+        ) * 0.5; // Increased offset for more variation
         
         // Calculate vertical position
         const adjustedTime = (time.current + uniqueOffset * cycleDuration) % (cycleDuration * (1 - overlap));
         const progress = adjustedTime / cycleDuration;
-        const y = progress * cycleHeight;
+        const y = -2 + (progress * cycleHeight); // Start from below floor (-2)
         
         // Add organic motion
         const driftScale = spacing * 0.3;
@@ -394,7 +394,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           baseX + driftX,
-          Math.max(2, y), // Keep above floor
+          y, // Allow photos to go below floor
           baseZ + driftZ
         );
         
