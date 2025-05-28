@@ -203,44 +203,14 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
   }, [camera, settings.cameraHeight, settings.cameraDistance]);
 
   return (
-    <>
-      {settings.backgroundGradient ? (
-        <mesh position={[0, 0, -1]}>
-          <planeGeometry args={[2, 2]} />
-          <primitive object={gradientMaterial} attach="material" />
-        </mesh>
-      ) : (
-        <color attach="background" args={[settings.backgroundColor]} />
-      )}
-      <ambientLight intensity={settings.ambientLightIntensity} />
-      {Array.from({ length: settings.spotlightCount }).map((_, i) => {
-        const angle = (i / settings.spotlightCount) * Math.PI * 2;
-        const x = Math.cos(angle) * settings.spotlightDistance;
-        const z = Math.sin(angle) * settings.spotlightDistance;
-        const target = new THREE.Object3D();
-        target.position.set(0, -2, 0); // Target the floor
-
-        return (
-          <group key={i}>
-            <primitive object={target} />
-            <spotLight
-              position={[x, settings.spotlightHeight, z]}
-              intensity={settings.spotlightIntensity}
-              power={40}
-              color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
-              decay={1.5}
-              penumbra={settings.spotlightPenumbra}
-             distance={300}
-              target={target}
-              castShadow
-             shadow-mapSize={[2048, 2048]}
-              shadow-bias={-0.001}
-            />
-          </group>
-        );
-      })}
-    </>
+    settings.backgroundGradient ? (
+      <mesh position={[0, 0, -1]}>
+        <planeGeometry args={[2, 2]} />
+        <primitive object={gradientMaterial} attach="material" />
+      </mesh>
+    ) : (
+      <color attach="background" args={[settings.backgroundColor]} />
+    )
   );
 };
 
@@ -661,26 +631,26 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
         <React.Suspense fallback={<LoadingFallback />}>
           {isSceneReady && (
             <>
-            <CameraSetup settings={settings} />
-            <Floor settings={settings} />
-            <SceneSetup settings={settings} />
-            
-            <OrbitControls 
-              makeDefault
-              enableZoom={true}
-              enablePan={false}
-              autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-              autoRotateSpeed={settings.cameraRotationSpeed}
-              minDistance={5}
-              maxDistance={100}
-              maxPolarAngle={Math.PI * 0.65}
-              dampingFactor={0.1}
-              enableDamping={true}
-              rotateSpeed={0.8}
-              zoomSpeed={0.8}
-            />
-            
-            <PhotosContainer photos={displayedPhotos} settings={settings} />
+              <CameraSetup settings={settings} />
+              <Floor settings={settings} />
+              <SceneSetup settings={settings} />
+              
+              <OrbitControls 
+                makeDefault
+                enableZoom={true}
+                enablePan={false}
+                autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+                autoRotateSpeed={settings.cameraRotationSpeed}
+                minDistance={5}
+                maxDistance={100}
+                maxPolarAngle={Math.PI * 0.65}
+                dampingFactor={0.1}
+                enableDamping={true}
+                rotateSpeed={0.8}
+                zoomSpeed={0.8}
+              />
+              
+              <PhotosContainer photos={displayedPhotos} settings={settings} />
             </>
           )}
         </React.Suspense>
