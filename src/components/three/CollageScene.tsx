@@ -237,10 +237,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<{x: number, y: number, z: number}>({
     x: (Math.random() - 0.5) * settings.floorSize * 0.8,
-    y: -10 - Math.random() * 10, // Start below floor at staggered heights
+    y: -20 - Math.random() * 10, // Start lower for smoother transitions
     z: (Math.random() - 0.5) * settings.floorSize * 0.8
   });
   const time = useRef<number>(0);
+  const startDelay = useRef<number>(Math.random() * 2); // Reduced delay for smoother start
   const { camera } = useThree();
   
   const texture = useMemo(() => {
@@ -257,8 +258,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   useFrame((state, delta) => {
     if (!meshRef.current || !animationEnabled || !camera) return;
     
-    // Base height for all animation patterns
-    const baseHeight = -10; // Start below floor for float pattern
+    // Base height and animation constants
+    const baseHeight = 2; // Minimum height above floor
+    const maxHeight = settings.cameraHeight * 1.5;
+    const startHeight = -20; // Start much lower for smoother transitions
     
     // Use consistent time steps for animations
     const timeStep = Math.fround(delta * speed);
@@ -319,11 +322,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Constants for animation
-        const maxHeight = settings.cameraHeight * 1.5; // Lower max height for quicker loop
-        const verticalSpeed = settings.animationSpeed * 8;
+        // Float animation constants
+        const verticalSpeed = settings.animationSpeed * 5;
         const floorRange = settings.floorSize * 0.8;
-        const startHeight = -5; // Start closer to floor
         
         // Calculate vertical position with continuous loop
         initialPosition.current.y += verticalSpeed * delta * 1.5;
@@ -338,7 +339,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           
           initialPosition.current = {
             x: gridX + (Math.random() - 0.5) * cellSize * 0.5, // Add slight randomness within cell
-            y: startHeight - (Math.random() * 10), // Stagger reset heights
+            y: startHeight - (Math.random() * 15), // More staggered heights for smoother flow
             z: gridZ + (Math.random() - 0.5) * cellSize * 0.5
           };
         }
@@ -364,34 +365,29 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'wave': {
         // Wave case scope
-        // Calculate distribution across floor plane
-        const totalArea = settings.floorSize * settings.floorSize;
-        const photosPerRow = Math.ceil(Math.sqrt(photos.length));
-        const spacing = settings.floorSize / photosPerRow;
+        const waveAmplitude = 4;
+        const waveFrequency = 1.2;
+        const gridSize = Math.ceil(Math.sqrt(photos.length));
+        const spacing = settings.floorSize / gridSize;
         
         // Calculate grid position
-        const waveGridX = index % photosPerRow;
-        const waveGridZ = Math.floor(index / photosPerRow);
+        const waveGridX = index % gridSize;
+        const waveGridZ = Math.floor(index / gridSize);
         
         // Center the grid and calculate base position
         const xPos = (waveGridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         const zPos = (waveGridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
-        // Wave parameters
-        const waveAmplitude = 2;
-        const waveFrequency = 0.8;
-        
         // Create unique phase offset for each photo
         const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
         
-        // Calculate wave height using the baseHeight from grid case
-        const waveY = baseHeight + (
-          Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
-        );
+        // Calculate wave height with continuous motion
+        const waveY = baseHeight + waveAmplitude + 
+          (Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude);
         
         updatePosition(
           xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
-          Math.max(2, waveY),
+          waveY,
           zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
         );
         
@@ -401,11 +397,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'spiral': {
         // Spiral case scope
-        // Spiral parameters
-        const maxHeight = 15;
-        const spiralRadius = Math.sqrt(photos.length);
-        const verticalSpeed = speed * 0.5;
-        const rotationSpeed = speed * 2;
+        const spiralMaxHeight = maxHeight;
+        const spiralRadius = Math.sqrt(photos.length) * 1.5;
+        const verticalSpeed = speed * 0.8;
+        const rotationSpeed = speed * 1.5;
         
         // Calculate time-based position
         const t = ((time.current * verticalSpeed + (index / photos.length)) % 1) * Math.PI * 2;
@@ -414,14 +409,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Calculate spiral position
         const progress = t / (Math.PI * 2);
         const currentRadius = spiralRadius * (1 - progress);
-        const spiralX = Math.cos(spiralAngle) * currentRadius * 2;
-        const spiralY = maxHeight * (1 - progress);
-        const spiralZ = Math.sin(spiralAngle) * currentRadius * 2;
+        const spiralX = Math.cos(spiralAngle) * currentRadius;
+        const spiralY = spiralMaxHeight * (1 - progress);
+        const spiralZ = Math.sin(spiralAngle) * currentRadius;
         
         updatePosition(
           spiralX,
-          Math.max(2, spiralY), // Ensure minimum height of 2 above floor
-          (wall === 'back' ? -1 : 1) * spiralZ // Flip Z for back wall
+          Math.max(baseHeight, spiralY), // Ensure minimum height above floor
+          spiralZ
         );
         
         mesh.lookAt(camera.position);
