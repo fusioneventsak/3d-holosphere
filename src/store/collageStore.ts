@@ -130,30 +130,42 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   fetchCollageById: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // Fetch collage and its settings
-      const { data: collage, error: collageError } = await supabase
-        .from('collages')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (collageError) throw collageError;
-
-      // Fetch settings
-      const { data: settings, error: settingsError } = await supabase
-        .from('collage_settings')
-        .select('settings')
-        .eq('collage_id', collage.id)
-        .single();
-
-      if (!settings) {
-        // Create default settings if none exist
-        await supabase
+      // Fetch collage and settings in parallel
+      const [collageResponse, settingsResponse] = await Promise.all([
+        supabase
+          .from('collages')
+          .select('*')
+          .eq('id', id)
+          .single(),
+        supabase
           .from('collage_settings')
-          .insert([{ collage_id: collage.id, settings: defaultSettings }]);
+          .select('settings')
+          .eq('collage_id', id)
+          .maybeSingle()
+      ]);
+
+      if (collageResponse.error) throw collageResponse.error;
+      const collage = collageResponse.data;
+
+      if (!settingsResponse.data) {
+        // Create default settings if none exist
+        const { error: insertError } = await supabase
+          .from('collage_settings')
+          .insert([{ 
+            collage_id: collage.id, 
+            settings: defaultSettings 
+          }])
+          .select('settings')
+          .single();
+
+        if (insertError) throw insertError;
       }
 
-      const collageWithSettings = { ...collage, settings: settings?.settings || defaultSettings } as Collage;
+      const collageWithSettings = { 
+        ...collage, 
+        settings: settingsResponse.data?.settings || defaultSettings 
+      } as Collage;
+
       set({ currentCollage: collageWithSettings, loading: false });
       await get().fetchPhotosByCollageId(collage.id);
       return collageWithSettings;
@@ -219,11 +231,16 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
     try {
       const { data, error } = await supabase
-        .from('collage_settings')
-        .update({ settings })
-        .eq('collage_id', collageId)
-        .select()
-        .single();
+        .from('collage_settings') 
+        .upsert({ 
+          collage_id: collageId,
+          settings: settings
+        }, {
+          onConflict: 'collage_id',
+          ignoreDuplicates: false
+        })
+        .select('settings')
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -231,13 +248,13 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       set(state => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
-          settings: { ...state.currentCollage.settings, ...settings }
+          settings: data?.settings || defaultSettings
         } : null
       }));
 
       return data;
     } catch (error: any) {
-      console.error('Failed to update collage settings:', error);
+      console.error('Failed to update collage settings:', error.message);
       return null;
     }
   },
