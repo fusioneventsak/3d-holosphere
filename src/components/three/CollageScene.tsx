@@ -554,11 +554,11 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       {settings.gridEnabled && isGridReady && (
         <Grid
           position={[0, -1.999, 0]}
-          args={[settings.gridSize, settings.gridDivisions]}
-          cellSize={1}
+          args={[settings.floorSize, settings.floorSize]}
+          cellSize={settings.floorSize / settings.gridDivisions}
           cellThickness={0.6}
           cellColor={settings.gridColor}
-          sectionSize={5}
+          sectionSize={settings.floorSize / 10}
           fadeDistance={30}
           fadeStrength={0.5}
           followCamera={false}
