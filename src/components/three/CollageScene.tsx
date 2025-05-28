@@ -372,37 +372,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'wave':
-        // Calculate grid-based position for even distribution
-        const waveGridSize = Math.ceil(Math.sqrt(photos.length));
-        const waveCol = index % waveGridSize;
-        const waveSpacing = settings.photoSize * (1 + settings.photoSpacing * 2);
+        // Calculate distribution across floor plane
+        const totalArea = settings.floorSize * settings.floorSize;
+        const photosPerRow = Math.ceil(Math.sqrt(photos.length));
+        const spacing = settings.floorSize / photosPerRow;
         
-        // Center the grid
-        const waveXOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
-        const waveZOffset = ((waveGridSize - 1) * waveSpacing) * -0.5;
+        // Calculate grid position
+        const gridX = index % photosPerRow;
+        const gridZ = Math.floor(index / photosPerRow);
         
-        // Base position in grid
-        const baseX = waveXOffset + (waveCol * waveSpacing);
-        const waveRow = Math.floor(index / waveGridSize);
-        const baseZ = 2; // All photos on same Z plane
+        // Center the grid and calculate base position
+        const xPos = (gridX * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        const zPos = (gridZ * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
         // Wave parameters
-        const baseY = 4; // Increased base height above floor
-        const waveAmplitude = 3.5;
-        const waveFrequency = 1;
+        const baseHeight = 4; // Base height above floor
+        const waveAmplitude = 2;
+        const waveFrequency = 0.8;
         
-        // Create random phase offset for each photo
-        const phaseOffset = Math.sin(index * 1.7) * Math.PI * 2;
+        // Create unique phase offset for each photo
+        const phaseOffset = (Math.sin(index * 3.7) + Math.cos(index * 2.3)) * Math.PI;
         
         // Calculate wave height
-        const waveY = baseY + settings.wallHeight + (
+        const waveY = baseHeight + (
           Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude
         );
         
         updatePosition(
-          baseX,
-          Math.max(2, waveY), // Ensure minimum height of 2 above floor
-          baseZ // All photos on same Z plane
+          xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
+          Math.max(2, waveY),
+          zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
         );
         
         mesh.lookAt(camera.position);
