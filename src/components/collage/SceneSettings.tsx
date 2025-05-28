@@ -208,19 +208,23 @@ const SceneSettings: React.FC = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Floor Size: {Math.round(settings.floorSize)}
+                Floor Size
               </label>
               <input
                 type="range"
                 min="50"
                 max="300"
                 step="10"
-                value={settings.floorSize}
+                value={Math.round(settings.floorSize)}
                 onChange={(e) => updateSettings({ 
-                  floorSize: parseFloat(e.target.value) 
+                  floorSize: parseFloat(e.target.value),
+                  gridSize: parseFloat(e.target.value)
                 }, true)}
                 className="w-full bg-gray-800"
               />
+              <div className="mt-1 text-xs text-gray-400 text-right">
+                {Math.round(settings.floorSize)} units
+              </div>
             </div>
             
             <div>
