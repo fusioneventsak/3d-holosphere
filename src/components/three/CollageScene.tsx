@@ -321,41 +321,41 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Float case scope
         // Define float animation boundaries
-        const floatMinY = -settings.floorSize / 2; // Start well below floor
-        const floatMaxY = settings.cameraHeight * 2; // Extend range for smoother looping
+        const floatMinY = -2; // Start just below floor
+        const floatMaxY = settings.cameraHeight * 3; // Extended height for longer float
         const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.2;
+        const floatSpeedFactor = 0.15;
         
         // Initialize float offset with random phase
         if (floatYOffset.current === null) {
-          // Random initial offset between 0 and floatRange
-          floatYOffset.current = Math.random() * floatRange;
+          floatYOffset.current = Math.random() * floatRange * 2; // Double range for more variation
         }
         
         // Update vertical position
-        const individualSpeed = floatSpeedFactor * (0.8 + Math.sin(index * 2.37) * 0.2);
+        const individualSpeed = floatSpeedFactor * (0.7 + Math.random() * 0.6);
         floatYOffset.current = (floatYOffset.current + timeStep * speed * individualSpeed) % floatRange;
         const newY = floatMinY + floatYOffset.current;
         
         // Calculate grid position for even distribution across floor plane
         const gridSize = Math.ceil(Math.sqrt(photos.length));
         const cellSize = settings.floorSize / gridSize;
+        const col = index % gridSize;
+        const row = Math.floor(index / gridSize);
         
-        // Spiral distribution for base positions
-        const angle = (index / photos.length) * Math.PI * 2;
-        const radius = (index / photos.length) * (settings.floorSize * 0.4);
-        const baseX = Math.cos(angle) * radius;
-        const baseZ = Math.sin(angle) * radius;
+        // Calculate base position in grid
+        const baseX = (col - gridSize / 2) * cellSize + cellSize / 2;
+        const baseZ = (row - gridSize / 2) * cellSize + cellSize / 2;
         
-        // Center the grid and add slight offset for natural look
-        const wobblePhase = time.current * 0.5 + index * 0.1;
-        const wobbleX = Math.sin(wobblePhase) * 0.5;
-        const wobbleZ = Math.cos(wobblePhase * 1.3) * 0.5;
+        // Add gentle drift motion
+        const driftScale = cellSize * 0.2;
+        const driftPhase = time.current * 0.3 + index * 0.7;
+        const driftX = Math.sin(driftPhase) * driftScale;
+        const driftZ = Math.cos(driftPhase * 1.3) * driftScale;
         
         updatePosition(
-          baseX + wobbleX,
+          baseX + driftX,
           newY,
-          baseZ + wobbleZ
+          baseZ + driftZ
         );
         
         // Always face the camera
