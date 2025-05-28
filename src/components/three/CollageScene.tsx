@@ -323,53 +323,58 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Float case scope
-        // Define float animation boundaries
-        const floatMinY = 2; // Minimum height just above floor
-        const floatMaxY = settings.cameraHeight * 1.5; // Maximum height relative to camera
-        const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.5; // Moderate speed for smooth movement
+        // Calculate grid-based distribution
+        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+        const cellSize = settings.floorSize / gridSize;
+        const xIndex = index % gridSize;
+        const zIndex = Math.floor(index / gridSize);
         
-        // Initialize float offset with random phase
-        if (floatYOffset.current === null) {
-          floatYOffset.current = floatMinY + (Math.random() * floatRange);
+        // Center the grid
+        const xOffset = (settings.floorSize * 0.5) - (cellSize * 0.5);
+        const zOffset = (settings.floorSize * 0.5) - (cellSize * 0.5);
+        
+        // Calculate base position with slight random offset
+        const baseX = (xIndex * cellSize) - xOffset + (Math.random() * 2 - 1);
+        const baseZ = (zIndex * cellSize) - zOffset + (Math.random() * 2 - 1);
+        
+        // Calculate continuous upward motion
+        const cycleHeight = settings.cameraHeight * 2;
+        const baseSpeed = settings.animationSpeed * 0.5;
+        const individualOffset = (index / totalPhotos) * cycleHeight;
+        const timeOffset = time.current * baseSpeed;
+        const rawY = ((timeOffset + individualOffset) % cycleHeight);
+        
+        // Ensure smooth looping by fading in/out at boundaries
+        const fadeRange = cycleHeight * 0.1;
+        const fadeStart = cycleHeight - fadeRange;
+        let opacity = 1;
+        
+        if (rawY > fadeStart) {
+          opacity = 1 - ((rawY - fadeStart) / fadeRange);
+        } else if (rawY < fadeRange) {
+          opacity = rawY / fadeRange;
         }
         
-        // Calculate base distribution in a circular pattern
-        const totalPhotos = photos.length;
-        const angleStep = (Math.PI * 2) / totalPhotos;
-        const baseAngle = index * angleStep;
-        
-        // Create concentric circles
-        const layerSize = Math.ceil(Math.sqrt(totalPhotos));
-        const layer = Math.floor(index / layerSize);
-        const baseRadius = Math.min(settings.floorSize * 0.4, 20); // Base radius for distribution
-        const radius = baseRadius + (layer * 4); // Increase radius for outer layers
-        
-        // Calculate position with smooth vertical movement
-        const verticalPhase = time.current * floatSpeedFactor * settings.animationSpeed + startDelay.current;
-        const heightOffset = Math.sin(verticalPhase + index * 0.5) * floatRange * 0.3;
-        const newY = floatMinY + heightOffset + (layer * 2); // Add height offset for layers
-        
-        // Add orbital motion
-        const orbitSpeed = settings.animationSpeed * 0.2;
-        const orbitPhase = time.current * orbitSpeed;
-        const orbitOffset = Math.sin(orbitPhase + index * 0.7) * 2;
-        
-        // Calculate final position
-        const finalAngle = baseAngle + orbitPhase * 0.1;
-        const finalRadius = radius + orbitOffset;
-        const baseX = Math.cos(finalAngle) * finalRadius;
-        const baseZ = Math.sin(finalAngle) * finalRadius;
+        // Apply gentle swaying motion
+        const swayAmount = 0.5;
+        const swayX = Math.sin(timeOffset * 0.5 + index) * swayAmount;
+        const swayZ = Math.cos(timeOffset * 0.5 + index) * swayAmount;
         
         updatePosition(
-          baseX,
-          newY,
-          baseZ
+          baseX + swayX,
+          Math.max(2, rawY),
+          baseZ + swayZ
         );
         
         // Always face the camera
         mesh.lookAt(camera.position);
+        
+        // Update material opacity for smooth transitions
+        if (mesh.material) {
+          mesh.material.opacity = opacity;
+          mesh.material.transparent = true;
+        }
+        
         break;
       }
         
@@ -466,10 +471,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       <meshStandardMaterial 
         map={texture || null}
         side={THREE.DoubleSide}
-        castShadow
-        receiveShadow
-        transparent={false}
+        transparent={true}
+        opacity={1}
         toneMapped={true}
+        depthWrite={true}
       />
     </mesh>
   );
@@ -563,20 +568,20 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, -2, 0]} 
-        receiveShadow={true}
+        receiveShadow={false}
         renderOrder={0}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
           color={new THREE.Color(settings.floorColor)}
           transparent
-          envMapIntensity={1.5}
+          envMapIntensity={1.0}
           opacity={settings.floorOpacity}
           metalness={settings.floorMetalness}
           roughness={settings.floorRoughness}
           side={THREE.DoubleSide}
           depthWrite={false}
-          reflectivity={settings.floorReflectivity}
+          reflectivity={0.5}
           polygonOffset={true}
           polygonOffsetFactor={-1}
         />
