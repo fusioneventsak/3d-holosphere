@@ -571,7 +571,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <group>
+    <>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -2, 0]}
@@ -580,7 +580,6 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
           color={new THREE.Color(settings.floorColor)}
-          receiveShadow
           transparent
           opacity={settings.floorOpacity}
           metalness={settings.floorMetalness}
@@ -588,9 +587,10 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           side={THREE.DoubleSide}
         />
       </mesh>
+
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -1.9, 0]}
+          position={[0, -1.8, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -602,7 +602,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           infiniteGrid={false}
         />
       )}
-    </group>
+    </>
   );
 };
 
