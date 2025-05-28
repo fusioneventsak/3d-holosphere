@@ -352,24 +352,31 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
       case 'float': {
         const baseHeight = 4; // Define base height for float pattern
-        // Calculate grid-based starting position
-        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
-        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
+        // Calculate even distribution across floor
+        const radius = settings.floorSize * 0.4; // Use 40% of floor size for distribution
+        const angle = (index / photos.length) * Math.PI * 2;
+        const ringOffset = (Math.random() * 0.5 + 0.5) * radius; // Vary distance from center
+
+        // Calculate base position using polar coordinates
+        const baseX = Math.cos(angle) * ringOffset;
+        const baseZ = Math.sin(angle) * ringOffset;
         
-        // Add random offset for natural distribution
-        const offsetX = randomOffset.current[0] * settings.photoSize;
-        const offsetZ = randomOffset.current[2] * settings.photoSize;
+        // Add dynamic motion
+        const floatHeight = 8 + Math.sin(index * 0.7) * 4; // Height varies between 4-12
+        const timeScale = 0.5 + Math.sin(index * 1.3) * 0.3; // Unique time scale per photo
+        const verticalOffset = Math.sin(time.current * speed * timeScale + startDelay.current) * 2;
+        const horizontalScale = 2 + Math.sin(index * 2.1) * 1;
         
-        // Calculate floating motion
-        const floatHeight = 15;
-        const floatY = Math.max(baseHeight, // Ensure minimum height above floor
-          (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
-        );
+        // Add circular motion
+        const orbitSpeed = 0.2 + Math.sin(index * 0.9) * 0.1;
+        const orbitRadius = 1 + Math.sin(index * 1.5) * 0.5;
+        const orbitX = Math.cos(time.current * speed * orbitSpeed) * orbitRadius;
+        const orbitZ = Math.sin(time.current * speed * orbitSpeed) * orbitRadius;
         
         updatePosition(
-          gridX + offsetX,
-          floatY,
-          (wall === 'back' ? -1 : 1) * (gridZ + offsetZ) // Flip Z for back wall
+          baseX + orbitX * horizontalScale,
+          baseHeight + floatHeight + verticalOffset,
+          baseZ + orbitZ * horizontalScale
         );
         
         // Always face the camera
