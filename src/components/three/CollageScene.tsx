@@ -235,9 +235,9 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const floatYOffset = useRef<number | null>(null);
-  const startDelay = useRef<number>(Math.random() * 5);
-  const elapsedTime = useRef<number>(0);
+  const floatX = useRef<number | null>(null);
+  const floatZ = useRef<number | null>(null);
+  const floatYOffset = useRef<number>(Math.random() * 10); // Random initial height offset
   const time = useRef<number>(0);
   const { camera } = useThree();
   
@@ -256,17 +256,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     if (!meshRef.current || !animationEnabled || !camera) return;
     
     // Base height for all animation patterns
-    const baseHeight = 4; // Ensure elements start above floor
+    const baseHeight = -10; // Start below floor for float pattern
     
     // Use consistent time steps for animations
     const timeStep = Math.fround(delta * speed);
-    elapsedTime.current = Math.fround(elapsedTime.current + timeStep);
     time.current = Math.fround(time.current + timeStep);
-    
-    // Wait for start delay before beginning animation
-    if (elapsedTime.current < startDelay.current) {
-      return;
-    }
     
     const mesh = meshRef.current;
     // Ensure position updates use consistent precision
@@ -323,51 +317,39 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Calculate grid size for even distribution
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const spacing = (settings.floorSize * 0.8) / gridSize; // Use 80% of floor size for better spacing
-        
-        // Calculate position in grid
-        const col = index % gridSize;
-        const row = Math.floor(index / gridSize);
-        
-        // Center the grid and add slight randomization
-        const baseX = (col * spacing) - ((gridSize * spacing) / 2) + (spacing / 2);
-        const baseZ = (row * spacing) - ((gridSize * spacing) / 2) + (spacing / 2);
-        
-        // Add slight position variation
-        const xOffset = Math.sin(index * 0.1) * (spacing * 0.2);
-        const zOffset = Math.cos(index * 0.1) * (spacing * 0.2);
-        
-        // Calculate vertical motion
-        const maxHeight = settings.cameraHeight * 2;
-        const cycleOffset = (index * 0.1) % 1; // Stagger start positions
-        const verticalSpeed = settings.animationSpeed * 0.5;
-        const heightCycle = ((time.current * verticalSpeed) + cycleOffset) % 1;
-        const y = heightCycle * maxHeight;
-        
-        // Reset position when reaching top
-        if (y >= maxHeight - 0.1) {
-          mesh.position.y = 2; // Reset to base height
-        } else {
-          updatePosition(
-            baseX + xOffset,
-            Math.max(2, y), // Keep minimum height
-            baseZ + zOffset
-          );
-        
-          // Always face camera
-          mesh.lookAt(camera.position);
+        // Initialize random positions if not set
+        if (floatX.current === null || floatZ.current === null) {
+          const floorRange = settings.floorSize * 0.45; // Use 90% of floor size
+          floatX.current = (Math.random() * 2 - 1) * floorRange;
+          floatZ.current = (Math.random() * 2 - 1) * floorRange;
         }
         
-        // Ensure material is opaque
-        if (mesh.material) {
-          mesh.material.transparent = false;
-          mesh.material.opacity = 1;
-          mesh.material.depthWrite = true;
-          mesh.material.depthTest = true;
+        // Calculate vertical position with continuous upward motion
+        const maxHeight = settings.cameraHeight * 1.5;
+        const cycleHeight = maxHeight + Math.abs(baseHeight);
+        const verticalSpeed = settings.animationSpeed * 2;
+        
+        // Calculate current height using time and offset
+        let y = baseHeight + ((time.current * verticalSpeed + floatYOffset.current) % cycleHeight);
+        
+        // Reset position when reaching max height
+        if (y >= maxHeight) {
+          // Reset to bottom with new random horizontal position
+          const floorRange = settings.floorSize * 0.45;
+          floatX.current = (Math.random() * 2 - 1) * floorRange;
+          floatZ.current = (Math.random() * 2 - 1) * floorRange;
+          y = baseHeight;
         }
         
+        // Update position
+        updatePosition(
+          floatX.current,
+          y,
+          floatZ.current
+        );
+        
+        // Always face camera
+        mesh.lookAt(camera.position);
         
         break;
       }
@@ -465,10 +447,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       <meshStandardMaterial 
         map={texture || null}
         side={THREE.DoubleSide}
-        transparent={true}
+        transparent={false}
         opacity={1}
         toneMapped={true}
         depthWrite={true}
+        depthTest={true}
       />
     </mesh>
   );
