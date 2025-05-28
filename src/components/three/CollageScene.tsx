@@ -204,16 +204,16 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             <spotLight
               position={[x, settings.spotlightHeight, z]}
               intensity={settings.spotlightIntensity}
-              power={60}
+              power={40}
               color={settings.spotlightColor}
               angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
-              decay={1.2}
+              decay={1.5}
               penumbra={settings.spotlightPenumbra}
               distance={300}
               target={target}
               castShadow
               shadow-mapSize={[2048, 2048]}
-              shadow-bias={-0.0005}
+              shadow-bias={-0.001}
             />
           </group>
         );
@@ -325,44 +325,47 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Float case scope
         // Define float animation boundaries
-        const floatMinY = settings.cameraHeight * 0.5; // Higher minimum height
-        const floatMaxY = settings.cameraHeight * 2; // Lower maximum height for better visibility
+        const floatMinY = 2; // Minimum height just above floor
+        const floatMaxY = settings.cameraHeight * 1.5; // Maximum height relative to camera
         const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.3; // Slower, more controlled movement
+        const floatSpeedFactor = 0.5; // Moderate speed for smooth movement
         
         // Initialize float offset with random phase
         if (floatYOffset.current === null) {
           floatYOffset.current = floatMinY + (Math.random() * floatRange);
         }
         
-        // Update vertical position
-        const individualSpeed = floatSpeedFactor * (0.9 + Math.random() * 0.2) * settings.animationSpeed;
-        floatYOffset.current = floatMinY + (Math.sin(time.current * individualSpeed + startDelay.current) * floatRange * 0.5);
-        const newY = floatYOffset.current;
+        // Calculate base distribution in a circular pattern
+        const totalPhotos = photos.length;
+        const angleStep = (Math.PI * 2) / totalPhotos;
+        const baseAngle = index * angleStep;
         
-        // Calculate grid position for even distribution across floor plane
-        const gridSize = Math.ceil(Math.sqrt(photos.length * 1.5)); // Wider distribution
-        const cellSize = Math.min(settings.floorSize / gridSize, 8); // Limit cell size
-        const col = index % gridSize;
-        const row = Math.floor(index / gridSize);
+        // Create concentric circles
+        const layerSize = Math.ceil(Math.sqrt(totalPhotos));
+        const layer = Math.floor(index / layerSize);
+        const baseRadius = Math.min(settings.floorSize * 0.4, 20); // Base radius for distribution
+        const radius = baseRadius + (layer * 4); // Increase radius for outer layers
         
-        // Calculate base position in grid
-        const radius = Math.min(settings.floorSize * 0.4, gridSize * cellSize * 0.4);
-        const angle = (index / photos.length) * Math.PI * 2;
-        const ringOffset = (Math.floor(index / gridSize) * cellSize * 0.5);
-        const baseX = Math.cos(angle) * (radius - ringOffset);
-        const baseZ = Math.sin(angle) * (radius - ringOffset);
+        // Calculate position with smooth vertical movement
+        const verticalPhase = time.current * floatSpeedFactor * settings.animationSpeed + startDelay.current;
+        const heightOffset = Math.sin(verticalPhase + index * 0.5) * floatRange * 0.3;
+        const newY = floatMinY + heightOffset + (layer * 2); // Add height offset for layers
         
-        // Add gentle drift motion
-        const driftScale = cellSize * 0.3;
-        const driftPhase = time.current * settings.animationSpeed * 0.5 + index * 0.7;
-        const driftX = Math.sin(driftPhase) * driftScale;
-        const driftZ = Math.cos(driftPhase * 1.3) * driftScale;
+        // Add orbital motion
+        const orbitSpeed = settings.animationSpeed * 0.2;
+        const orbitPhase = time.current * orbitSpeed;
+        const orbitOffset = Math.sin(orbitPhase + index * 0.7) * 2;
+        
+        // Calculate final position
+        const finalAngle = baseAngle + orbitPhase * 0.1;
+        const finalRadius = radius + orbitOffset;
+        const baseX = Math.cos(finalAngle) * finalRadius;
+        const baseZ = Math.sin(finalAngle) * finalRadius;
         
         updatePosition(
-          baseX + driftX,
+          baseX,
           newY,
-          baseZ + driftZ * 0.5
+          baseZ
         );
         
         // Always face the camera
@@ -447,9 +450,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           metalness={0}
           roughness={1}
           side={THREE.DoubleSide}
-          transparent={true}
-          opacity={0.8}
-          depthWrite={true}
+          transparent={false}
+          opacity={1}
+          depthWrite={false}
           castShadow
           receiveShadow
         />
@@ -560,7 +563,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       <mesh
         rotation={[-Math.PI / 2, 0, 0]} 
         position={[0, -2, 0]} 
-        receiveShadow
+        receiveShadow={true}
         renderOrder={0}
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
