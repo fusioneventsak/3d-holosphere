@@ -14,7 +14,7 @@ type Tab = 'settings' | 'photos';
 const CollageEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
-  const { settings, updateSettings, resetSettings } = useSceneStore();
+  const { settings, updateSettings: updateSceneSettings, resetSettings } = useSceneStore();
   const [activeTab, setActiveTab] = React.useState<Tab>('settings');
   const navigate = useNavigate();
 
@@ -27,9 +27,23 @@ const CollageEditorPage: React.FC = () => {
   // Sync collage settings with scene store when collage is loaded
   useEffect(() => {
     if (currentCollage?.settings) {
-      updateSettings(currentCollage.settings);
+      updateSceneSettings(currentCollage.settings);
     }
-  }, [currentCollage?.settings, updateSettings]);
+  }, [currentCollage?.settings, updateSceneSettings]);
+
+  // Handle settings updates
+  const handleSettingsChange = async (newSettings: Partial<SceneSettings>) => {
+    // Update local scene state
+    updateSceneSettings(newSettings);
+    
+    // Persist to database
+    if (currentCollage) {
+      await useCollageStore.getState().updateCollageSettings(
+        currentCollage.id,
+        { ...settings, ...newSettings }
+      );
+    }
+  };
 
   if (loading && !currentCollage) {
     return (
@@ -124,7 +138,7 @@ const CollageEditorPage: React.FC = () => {
               {activeTab === 'settings' ? (
                 <SceneSettings
                   settings={settings}
-                  onSettingsChange={updateSettings}
+                  onSettingsChange={handleSettingsChange}
                   onReset={resetSettings}
                 />
               ) : (
@@ -142,7 +156,7 @@ const CollageEditorPage: React.FC = () => {
                 <CollageScene
                   photos={photos}
                   settings={settings}
-                  onSettingsChange={updateSettings}
+                  onSettingsChange={handleSettingsChange}
                 />
               </div>
             </div>
