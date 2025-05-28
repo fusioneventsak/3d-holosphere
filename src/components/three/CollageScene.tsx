@@ -323,50 +323,51 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Create an even grid distribution across the floor
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos * 1.5)); // Increase density
-        const spacing = settings.floorSize / gridSize;
-        const row = Math.floor(index / gridSize);
+        // Calculate grid size for even distribution
+        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+        const spacing = (settings.floorSize * 0.8) / gridSize; // Use 80% of floor size for better spacing
+        
+        // Calculate position in grid
         const col = index % gridSize;
+        const row = Math.floor(index / gridSize);
         
-        // Calculate base position (centered grid)
-        const baseX = (col * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
-        const baseZ = (row * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        // Center the grid and add slight randomization
+        const baseX = (col * spacing) - ((gridSize * spacing) / 2) + (spacing / 2);
+        const baseZ = (row * spacing) - ((gridSize * spacing) / 2) + (spacing / 2);
         
-        // Calculate height cycle
-        const cycleHeight = settings.cameraHeight * 2.5;
-        const baseSpeed = settings.animationSpeed * 0.3;
-        const startOffset = (index % 3) * (cycleHeight / 3); // Create 3 staggered groups
-        const timeOffset = time.current * baseSpeed;
-        const rawY = ((timeOffset + startOffset) % cycleHeight);
+        // Add slight position variation
+        const xOffset = Math.sin(index * 0.1) * (spacing * 0.2);
+        const zOffset = Math.cos(index * 0.1) * (spacing * 0.2);
         
-        // Smooth fade transitions at boundaries
-        const fadeRange = cycleHeight * 0.1;
-        const fadeStart = cycleHeight - fadeRange;
-        let opacity = 1;
+        // Calculate vertical motion
+        const maxHeight = settings.cameraHeight * 2;
+        const cycleOffset = (index * 0.1) % 1; // Stagger start positions
+        const verticalSpeed = settings.animationSpeed * 0.5;
+        const heightCycle = ((time.current * verticalSpeed) + cycleOffset) % 1;
+        const y = heightCycle * maxHeight;
         
-        if (rawY > fadeStart) {
-          opacity = 1 - ((rawY - fadeStart) / fadeRange);
-        } else if (rawY < fadeRange) {
-          opacity = rawY / fadeRange;
+        // Reset position when reaching top
+        if (y >= maxHeight - 0.1) {
+          mesh.position.y = 2; // Reset to base height
+        } else {
+          updatePosition(
+            baseX + xOffset,
+            Math.max(2, y), // Keep minimum height
+            baseZ + zOffset
+          );
+        
+          // Always face camera
+          mesh.lookAt(camera.position);
         }
         
-        updatePosition(
-          baseX,
-          Math.max(2, rawY),
-          baseZ
-        );
-        
-        // Always face the camera
-        mesh.lookAt(camera.position);
-        
-        // Update material properties
+        // Ensure material is opaque
         if (mesh.material) {
-          mesh.material.opacity = opacity;
-          mesh.material.transparent = true;
+          mesh.material.transparent = false;
+          mesh.material.opacity = 1;
           mesh.material.depthWrite = true;
           mesh.material.depthTest = true;
         }
+        
         
         break;
       }
