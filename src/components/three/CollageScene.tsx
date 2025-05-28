@@ -321,7 +321,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Constants for animation
         const maxHeight = settings.cameraHeight * 1.5; // Lower max height for quicker loop
-        const verticalSpeed = settings.animationSpeed * 15;
+        const verticalSpeed = settings.animationSpeed * 8;
         const floorRange = settings.floorSize * 0.8;
         const startHeight = -5; // Start closer to floor
         
@@ -345,7 +345,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Calculate drift based on initial position
         const driftScale = 0.2;
-        const driftSpeed = 0.8;
+        const driftSpeed = 0.4;
         const xDrift = Math.sin(time.current * driftSpeed + index * 0.5) * driftScale;
         const zDrift = Math.cos(time.current * driftSpeed + index * 0.7) * driftScale;
         
