@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
@@ -105,53 +104,36 @@ const defaultSettings: SceneSettings = {
 };
 
 export const useSceneStore = create<SceneState>()(
-  persist(
-    (set) => ({
-      settings: defaultSettings,
-      updateSettings: (() => {
-        const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
-          if (newSettings.photoCount !== undefined) {
-            const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
-            if (!isNaN(count)) {
-              newSettings.photoCount = count;
-            } else {
-              delete newSettings.photoCount;
-            }
-          }
-
-          set((state) => ({
-            settings: { ...state.settings, ...newSettings },
-          }));
-        };
-        
-        const debouncedUpdate = debounce(immediateUpdate, 100);
-        
-        return (newSettings: Partial<SceneSettings>, debounce = false) => {
-          if (debounce) {
-            debouncedUpdate(newSettings);
+  (set) => ({
+    settings: defaultSettings,
+    updateSettings: (() => {
+      const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
+        if (newSettings.photoCount !== undefined) {
+          const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
+          if (!isNaN(count)) {
+            newSettings.photoCount = count;
           } else {
-            immediateUpdate(newSettings);
+            delete newSettings.photoCount;
           }
-        };
-      })(),
-      resetSettings: () => set({ settings: defaultSettings }),
-    }),
-    {
-      name: 'scene-settings',
-      version: 1,
-      partialize: (state) => ({ settings: state.settings }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const validatedSettings = { ...defaultSettings };
-          for (const key in state.settings) {
-            const value = state.settings[key];
-            if (value !== undefined && value !== null) {
-              validatedSettings[key] = value;
-            }
-          }
-          state.settings = validatedSettings;
         }
-      }
-    }
-  )
+
+        set((state) => ({
+          settings: { ...state.settings, ...newSettings },
+        }));
+      };
+      
+      const debouncedUpdate = debounce(immediateUpdate, 100);
+      
+      return (newSettings: Partial<SceneSettings>, debounce = false) => {
+        if (debounce) {
+          debouncedUpdate(newSettings);
+        } else {
+          immediateUpdate(newSettings);
+        }
+      };
+    })(),
+    resetSettings: () => set({ settings: defaultSettings }),
+  })
 );
+
+export { defaultSettings };
