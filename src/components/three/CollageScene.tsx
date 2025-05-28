@@ -94,6 +94,7 @@ type PhotoPlaneProps = {
   photos: Photo[];
   index: number;
   wall?: 'front' | 'back';
+  spacing: number; // Add spacing prop
 };
 
 // Helper functions
@@ -136,10 +137,7 @@ const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: bo
 };
 
 // Helper to generate random positions for photos
-const randomPosition = (index: number, total: number, settings: any, isUserPhoto: boolean): [number, number, number] => {
-  // Calculate spacing between photos first
-  const spacing = settings.photoSize * (1 + settings.photoSpacing);
-  
+const randomPosition = (index: number, total: number, settings: any, isUserPhoto: boolean, spacing: number): [number, number, number] => {
   const aspectRatio = window.innerWidth / window.innerHeight;
   const gridWidth = Math.ceil(Math.sqrt(total * aspectRatio));
   const gridHeight = Math.ceil(total / gridWidth);
@@ -222,13 +220,13 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-             angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
-             distance={300}
+              distance={300}
               target={target}
               castShadow
-             shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[2048, 2048]}
               shadow-bias={-0.001}
             />
           </group>
@@ -249,7 +247,7 @@ const LoadingFallback: React.FC = () => {
 };
 
 // Component for individual photo planes
-const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
+const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall, spacing }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const initialPosition = useRef<[number, number, number]>(position);
   const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
@@ -413,7 +411,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const uniqueAmplitude = 2 + Math.cos(index * 1.3) * 1; // Amplitude varies between 1 and 3
         
         // Combine multiple wave motions with different frequencies
-        const waveY = baseHeight + (
+        const waveY = settings.wallHeight + (
           Math.sin(time.current * speed * uniqueFreq + uniquePhase) * uniqueAmplitude +
           Math.sin(time.current * speed * 0.5 + uniquePhase * 1.3) * 0.8 +
           Math.cos(time.current * speed * 0.3 + uniquePhase * 0.7) * 0.5
@@ -426,7 +424,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           xPos + xDrift,
-          Math.max(minHeight, waveY),
+          Math.max(4, waveY),
           zPos + zDrift
         );
         
@@ -454,7 +452,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         updatePosition(
           spiralX,
-          Math.max(minHeight, spiralY), // Ensure minimum height above floor
+          Math.max(4, spiralY), // Ensure minimum height above floor
           (wall === 'back' ? -1 : 1) * spiralZ // Flip Z for back wall
         );
         
@@ -514,7 +512,7 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
     
     // Calculate spacing
     const photoHeight = settings.photoSize * 1.5;
-    const spacing = settings.photoSpacing;
+    const spacing = settings.photoSize * (1 + settings.photoSpacing);
     const verticalSpacing = photoHeight * (1 + settings.photoSpacing);
     const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
     
@@ -545,7 +543,8 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: any }> = ({ photos,
         settings: settings,
         size: settings.photoSize,
         photos: photos,
-        index: index
+        index: index,
+        spacing: spacing // Pass spacing as a prop
       };
     });
   }, [photos, settings]);
