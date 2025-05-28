@@ -325,33 +325,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         // Float case scope
         // Define float animation boundaries
-        const floatMinY = 2; // Start above floor
-        const floatMaxY = settings.cameraHeight * 4; // Increased max height for more dramatic effect
+        const floatMinY = settings.cameraHeight * 0.5; // Higher minimum height
+        const floatMaxY = settings.cameraHeight * 2; // Lower maximum height for better visibility
         const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.5; // Increased base speed factor
+        const floatSpeedFactor = 0.3; // Slower, more controlled movement
         
         // Initialize float offset with random phase
         if (floatYOffset.current === null) {
-          floatYOffset.current = Math.random() * floatRange; // Single range for more consistent distribution
+          floatYOffset.current = floatMinY + (Math.random() * floatRange);
         }
         
         // Update vertical position
-        const individualSpeed = floatSpeedFactor * (0.8 + Math.random() * 0.4) * Math.pow(settings.animationSpeed, 1.5);
-        floatYOffset.current = (floatYOffset.current + timeStep * speed * individualSpeed) % floatRange;
-        const newY = Math.max(floatMinY, floatMinY + floatYOffset.current);
+        const individualSpeed = floatSpeedFactor * (0.9 + Math.random() * 0.2) * settings.animationSpeed;
+        floatYOffset.current = floatMinY + (Math.sin(time.current * individualSpeed + startDelay.current) * floatRange * 0.5);
+        const newY = floatYOffset.current;
         
         // Calculate grid position for even distribution across floor plane
-        const gridSize = Math.ceil(Math.sqrt(photos.length));
-        const cellSize = settings.floorSize / gridSize;
+        const gridSize = Math.ceil(Math.sqrt(photos.length * 1.5)); // Wider distribution
+        const cellSize = Math.min(settings.floorSize / gridSize, 8); // Limit cell size
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
         // Calculate base position in grid
-        const baseX = (col - gridSize / 2) * cellSize + cellSize / 2;
-        const baseZ = (row - gridSize / 2) * cellSize + cellSize / 2;
+        const radius = Math.min(settings.floorSize * 0.4, gridSize * cellSize * 0.4);
+        const angle = (index / photos.length) * Math.PI * 2;
+        const ringOffset = (Math.floor(index / gridSize) * cellSize * 0.5);
+        const baseX = Math.cos(angle) * (radius - ringOffset);
+        const baseZ = Math.sin(angle) * (radius - ringOffset);
         
         // Add gentle drift motion
-        const driftScale = cellSize * 0.2;
+        const driftScale = cellSize * 0.3;
         const driftPhase = time.current * settings.animationSpeed * 0.5 + index * 0.7;
         const driftX = Math.sin(driftPhase) * driftScale;
         const driftZ = Math.cos(driftPhase * 1.3) * driftScale;
@@ -359,7 +362,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         updatePosition(
           baseX + driftX,
           newY,
-          baseZ + driftZ
+          baseZ + driftZ * 0.5
         );
         
         // Always face the camera
