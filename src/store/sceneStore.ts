@@ -80,7 +80,7 @@ const defaultSettings: SceneSettings = {
   spotlightCount: 2,
   spotlightHeight: 15,
   spotlightDistance: 30,
-  spotlightAngle: -0.5,
+  spotlightAngle: Math.PI / 4,
   spotlightWidth: 0.5,
   spotlightPenumbra: 0.8,
   ambientLightIntensity: 0.5,

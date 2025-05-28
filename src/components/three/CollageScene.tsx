@@ -209,14 +209,9 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
         const angle = (i / settings.spotlightCount) * Math.PI * 2;
         const x = Math.cos(angle) * settings.spotlightDistance;
         const z = Math.sin(angle) * settings.spotlightDistance;
-        
-        // Calculate target position based on tilt angle
-        const tiltDistance = Math.tan(settings.spotlightAngle) * settings.spotlightHeight;
-        const targetX = x + Math.cos(angle) * tiltDistance;
-        const targetZ = z + Math.sin(angle) * tiltDistance;
-        
         const target = new THREE.Object3D();
-        target.position.set(targetX, -2, targetZ);
+        // Target the center point at floor level
+        target.position.set(0, 0, 0);
 
         return (
           <group key={i}>
@@ -226,7 +221,7 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
               intensity={settings.spotlightIntensity}
               power={40}
               color={settings.spotlightColor}
-              angle={Math.min(settings.spotlightAngle * Math.pow(settings.spotlightWidth, 3), Math.PI)}
+              angle={Math.PI / 4}
               decay={1.5}
               penumbra={settings.spotlightPenumbra}
               distance={300}
@@ -586,7 +581,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
     <>
       {settings.gridEnabled && isGridReady && (
         <Grid
-          position={[0, -1.999, 0]}
+          position={[0, 0, 0]}
           args={[settings.gridSize, settings.gridDivisions]}
           cellSize={1}
           cellThickness={0.5}
@@ -600,7 +595,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
       )}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -2.0, 0]}
+        position={[0, 0, 0]}
         receiveShadow
       >
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
