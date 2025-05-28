@@ -235,7 +235,7 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const startDelay = useRef<number>(Math.random() * Math.PI * 2);
+  const startDelay = useRef<number>(Math.random() * 2 * Math.PI);
   const time = useRef<number>(0);
   const lastPattern = useRef<string>(pattern);
   const initialPosition = useRef({
@@ -243,14 +243,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     y: Math.random() * settings.cameraHeight * 0.5,
     z: (Math.random() - 0.5) * settings.floorSize * 0.5
   });
-  const orbitRadius = useRef<number>(Math.random() * 5 + 10);
   const { camera, scene } = useThree();
   
   // Reset animation when pattern changes
   useEffect(() => {
     if (lastPattern.current !== pattern) {
       time.current = 0;
+      startDelay.current = Math.random() * 2 * Math.PI;
       lastPattern.current = pattern;
+      
+      // Reset initial position for new pattern
+      initialPosition.current = {
+        x: (Math.random() - 0.5) * settings.floorSize * 0.5,
+        y: Math.random() * settings.cameraHeight * 0.5,
+        z: (Math.random() - 0.5) * settings.floorSize * 0.5
+      };
     }
   }, [pattern]);
   
@@ -277,7 +284,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     const mesh = meshRef.current;
     const phase = time.current + startDelay.current;
 
-    const totalPhotos = Math.max(photos?.length || 1, 1);
+    const totalPhotos = settings.photoCount;
     const { x: baseX, y: baseY, z: baseZ } = initialPosition.current;
 
     switch (pattern) {
@@ -324,21 +331,22 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
-        const floatY = baseHeight + baseY + Math.sin(phase) * verticalRange;
+        const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange;
         
         // Calculate drift motion using baseX and baseZ from initialPosition
         const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2);
         const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2);
         
         mesh.position.set(
-          Math.fround(driftX),
+          driftX,
           Math.max(baseHeight, floatY),
-          Math.fround(driftZ)
+          driftZ
         );
         
-        const lookAtPos = camera.position.clone();
-        lookAtPos.y = mesh.position.y;
-        mesh.lookAt(lookAtPos);
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
 
@@ -360,15 +368,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const wavePhase = phase * 0.8 + distance * 0.1;
         const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude + baseY * 0.3;
         
+        // Add slight circular motion
+        const circleX = Math.sin(phase * 0.2) * gridSpacing * 0.1;
+        const circleZ = Math.cos(phase * 0.2) * gridSpacing * 0.1;
+        
         mesh.position.set(
-          xPos,
+          xPos + circleX,
           Math.max(baseHeight, waveY),
-          zPos
+          zPos + circleZ
         );
         
-        const lookAtPos = camera.position.clone();
-        lookAtPos.y = mesh.position.y;
-        mesh.lookAt(lookAtPos);
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
 
@@ -385,15 +398,19 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const spiralX = Math.fround(Math.cos(angle) * radius + baseX * 0.1);
         const spiralZ = Math.fround(Math.sin(angle) * radius + baseZ * 0.1);
         
+        // Add vertical oscillation
+        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2;
+        
         mesh.position.set(
           spiralX,
-          Math.max(baseHeight, height + baseHeight + baseY * 0.2),
+          Math.max(baseHeight, height + baseHeight + oscillation),
           spiralZ
         );
         
-        const lookAtPos = camera.position.clone();
-        lookAtPos.y = mesh.position.y;
-        mesh.lookAt(lookAtPos);
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
     }
@@ -654,7 +671,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
               <OrbitControls 
                 makeDefault
                 enableZoom={true}
-                enablePan={false}
+                enablePan={true}
                 autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
                 autoRotateSpeed={settings.cameraRotationSpeed}
                 minDistance={5}
@@ -662,11 +679,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
                 minPolarAngle={0}
                 maxPolarAngle={Math.PI * 0.85}
                 enableDamping={true}
-                dampingFactor={0.1}
+                dampingFactor={0.05}
                 rotateSpeed={0.8}
                 zoomSpeed={0.8}
-                screenSpacePanning={false}
-                target={[0, Math.max(0, settings.wallHeight), 0]}
+                screenSpacePanning={true}
+                target={[0, Math.max(2, settings.wallHeight / 2), 0]}
               />
               
               <PhotosContainer photos={displayedPhotos} settings={settings} />
