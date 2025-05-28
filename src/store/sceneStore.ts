@@ -99,7 +99,7 @@ const defaultSettings: SceneSettings = {
   gridDivisions: 30,
   gridOpacity: 1.0,
   photoSize: 0.8,
-  photoSpacing: 0.5,
+  photoSpacing: 0.1,
   wallHeight: 0,
   gridAspectRatio: 1.5
 };
