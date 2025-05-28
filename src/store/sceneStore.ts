@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
+  gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
   animationSpeed: number;
   animationEnabled: boolean;
   useStockPhotos: boolean;
@@ -61,6 +62,7 @@ const debounce = (fn: Function, ms = 300) => {
 
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
+  gridAspectRatioPreset: '16:9',
   animationSpeed: 0.5,
   animationEnabled: false,
   useStockPhotos: true,
@@ -100,7 +102,7 @@ const defaultSettings: SceneSettings = {
   photoSize: 0.8,
   photoSpacing: 0,
   wallHeight: 0,
-  gridAspectRatio: 1.5
+  gridAspectRatio: 1.77778 // 16:9 default
 };
 
 export const useSceneStore = create<SceneState>()(
