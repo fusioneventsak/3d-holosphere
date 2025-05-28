@@ -231,21 +231,8 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const initialPosition = useRef<[number, number, number]>(position);
-  const startDelay = useRef<number>(Math.random() * 5); // Reduced delay for smoother start
-  const gridPosition = useRef<[number, number]>([
-    Math.floor(index % Math.sqrt(photos.length)),
-    Math.floor(index / Math.sqrt(photos.length))
-  ]);
-  const orbitRadius = useRef<number>(Math.random() * 3 + 5); // Random orbit radius between 5-8
-  const randomOffset = useRef<[number, number, number]>([
-    (Math.random() - 0.5) * 2,
-    Math.random() * 0.5,
-    (Math.random() - 0.5) * 2
-  ]);
-  const elapsedTime = useRef<number>(0);
+  const floatYOffset = useRef<number | null>(null);
   const time = useRef<number>(0);
-  const heightOffset = useRef<number>(Math.random() * 5); // Add random initial offset
   const { camera } = useThree();
   
   const texture = useMemo(() => {
@@ -328,24 +315,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         break;
         
       case 'float':
-        // Calculate grid-based starting position
-        const gridX = (gridPosition.current[0] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
-        const gridZ = (gridPosition.current[1] - Math.sqrt(photos.length) / 2) * settings.photoSize * 1.2;
+        // Define float animation boundaries
+        const floatMinY = -settings.floorSize / 2; // Start well below floor
+        const floatMaxY = settings.cameraHeight + 20; // End above camera
+        const floatRange = floatMaxY - floatMinY;
+        const floatSpeedFactor = 0.5;
         
-        // Add random offset for natural distribution
-        const offsetX = randomOffset.current[0] * settings.photoSize;
-        const offsetZ = randomOffset.current[2] * settings.photoSize;
+        // Initialize float offset if not set
+        if (floatYOffset.current === null) {
+          // Distribute photos evenly across the vertical range
+          floatYOffset.current = (index / photos.length) * floatRange;
+        }
         
-        // Calculate floating motion
-        const floatHeight = 15;
-        const floatY = Math.max(2, // Ensure minimum height of 2 above floor
-          (Math.sin(time.current * speed + startDelay.current) * 0.5 + 0.5) * floatHeight
-        );
+        // Update vertical position
+        floatYOffset.current = (floatYOffset.current + timeStep * speed * floatSpeedFactor) % floatRange;
+        const newY = floatMinY + floatYOffset.current;
+        
+        // Calculate grid position for even distribution across floor plane
+        const gridSize = Math.ceil(Math.sqrt(photos.length));
+        const cellSize = settings.floorSize / gridSize;
+        const col = index % gridSize;
+        const row = Math.floor(index / gridSize);
+        
+        // Center the grid and add slight offset for natural look
+        const xPos = (col * cellSize) - (settings.floorSize * 0.5) + (cellSize * 0.5);
+        const zPos = (row * cellSize) - (settings.floorSize * 0.5) + (cellSize * 0.5);
         
         updatePosition(
-          gridX + offsetX,
-          floatY,
-          (wall === 'back' ? -1 : 1) * (gridZ + offsetZ) // Flip Z for back wall
+          xPos + (Math.sin(time.current + index) * 0.5), // Slight horizontal drift
+          newY,
+          zPos + (Math.cos(time.current + index) * 0.5) // Slight depth drift
         );
         
         // Always face the camera
