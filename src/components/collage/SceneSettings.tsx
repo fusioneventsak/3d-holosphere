@@ -1,9 +1,18 @@
 import React from 'react';
-import { useSceneStore } from '../../store/sceneStore';
+import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square } from 'lucide-react';
 
-const SceneSettings: React.FC = () => {
-  const { settings, updateSettings, resetSettings } = useSceneStore();
+type SceneSettingsProps = {
+  settings: SceneSettings;
+  onSettingsChange: (settings: Partial<SceneSettings>) => void;
+  onReset: () => void;
+};
+
+const SceneSettings: React.FC<SceneSettingsProps> = ({ 
+  settings, 
+  onSettingsChange,
+  onReset
+}) => {
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-800 rounded-lg p-4 sticky top-20">

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Share2 } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
+import { defaultSettings } from '../store/sceneStore';
 import Layout from '../components/layout/Layout';
 import CollageScene from '../components/three/CollageScene';
 
@@ -89,7 +90,10 @@ const CollageViewerPage: React.FC = () => {
         </div>
       ) : (
         <div className="h-[calc(100vh-200px)] w-full">
-          <CollageScene photos={photos} />
+          <CollageScene
+            photos={photos}
+            settings={currentCollage.settings || defaultSettings}
+          />
         </div>
       )}
     </Layout>

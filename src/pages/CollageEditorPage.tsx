@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronLeft, Share2, Eye } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
+import { defaultSettings } from '../store/sceneStore';
 import Layout from '../components/layout/Layout';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import SceneSettings from '../components/collage/SceneSettings';
@@ -10,7 +11,20 @@ import CollageScene from '../components/three/CollageScene';
 const CollageEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentCollage, photos, fetchCollageById, loading } = useCollageStore();
+  const { currentCollage, photos, fetchCollageById, loading, updateCollageSettings } = useCollageStore();
+
+  const handleSettingsChange = async (newSettings: Partial<typeof defaultSettings>) => {
+    if (currentCollage) {
+      const updatedSettings = { ...currentCollage.settings, ...newSettings };
+      await updateCollageSettings(currentCollage.id, updatedSettings);
+    }
+  };
+
+  const handleSettingsReset = async () => {
+    if (currentCollage) {
+      await updateCollageSettings(currentCollage.id, defaultSettings);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -109,13 +123,21 @@ const CollageEditorPage: React.FC = () => {
           <div className="lg:col-span-3 h-[calc(100vh-12rem)] overflow-y-auto pb-8">
             <PhotoUploader collageId={currentCollage.id} />
             <div className="mt-6">
-              <SceneSettings />
+              <SceneSettings
+                settings={currentCollage.settings || defaultSettings}
+                onSettingsChange={handleSettingsChange}
+                onReset={handleSettingsReset}
+              />
             </div>
           </div>
           
           <div className="lg:col-span-9 lg:sticky lg:top-24">
             <div className="bg-black/30 rounded-lg overflow-hidden w-full" style={{ aspectRatio: '16/9' }}>
-              <CollageScene photos={photos || []} />
+              <CollageScene
+                photos={photos || []}
+                settings={currentCollage.settings || defaultSettings}
+                onSettingsChange={handleSettingsChange}
+              />
             </div>
           </div>
         </div>
