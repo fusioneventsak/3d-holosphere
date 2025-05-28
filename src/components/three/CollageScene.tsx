@@ -530,7 +530,27 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <>
+    <group>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]} 
+        position={[0, -2, 0]} 
+        receiveShadow
+        renderOrder={0}
+      >
+        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <meshStandardMaterial
+          color={new THREE.Color(settings.floorColor)}
+          transparent
+          opacity={settings.floorOpacity}
+          metalness={settings.floorMetalness}
+          roughness={settings.floorRoughness}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          polygonOffset={true}
+          polygonOffsetFactor={-1}
+        />
+      </mesh>
+      
       {settings.gridEnabled && isGridReady && (
         <Grid
           position={[0, -1.999, 0]}
@@ -543,25 +563,10 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           fadeStrength={0.5}
           followCamera={false}
           infiniteGrid={false}
+          renderOrder={1}
         />
       )}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]} 
-        position={[0, -2, 0]} 
-        receiveShadow 
-      >
-        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-        <meshStandardMaterial
-          color={new THREE.Color(settings.floorColor)}
-          transparent
-          opacity={settings.floorOpacity}
-          metalness={settings.floorMetalness}
-          roughness={settings.floorRoughness}
-          side={THREE.DoubleSide}
-          depthWrite={true}
-        />
-      </mesh>
-    </>
+    </group>
   );
 };
 
