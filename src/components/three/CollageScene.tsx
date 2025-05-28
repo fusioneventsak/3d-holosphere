@@ -301,7 +301,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
         
         // Set position in grid - ensure both walls are positioned above the floor
-        updatePosition(
+        mesh.position.set(
           Math.fround(xOffset + (col * horizontalSpacing)),
           Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
@@ -400,43 +400,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         mesh.lookAt(camera.position);
         break;
       }
-      
-      case 'grid': {
-        // Grid case scope
-        // Calculate grid dimensions
-        const baseAspectRatio = settings.gridAspectRatio || 1;
-        let gridWidth, gridHeight;
-        if (baseAspectRatio >= 1) {
-          // Wider grid
-          gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
-          gridHeight = Math.ceil(totalPhotos / gridWidth);
-        } else {
-          // Taller grid
-          gridHeight = Math.ceil(Math.sqrt(totalPhotos / baseAspectRatio));
-          gridWidth = Math.ceil(totalPhotos / gridHeight);
-        }
-        
-        // Create tight spacing for a solid wall effect
-        const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
-        const verticalSpacing = settings.photoSize * 1.5 * (1 + settings.photoSpacing);
-        
-        // Calculate position in the wall grid
-        const row = Math.floor(index / gridWidth);
-        const col = index % gridWidth;
-        
-        // Center the grid
-        const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-        const yOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
-        
-        mesh.position.set(
-          xOffset + (col * horizontalSpacing),
-          baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight,
-          wall === 'back' ? -2 : 2
-        );
-        
-        mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
-        break;
-      }
         
       case 'wave': {
         // Wave case scope
@@ -460,7 +423,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const waveY = baseHeight + waveAmplitude + 
           (Math.sin(time.current * speed * waveFrequency + phaseOffset) * waveAmplitude);
         
-        updatePosition(
+        mesh.position.set(
           xPos + (Math.sin(time.current * 0.5 + phaseOffset) * 0.5), // Slight horizontal drift
           waveY,
           zPos + (Math.cos(time.current * 0.5 + phaseOffset) * 0.5) // Slight depth drift
@@ -488,7 +451,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const spiralY = spiralMaxHeight * (1 - progress);
         const spiralZ = Math.sin(spiralAngle) * currentRadius;
         
-        updatePosition(
+        mesh.position.set(
           spiralX,
           Math.max(baseHeight, spiralY), // Ensure minimum height above floor
           spiralZ
