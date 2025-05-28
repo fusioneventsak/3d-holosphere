@@ -278,7 +278,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     const totalPhotos = photos?.length || 1;
     
     switch (pattern) {
-      case 'grid':
+      case 'grid': {
         // Grid case scope
         // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
