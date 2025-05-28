@@ -209,9 +209,7 @@ const SceneSettings: React.FC = () => {
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Floor Size
-                <span className="ml-2 text-xs text-gray-400">
-                  {Math.round(settings.floorSize)} units
-                </span>
+                <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorSize)} units</span>
               </label>
               <input
                 type="range"
@@ -219,10 +217,7 @@ const SceneSettings: React.FC = () => {
                 max="300"
                 step="10"
                 value={settings.floorSize}
-                onChange={(e) => updateSettings({ 
-                  floorSize: parseFloat(e.target.value),
-                  gridSize: parseFloat(e.target.value)
-                }, true)}
+                onChange={(e) => updateSettings({ floorSize: parseFloat(e.target.value) }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -467,9 +462,7 @@ const SceneSettings: React.FC = () => {
                 <div>
                   <label className="block text-sm text-gray-300 mb-2">
                     Floor Size
-                    <span className="ml-2 text-xs text-gray-400">
-                      {Math.round(settings.floorSize)} units
-                    </span>
+                    <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorSize)} units</span>
                   </label>
                   <input
                     type="range"
@@ -477,10 +470,7 @@ const SceneSettings: React.FC = () => {
                     max="300"
                     step="10"
                     value={settings.floorSize}
-                    onChange={(e) => updateSettings({ 
-                      floorSize: parseFloat(e.target.value),
-                      gridSize: parseFloat(e.target.value)
-                    }, true)}
+                    onChange={(e) => updateSettings({ floorSize: parseFloat(e.target.value) }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -556,17 +546,17 @@ const SceneSettings: React.FC = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-xs text-gray-400">Grid Size</label>
+                  <label className="block text-xs text-gray-400">
+                    Grid Size
+                    <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridSize)} units</span>
+                  </label>
                   <input
                     type="range"
                     min="50"
                     max="300"
-                    step="5"
+                    step="10"
                     value={settings.gridSize}
-                    onChange={(e) => updateSettings({
-                      gridSize: parseFloat(e.target.value),
-                      floorSize: parseFloat(e.target.value)
-                    }, true)}
+                    onChange={(e) => updateSettings({ gridSize: parseFloat(e.target.value) }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
