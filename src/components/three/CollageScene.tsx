@@ -323,28 +323,24 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
         
       case 'float': {
-        // Calculate grid-based distribution
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const cellSize = settings.floorSize / gridSize;
-        const xIndex = index % gridSize;
-        const zIndex = Math.floor(index / gridSize);
+        // Create an even grid distribution across the floor
+        const gridSize = Math.ceil(Math.sqrt(totalPhotos * 1.5)); // Increase density
+        const spacing = settings.floorSize / gridSize;
+        const row = Math.floor(index / gridSize);
+        const col = index % gridSize;
         
-        // Center the grid
-        const xOffset = (settings.floorSize * 0.5) - (cellSize * 0.5);
-        const zOffset = (settings.floorSize * 0.5) - (cellSize * 0.5);
+        // Calculate base position (centered grid)
+        const baseX = (col * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
+        const baseZ = (row * spacing) - (settings.floorSize * 0.5) + (spacing * 0.5);
         
-        // Calculate base position with slight random offset
-        const baseX = (xIndex * cellSize) - xOffset + (Math.random() * 2 - 1);
-        const baseZ = (zIndex * cellSize) - zOffset + (Math.random() * 2 - 1);
-        
-        // Calculate continuous upward motion
-        const cycleHeight = settings.cameraHeight * 2;
-        const baseSpeed = settings.animationSpeed * 0.5;
-        const individualOffset = (index / totalPhotos) * cycleHeight;
+        // Calculate height cycle
+        const cycleHeight = settings.cameraHeight * 2.5;
+        const baseSpeed = settings.animationSpeed * 0.3;
+        const startOffset = (index % 3) * (cycleHeight / 3); // Create 3 staggered groups
         const timeOffset = time.current * baseSpeed;
-        const rawY = ((timeOffset + individualOffset) % cycleHeight);
+        const rawY = ((timeOffset + startOffset) % cycleHeight);
         
-        // Ensure smooth looping by fading in/out at boundaries
+        // Smooth fade transitions at boundaries
         const fadeRange = cycleHeight * 0.1;
         const fadeStart = cycleHeight - fadeRange;
         let opacity = 1;
@@ -355,24 +351,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           opacity = rawY / fadeRange;
         }
         
-        // Apply gentle swaying motion
-        const swayAmount = 0.5;
-        const swayX = Math.sin(timeOffset * 0.5 + index) * swayAmount;
-        const swayZ = Math.cos(timeOffset * 0.5 + index) * swayAmount;
-        
         updatePosition(
-          baseX + swayX,
+          baseX,
           Math.max(2, rawY),
-          baseZ + swayZ
+          baseZ
         );
         
         // Always face the camera
         mesh.lookAt(camera.position);
         
-        // Update material opacity for smooth transitions
+        // Update material properties
         if (mesh.material) {
           mesh.material.opacity = opacity;
           mesh.material.transparent = true;
+          mesh.material.depthWrite = true;
+          mesh.material.depthTest = true;
         }
         
         break;
