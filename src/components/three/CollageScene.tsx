@@ -322,9 +322,9 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         // Float case scope
         // Define float animation boundaries
         const floatMinY = -2; // Start just below floor
-        const floatMaxY = settings.cameraHeight * 3; // Extended height for longer float
+        const floatMaxY = settings.cameraHeight * 4; // Increased max height for more dramatic effect
         const floatRange = floatMaxY - floatMinY;
-        const floatSpeedFactor = 0.15;
+        const floatSpeedFactor = 0.5; // Increased base speed factor
         
         // Initialize float offset with random phase
         if (floatYOffset.current === null) {
@@ -332,7 +332,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         }
         
         // Update vertical position
-        const individualSpeed = floatSpeedFactor * (0.7 + Math.random() * 0.6);
+        const individualSpeed = floatSpeedFactor * (0.8 + Math.random() * 0.4) * Math.pow(settings.animationSpeed, 1.5);
         floatYOffset.current = (floatYOffset.current + timeStep * speed * individualSpeed) % floatRange;
         const newY = floatMinY + floatYOffset.current;
         
@@ -348,7 +348,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         // Add gentle drift motion
         const driftScale = cellSize * 0.2;
-        const driftPhase = time.current * 0.3 + index * 0.7;
+        const driftPhase = time.current * settings.animationSpeed * 0.5 + index * 0.7;
         const driftX = Math.sin(driftPhase) * driftScale;
         const driftZ = Math.cos(driftPhase * 1.3) * driftScale;
         
