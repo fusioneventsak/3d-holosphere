@@ -237,11 +237,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const startDelay = useRef<number>(Math.random() * Math.PI * 2);
   const time = useRef<number>(0);
-  const initialPosition = useRef<[number, number, number]>([
-    (Math.random() - 0.5) * settings.floorSize * 0.5,
-    Math.random() * settings.cameraHeight * 0.5,
-    (Math.random() - 0.5) * settings.floorSize * 0.5
-  ]);
+  const initialPosition = useRef({
+    x: (Math.random() - 0.5) * settings.floorSize * 0.5,
+    y: Math.random() * settings.cameraHeight * 0.5,
+    z: (Math.random() - 0.5) * settings.floorSize * 0.5
+  });
   const orbitRadius = useRef<number>(Math.random() * 5 + 10);
   const { camera } = useThree();
   
@@ -269,11 +269,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     const phase = time.current + startDelay.current;
 
     const totalPhotos = Math.max(photos?.length || 1, 1);
-    const spacing = settings.photoSize * (1 + settings.photoSpacing);
-    const rows = Math.ceil(Math.sqrt(totalPhotos));
-
-    // Get base coordinates from initialPosition
-    const [baseX, baseY, baseZ] = initialPosition.current;
+    const { x: baseX, y: baseY, z: baseZ } = initialPosition.current;
 
     switch (pattern) {
       case 'grid': {
@@ -319,16 +315,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'float': {
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
-        const floatY = baseHeight + Math.sin(phase) * verticalRange;
+        const floatY = baseHeight + baseY + Math.sin(phase) * verticalRange;
         
         // Calculate drift motion using baseX and baseZ from initialPosition
         const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2);
         const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2);
         
         mesh.position.set(
-          driftX,
+          Math.fround(driftX),
           Math.max(baseHeight, floatY),
-          driftZ
+          Math.fround(driftZ)
         );
         
         const lookAtPos = camera.position.clone();
@@ -340,20 +336,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       case 'wave': {
         const waveAmplitude = settings.cameraHeight * 0.3;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const gridSpacing = settings.floorSize / gridSize;
+        const gridSpacing = Math.min(settings.floorSize / gridSize, settings.photoSize * 3);
         
         // Calculate grid position
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
         // Center the grid
-        const xPos = (col - gridSize / 2) * gridSpacing;
-        const zPos = (row - gridSize / 2) * gridSpacing;
+        const xPos = Math.fround((col - gridSize / 2) * gridSpacing + baseX * 0.2);
+        const zPos = Math.fround((row - gridSize / 2) * gridSpacing + baseZ * 0.2);
         
         // Calculate wave motion
         const distance = Math.sqrt(xPos * xPos + zPos * zPos);
         const wavePhase = phase * 0.8 + distance * 0.1;
-        const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude;
+        const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude + baseY * 0.3;
         
         mesh.position.set(
           xPos,
@@ -368,21 +364,21 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'spiral': {
-        const maxRadius = settings.floorSize * 0.25;
+        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * settings.photoSize * 0.5);
         const maxHeight = settings.cameraHeight;
         const angleStep = (Math.PI * 2) / totalPhotos;
         const heightStep = maxHeight / totalPhotos;
         
-        const angle = (index * angleStep) + (phase * 0.5);
+        const angle = (index * angleStep) + (phase * settings.animationSpeed);
         const height = maxHeight - (index * heightStep);
         const radius = maxRadius * (1 - (index / totalPhotos));
         
-        const spiralX = Math.cos(angle) * radius;
-        const spiralZ = Math.sin(angle) * radius;
+        const spiralX = Math.fround(Math.cos(angle) * radius + baseX * 0.1);
+        const spiralZ = Math.fround(Math.sin(angle) * radius + baseZ * 0.1);
         
         mesh.position.set(
           spiralX,
-          Math.max(baseHeight, height + baseHeight),
+          Math.max(baseHeight, height + baseHeight + baseY * 0.2),
           spiralZ
         );
         
