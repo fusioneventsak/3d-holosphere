@@ -28,7 +28,7 @@ const gradientShader = {
   `
 };
 
-import { useSceneStore } from '../../store/sceneStore';
+import { type SceneSettings } from '../../store/sceneStore';
 import { getStockPhotos } from '../../lib/stockPhotos';
 
 // Create a shared texture loader with memory management
@@ -630,11 +630,12 @@ const CameraSetup: React.FC<{ settings: any }> = ({ settings }) => {
 
 type CollageSceneProps = {
   photos: Photo[];
+  settings: SceneSettings;
+  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
 };
 
 // Main scene component
-const CollageScene: React.FC<CollageSceneProps> = ({ photos }) => {
-  const settings = useSceneStore((state) => state.settings);
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSceneReady, setIsSceneReady] = React.useState(false);
