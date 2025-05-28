@@ -219,15 +219,15 @@ const SceneSetup: React.FC<{ settings: any }> = ({ settings }) => {
             <spotLight
               position={[x, settings.spotlightHeight, z]}
               intensity={settings.spotlightIntensity}
-              power={40}
+              power={60}
               color={settings.spotlightColor}
               angle={Math.PI / 4}
-              decay={1.5}
+              decay={1}
               penumbra={settings.spotlightPenumbra}
               distance={300}
               target={target}
               castShadow
-              shadow-mapSize={[2048, 2048]}
+              shadow-mapSize={[4096, 4096]}
               shadow-bias={-0.001}
             />
           </group>
@@ -606,7 +606,7 @@ const Floor: React.FC<{ settings: any }> = ({ settings }) => {
           metalness={settings.floorMetalness}
           roughness={settings.floorRoughness}
           side={THREE.DoubleSide}
-          depthWrite={false}
+          depthWrite={true}
           polygonOffset={true}
           polygonOffsetFactor={-1}
         />
