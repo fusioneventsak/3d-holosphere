@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
@@ -37,7 +37,7 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
-  canvas.height = 256;
+  canvas.height = 456; // Adjusted for 9:16 aspect ratio
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -53,12 +53,12 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
 const createFallbackTexture = (): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
-  canvas.height = 256;
+  canvas.height = 456; // Adjusted for 9:16 aspect ratio
   const ctx = canvas.getContext('2d')!;
   
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  gradient.addColorStop(0, '#ff0000');
-  gradient.addColorStop(1, '#550000');
+  gradient.addColorStop(0, '#550000');
+  gradient.addColorStop(1, '#330000');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
@@ -83,7 +83,7 @@ const addCacheBustToUrl = (url: string): string => {
   return `${url}${separator}t=${timestamp}`;
 };
 
-// Updated loadTexture function using Three.js TextureLoader
+// Updated loadTexture function with improved error handling
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
@@ -99,7 +99,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   }
 
   // Create initial placeholder texture
-  const placeholderTexture = createEmptySlotTexture('#333333');
+  const placeholderTexture = createEmptySlotTexture(emptySlotColor);
   
   // Add to cache immediately with placeholder
   textureCache.set(cleanUrl, {
@@ -108,41 +108,41 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   });
 
   // Prepare URL with cache busting if needed
-  let loadUrl = cleanUrl;
-  if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
-    loadUrl = addCacheBustToUrl(cleanUrl);
-  }
+  const loadUrl = cleanUrl.includes('supabase.co/storage/v1/object/public') 
+    ? addCacheBustToUrl(cleanUrl)
+    : cleanUrl;
 
-  // Load the actual texture
-  textureLoader.load(
-    loadUrl,
-    (loadedTexture) => {
-      // Copy properties from loaded texture to placeholder
-      placeholderTexture.image = loadedTexture.image;
-      placeholderTexture.needsUpdate = true;
-      
-      // Configure texture properties
-      placeholderTexture.minFilter = THREE.LinearFilter;
-      placeholderTexture.magFilter = THREE.LinearFilter;
-      placeholderTexture.generateMipmaps = false;
-      placeholderTexture.flipY = true;
-      
-      // Update cache entry
-      const entry = textureCache.get(cleanUrl);
-      if (entry) {
-        entry.lastUsed = Date.now();
-      }
-    },
-    undefined, // onProgress callback not needed
-    (error) => {
-      console.error(`Failed to load texture: ${cleanUrl}`, error);
-      
-      // Use fallback texture on error
-      const fallbackTexture = createFallbackTexture();
-      placeholderTexture.image = fallbackTexture.image;
-      placeholderTexture.needsUpdate = true;
+  // Create a temporary image to test loading
+  const tempImage = new Image();
+  tempImage.crossOrigin = 'anonymous';
+  
+  tempImage.onload = () => {
+    const texture = new THREE.Texture(tempImage);
+    texture.needsUpdate = true;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    texture.anisotropy = 4;
+    
+    // Update the placeholder texture with the loaded image
+    placeholderTexture.image = tempImage;
+    placeholderTexture.needsUpdate = true;
+    
+    // Update cache timestamp
+    const entry = textureCache.get(cleanUrl);
+    if (entry) {
+      entry.lastUsed = Date.now();
     }
-  );
+  };
+  
+  tempImage.onerror = () => {
+    console.error(`Failed to load image: ${loadUrl}`);
+    const fallbackTexture = createFallbackTexture();
+    placeholderTexture.image = fallbackTexture.image;
+    placeholderTexture.needsUpdate = true;
+  };
+  
+  tempImage.src = loadUrl;
 
   // Clean up old textures from cache
   const now = Date.now();
@@ -157,7 +157,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   return placeholderTexture;
 };
 
-// Photo frame component
+// Photo frame component with 9:16 aspect ratio
 const PhotoFrame: React.FC<{
   position: [number, number, number];
   rotation: [number, number, number];
@@ -175,9 +175,13 @@ const PhotoFrame: React.FC<{
     }
   }, [texture]);
 
+  // Use 9:16 aspect ratio for the photo frame
+  const width = scale;
+  const height = scale * (16/9);
+
   return (
     <mesh position={position} rotation={rotation}>
-      <planeGeometry args={[1 * scale, 1 * scale]} />
+      <planeGeometry args={[width, height]} />
       <meshStandardMaterial
         ref={materialRef}
         map={texture}
