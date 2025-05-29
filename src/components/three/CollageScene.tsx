@@ -82,6 +82,32 @@ const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
+// Create a fallback texture for failed loads
+const createFallbackTexture = (color: string = '#ff4444'): THREE.CanvasTexture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 384; // 1.5 aspect ratio to match photo dimensions
+  const context = canvas.getContext('2d');
+  if (context) {
+    // Fill with error color
+    context.fillStyle = color;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add a warning icon or text
+    context.fillStyle = '#ffffff';
+    context.font = 'bold 32px sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('!', canvas.width / 2, canvas.height / 2 - 40);
+    
+    // Add error text
+    context.font = '16px sans-serif';
+    context.fillText('Image', canvas.width / 2, canvas.height / 2);
+    context.fillText('Error', canvas.width / 2, canvas.height / 2 + 24);
+  }
+  return new THREE.CanvasTexture(canvas);
+};
+
 const loadTexture = (url: string): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
@@ -113,8 +139,15 @@ const loadTexture = (url: string): THREE.Texture => {
     undefined,
     (error) => {
       console.error(`Error loading texture: ${url}`, error);
-      // We keep the failed texture in the cache, it's a valid THREE.Texture object
-      // even if the image data failed to load
+      
+      // Create a fallback texture and apply it to the failed texture
+      const fallbackTexture = createFallbackTexture();
+      
+      // Apply the fallback's image to the failed texture
+      if (texture && fallbackTexture) {
+        texture.image = fallbackTexture.image;
+        texture.needsUpdate = true;
+      }
     }
   );
   
