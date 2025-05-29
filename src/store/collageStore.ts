@@ -75,7 +75,16 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             
           if (!error && data) {
             console.log('Updated photos list:', data);
-            set({ photos: data as Photo[] });
+            
+            // Add timestamp to URLs to avoid caching issues
+            const photosWithTimestamp = data.map(photo => ({
+              ...photo,
+              url: photo.url.includes('?') 
+                ? `${photo.url}&t=${Date.now()}` 
+                : `${photo.url}?t=${Date.now()}`
+            }));
+            
+            set({ photos: photosWithTimestamp as Photo[] });
           } else {
             console.error('Error fetching updated photos:', error);
           }
@@ -443,10 +452,19 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       }
       
       console.log(`Found ${data?.length || 0} photos`);
-      set({ photos: data as Photo[], loading: false });
+      
+      // Add timestamp to URLs to prevent caching issues
+      const photosWithTimestamp = data?.map(photo => ({
+        ...photo,
+        url: photo.url.includes('?') 
+          ? `${photo.url}&t=${Date.now()}` 
+          : `${photo.url}?t=${Date.now()}`
+      })) || [];
+      
+      set({ photos: photosWithTimestamp as Photo[], loading: false });
     } catch (error: any) {
       console.error('Error in fetchPhotosByCollageId:', error);
       set({ error: error.message, loading: false });
     }
-  },
+  }
 }));

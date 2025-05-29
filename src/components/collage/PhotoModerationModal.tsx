@@ -5,6 +5,7 @@ import { useCollageStore } from '../../store/collageStore';
 type Photo = {
   id: string;
   url: string;
+  collage_id?: string;
 };
 
 type PhotoModerationModalProps = {
