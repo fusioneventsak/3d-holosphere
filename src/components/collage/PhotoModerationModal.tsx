@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useCollageStore } from '../../store/collageStore';
+import { addCacheBustToUrl } from '../../lib/supabase';
 
 type Photo = {
   id: string;
@@ -20,7 +21,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [refreshing, setRefreshing] = useState(false);
   const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
   
-  // Get collage ID from the first photo (if available)
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
   const handleDeletePhoto = async (photo: Photo) => {
@@ -55,13 +55,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     } finally {
       setRefreshing(false);
     }
-  };
-
-  // Helper to create a cache-busting URL
-  const createCacheBustUrl = (url: string): string => {
-    if (!url) return '';
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}t=${Date.now()}`;
   };
 
   return (
@@ -102,7 +95,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 onClick={() => setSelectedPhoto(photo)}
               >
                 <img
-                  src={createCacheBustUrl(photo.url)}
+                  src={addCacheBustToUrl(photo.url)}
                   alt="Collage photo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -140,7 +133,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90">
             <div className="relative max-w-4xl max-h-[90vh]">
               <img
-                src={createCacheBustUrl(selectedPhoto.url)}
+                src={addCacheBustToUrl(selectedPhoto.url)}
                 alt="Full size"
                 className="max-w-full max-h-[90vh] object-contain rounded-lg"
                 onError={(e) => {
