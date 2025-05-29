@@ -671,7 +671,7 @@ const CameraSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 type CollageSceneProps = {
   photos: Photo[];
   settings: SceneSettings;
-  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
+  onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 };
 
 // Main scene component
@@ -680,19 +680,27 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [displayedPhotos, setDisplayedPhotos] = useState<Photo[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStockPhotosFetched, setIsStockPhotosFetched] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch stock photos on first render
   useEffect(() => {
     console.log('Fetching stock photos...');
+    setIsLoading(true);
+    
     getStockPhotos()
       .then(photos => {
         console.log(`Loaded ${photos.length} stock photos`);
         setStockPhotos(photos);
         setIsStockPhotosFetched(true);
+        setIsLoading(false);
       })
       .catch(error => {
         console.error('Failed to load stock photos:', error);
+        setLoadError(`Failed to load stock photos: ${error.message}`);
+        setStockPhotos([]); // Use empty array instead of crashing
         setIsStockPhotosFetched(true); // Still mark as fetched even on error
+        setIsLoading(false);
       });
   }, []);
 
@@ -700,21 +708,37 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   useEffect(() => {
     if (!isStockPhotosFetched) return; // Wait until stock photos are fetched
     
-    console.log('Regenerating displayed photos list...');
-    console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
-    
-    // Create photo list with user photos and stock photos
-    const userPhotos = Array.isArray(photos) ? photos : [];
-    const generatedPhotos = generatePhotoList(
-      userPhotos, 
-      settings.photoCount, 
-      settings.useStockPhotos, 
-      stockPhotos
-    );
-    
-    console.log(`Generated ${generatedPhotos.length} photos for display`);
-    setDisplayedPhotos(generatedPhotos);
-  }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos, isStockPhotosFetched]);
+    try {
+      console.log('Regenerating displayed photos list...');
+      console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
+      
+      // If stock photos are enabled but none were found, automatically disable the option
+      if (settings.useStockPhotos && stockPhotos.length === 0) {
+        console.warn('Stock photos enabled but none available - using empty slots instead');
+        
+        // If we have a callback to update settings, use it to disable stock photos
+        if (onSettingsChange) {
+          onSettingsChange({ useStockPhotos: false });
+        }
+      }
+      
+      // Create photo list with user photos and stock photos or empty slots
+      const userPhotos = Array.isArray(photos) ? photos : [];
+      const generatedPhotos = generatePhotoList(
+        userPhotos, 
+        settings.photoCount, 
+        settings.useStockPhotos && stockPhotos.length > 0, // Only use stock photos if available
+        stockPhotos
+      );
+      
+      console.log(`Generated ${generatedPhotos.length} photos for display`);
+      setDisplayedPhotos(generatedPhotos);
+    } catch (error) {
+      console.error('Error generating photo list:', error);
+      // In case of error, just use the user photos without filling with stock photos
+      setDisplayedPhotos(Array.isArray(photos) ? photos : []);
+    }
+  }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos, isStockPhotosFetched, onSettingsChange]);
 
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -724,6 +748,35 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+          <p className="text-lg text-white font-medium">Loading scene</p>
+          <p className="text-sm text-gray-300 mt-2">Preparing photo collage...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (loadError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-red-900/30 backdrop-blur-sm">
+        <div className="text-center max-w-md p-6">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h3 className="text-xl font-bold text-white mb-2">Failed to load scene</h3>
+          <p className="text-red-200 mb-4">{loadError}</p>
+          <p className="text-gray-400 text-sm">
+            Try disabling stock photos in the settings or reducing the photo count if the issue persists.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full">
