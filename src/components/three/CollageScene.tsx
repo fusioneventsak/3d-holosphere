@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
 import * as THREE from 'three';
@@ -11,38 +11,45 @@ type Photo = {
   wall?: 'front' | 'back';
 };
 
-const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
-  // First add user photos (limited to maxCount)
-  const userPhotos = photos.slice(0, maxCount);
-  const result = [...userPhotos];
+const generatePhotoList = (userPhotos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
+  // Create an empty result array with the length we want
+  const result: Photo[] = [];
   
-  // Calculate how many slots we need to fill
-  const remainingSlots = maxCount - userPhotos.length;
+  // First add all available user photos
+  const availableUserPhotos = userPhotos.slice(0, maxCount);
+  result.push(...availableUserPhotos);
   
-  // If we need to fill slots and useStockPhotos is enabled
-  if (remainingSlots > 0) {
-    if (useStockPhotos && stockPhotos.length > 0) {
-      // Add stock photos to fill remaining slots
-      for (let i = 0; i < remainingSlots; i++) {
-        const stockIndex = i % stockPhotos.length;
-        result.push({
-          id: `stock-${i}-${Date.now()}`,
-          url: stockPhotos[stockIndex]
-        });
-      }
-    } else {
-      // Add empty slots if not using stock photos
-      for (let i = 0; i < remainingSlots; i++) {
-        result.push({
-          id: `empty-${i}-${Date.now()}`,
-          url: ''
-        });
-      }
+  // Calculate how many more photos we need
+  const photosNeeded = maxCount - result.length;
+  
+  if (photosNeeded > 0 && useStockPhotos && stockPhotos.length > 0) {
+    // Fill remaining slots with stock photos
+    for (let i = 0; i < photosNeeded; i++) {
+      const stockIndex = Math.floor(Math.random() * stockPhotos.length);
+      const stockUrl = stockPhotos[stockIndex];
+      result.push({
+        id: `stock-${i}-${stockIndex}`, // Ensure unique IDs
+        url: stockUrl
+      });
     }
+    console.log(`Added ${photosNeeded} stock photos to display`);
+  } else if (photosNeeded > 0) {
+    // No stock photos available or option disabled, add empty slots
+    for (let i = 0; i < photosNeeded; i++) {
+      result.push({
+        id: `empty-${i}`,
+        url: ''
+      });
+    }
+    console.log(`Added ${photosNeeded} empty slots (stock photos disabled or unavailable)`);
   }
-
-  // Make sure we don't exceed the maximum
-  return result.slice(0, maxCount);
+  
+  // Ensure we have exactly maxCount photos
+  if (result.length > maxCount) {
+    result.length = maxCount;
+  }
+  
+  return result;
 };
 
 // Create gradient background shader
@@ -76,10 +83,17 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 
 const loadTexture = (url: string): THREE.Texture => {
   if (!url) {
-    // Return an empty texture for empty slots
-    const emptyTexture = new THREE.Texture();
-    emptyTexture.needsUpdate = true;
-    return emptyTexture;
+    // Return a default texture for empty slots
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.fillStyle = '#1A1A1A';
+      context.fillRect(0, 0, 1, 1);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
   }
   
   if (textureCache.has(url)) {
@@ -221,15 +235,24 @@ const LoadingFallback: React.FC = () => {
 };
 
 // Component for individual photo planes
-const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
+const PhotoPlane: React.FC<PhotoPlaneProps> = ({ 
+  url, 
+  position, 
+  rotation, 
+  pattern, 
+  speed, 
+  animationEnabled, 
+  size, 
+  settings, 
+  photos, 
+  index, 
+  wall 
+}) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
-  
-  // Animation state with pattern tracking for transitions
   const animationState = useRef({
     time: 0,
     startDelay: Math.random() * Math.PI,
-    pattern: pattern, // Track current pattern
+    currentPattern: pattern,
     transitionProgress: 0,
     initialPosition: {
       x: (Math.random() - 0.5) * settings.floorSize * 0.5,
@@ -237,15 +260,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       z: (Math.random() - 0.5) * settings.floorSize * 0.5
     }
   });
+  const { camera, scene } = useThree();
   
   // Reset animation when pattern changes
   useEffect(() => {
-    if (animationState.current.pattern !== pattern) {
+    if (animationState.current.currentPattern !== pattern) {
       // Reset animation state for new pattern
       animationState.current = {
         time: 0,
         startDelay: Math.random() * Math.PI,
-        pattern: pattern,
+        currentPattern: pattern,
         transitionProgress: 0,
         initialPosition: {
           x: (Math.random() - 0.5) * settings.floorSize * 0.5,
@@ -257,7 +281,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   }, [pattern, settings.floorSize, settings.cameraHeight]);
   
   const texture = useMemo(() => {
-    if (!url) return null;
     return loadTexture(url);
   }, [url]);
   
@@ -268,13 +291,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   }, [url]);
   
   useFrame((state, delta) => {
-    if (!meshRef.current || !animationEnabled) return;
+    if (!meshRef.current || !animationEnabled || !camera) return;
     
     const baseHeight = 4; // Minimum height above floor
     
     // Use consistent time steps for animations
     const timeStep = delta * speed;
-    animationState.current.time += timeStep;
+    animationState.current.time = Math.fround(animationState.current.time + timeStep);
     
     // Update transition progress
     if (animationState.current.transitionProgress < 1) {
@@ -283,16 +306,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     const mesh = meshRef.current;
     const phase = animationState.current.time + animationState.current.startDelay;
-    const totalPhotos = photos.length || settings.photoCount;
-    
+
+    const totalPhotos = settings.photoCount;
     const { x: baseX, y: baseY, z: baseZ } = animationState.current.initialPosition;
 
     switch (pattern) {
       case 'grid': {
-        // Grid pattern - creates a wall of photos
+        // Grid case scope
+        // Calculate grid dimensions
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
-        
         if (baseAspectRatio >= 1) {
           gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
           gridHeight = Math.ceil(totalPhotos / gridWidth);
@@ -309,10 +332,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
         const yOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
+        const baseHeight = 2; // Minimum height above floor
         
         mesh.position.set(
-          xOffset + (col * horizontalSpacing),
-          baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT),
+          Math.fround(xOffset + (col * horizontalSpacing)),
+          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT)),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
@@ -321,16 +345,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'float': {
-        // Float pattern - photos float upward in a cloud formation
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
-        
-        // Calculate vertical float motion
         const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange * animationState.current.transitionProgress;
         
-        // Calculate horizontal drift motion
-        const driftX = baseX + Math.sin(phase * 0.3) * (maxSpread * 0.2) * animationState.current.transitionProgress;
-        const driftZ = baseZ + Math.cos(phase * 0.3) * (maxSpread * 0.2) * animationState.current.transitionProgress;
+        // Calculate drift motion using baseX and baseZ from initialPosition
+        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
+        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
         
         mesh.position.set(
           driftX,
@@ -338,17 +359,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           driftZ
         );
         
-        // Make photos face the camera
-        if (camera) {
-          mesh.lookAt(camera.position);
-          mesh.rotation.x = 0;
-          mesh.rotation.z = 0;
-        }
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
 
       case 'wave': {
-        // Wave pattern - photos move in a wave formation
         const waveAmplitude = settings.cameraHeight * 0.3;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const gridSpacing = Math.min(settings.floorSize / gridSize, settings.photoSize * 3);
@@ -358,8 +376,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const row = Math.floor(index / gridSize);
         
         // Center the grid
-        const xPos = (col - gridSize / 2) * gridSpacing + baseX * 0.2;
-        const zPos = (row - gridSize / 2) * gridSpacing + baseZ * 0.2;
+        const xPos = Math.fround((col - gridSize / 2) * gridSpacing + baseX * 0.2);
+        const zPos = Math.fround((row - gridSize / 2) * gridSpacing + baseZ * 0.2);
         
         // Calculate wave motion
         const distance = Math.sqrt(xPos * xPos + zPos * zPos);
@@ -376,58 +394,49 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           zPos + circleZ
         );
         
-        // Make photos face the camera
-        if (camera) {
-          mesh.lookAt(camera.position);
-          mesh.rotation.x = 0;
-          mesh.rotation.z = 0;
-        }
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
 
       case 'spiral': {
-        // Spiral pattern - tornado/funnel cloud formation
-        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * 0.2);
-        const maxHeight = settings.cameraHeight * 1.5;
-        const angleStep = (Math.PI * 2) / Math.max(10, Math.floor(totalPhotos / 8));
+        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * settings.photoSize * 0.5);
+        const maxHeight = settings.cameraHeight;
+        const angleStep = (Math.PI * 2) / totalPhotos;
+        const heightStep = maxHeight / totalPhotos;
         
-        // Calculate spiral position
-        // More photos at the bottom of the tornado, fewer at the top
-        const spiralProgress = index / totalPhotos;
-        const radiusFactor = 1 - Math.pow(spiralProgress, 0.8); // Wider at bottom, narrower at top
-        const height = baseHeight + spiralProgress * maxHeight;
-        const radius = maxRadius * radiusFactor;
+        const angle = (index * angleStep) + (phase * settings.animationSpeed * animationState.current.transitionProgress);
+        const height = (maxHeight - (index * heightStep));
+        const radius = maxRadius * (1 - (index / totalPhotos));
         
-        // Calculate angle with speed factor
-        const angle = (index * angleStep) + (phase * 0.3 * animationState.current.transitionProgress);
+        let spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1);
+        const spiralZ = Math.fround(Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1);
         
-        const spiralX = Math.cos(angle) * radius;
-        const spiralZ = Math.sin(angle) * radius;
-        
-        // Add vertical oscillation for more dynamic movement
-        const oscillation = Math.sin(phase + index * 0.2) * 0.5 * animationState.current.transitionProgress;
+        // Add vertical oscillation
+        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2 * animationState.current.transitionProgress;
         
         mesh.position.set(
           spiralX,
-          height + oscillation,
+          Math.max(baseHeight, height + baseHeight + oscillation),
           spiralZ
         );
         
-        // Make photos face the camera
-        if (camera) {
-          mesh.lookAt(camera.position);
-          mesh.rotation.x = 0;
-          mesh.rotation.z = 0;
-        }
+        // Look at camera but maintain vertical orientation
+        mesh.lookAt(camera.position);
+        mesh.rotation.x = 0;
+        mesh.rotation.z = 0;
         break;
       }
     }
   });
 
-  if (!url) {
-    return (
-      <mesh ref={meshRef} position={position} rotation={rotation}>
-        <planeGeometry args={[size, size * 1.5]} />
+  // The material for empty slots vs. photos
+  return (
+    <mesh ref={meshRef} position={position} rotation={rotation}>
+      <planeGeometry args={[size, size * 1.5]} />
+      {!url ? (
         <meshStandardMaterial 
           color={new THREE.Color(settings.emptySlotColor)}
           metalness={0.2}
@@ -440,27 +449,22 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           receiveShadow
           renderOrder={1}
         />
-      </mesh>
-    );
-  }
-
-  return (
-    <mesh ref={meshRef} position={position} rotation={rotation}>
-      <planeGeometry args={[size, size * 1.5]} />
-      <meshStandardMaterial 
-        map={texture || null}
-        side={THREE.DoubleSide}
-        transparent={false}
-        opacity={1}
-        toneMapped={true}
-        depthWrite={true}
-        depthTest={true}
-        metalness={0.1}
-        roughness={0.9}
-        castShadow
-        receiveShadow
-        renderOrder={2}
-      />
+      ) : (
+        <meshStandardMaterial 
+          map={texture}
+          side={THREE.DoubleSide}
+          transparent={false}
+          opacity={1}
+          toneMapped={true}
+          depthWrite={false}
+          depthTest={true}
+          metalness={0.1}
+          roughness={0.9}
+          castShadow
+          receiveShadow
+          renderOrder={2}
+        />
+      )}
     </mesh>
   );
 };
@@ -618,41 +622,47 @@ type CollageSceneProps = {
 
 // Main scene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
-  const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
+  const [stockPhotos, setStockPhotos] = useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isSceneReady, setIsSceneReady] = React.useState(false);
-  const [isLoadingStockPhotos, setIsLoadingStockPhotos] = React.useState(false);
+  const [isSceneReady, setIsSceneReady] = useState(false);
 
-  // Load stock photos when component mounts or when useStockPhotos setting changes
   useEffect(() => {
-    if (settings.useStockPhotos && stockPhotos.length === 0 && !isLoadingStockPhotos) {
-      setIsLoadingStockPhotos(true);
-      getStockPhotos()
-        .then(photos => {
-          console.log("Loaded stock photos:", photos.length);
-          setStockPhotos(photos);
-          setIsLoadingStockPhotos(false);
-        })
-        .catch(err => {
-          console.error("Failed to load stock photos:", err);
-          setIsLoadingStockPhotos(false);
-        });
-    }
-  }, [settings.useStockPhotos, stockPhotos.length, isLoadingStockPhotos]);
+    // Log settings to help debug
+    console.log('Rendering CollageScene with settings:', {
+      animationPattern: settings.animationPattern,
+      useStockPhotos: settings.useStockPhotos,
+      photoCount: settings.photoCount
+    });
+    
+    // Fetch stock photos
+    getStockPhotos()
+      .then(photos => {
+        setStockPhotos(photos);
+        console.log(`Loaded ${photos.length} stock photos`);
+      })
+      .catch(error => {
+        console.error('Failed to load stock photos:', error);
+      });
+  }, []);
 
-  // Generate the photo list including user photos and stock photos
+  // Generate the list of photos to display (user photos + stock photos if needed)
   const displayedPhotos = useMemo(() => {
-    const photoArray = Array.isArray(photos) ? [...photos] : [];
-    console.log("User photos:", photoArray.length, "Stock photos:", stockPhotos.length);
-    console.log("useStockPhotos setting:", settings.useStockPhotos);
+    // Ensure photos is an array
+    const userPhotos = Array.isArray(photos) ? photos : [];
+    console.log(`Generating photo list with ${userPhotos.length} user photos, ${stockPhotos.length} stock photos`);
+    console.log(`Stock photos enabled: ${settings.useStockPhotos}, max photos: ${settings.photoCount}`);
     
     return generatePhotoList(
-      photoArray,
+      userPhotos,
       settings.photoCount,
       settings.useStockPhotos,
       stockPhotos
     );
   }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos]);
+
+  useEffect(() => {
+    console.log(`Displaying ${displayedPhotos.length} photos in the scene`);
+  }, [displayedPhotos.length]);
 
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -665,13 +675,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     // Mark scene as ready after a short delay to ensure everything is initialized
     setTimeout(() => setIsSceneReady(true), 100);
   };
-
-  // Debug logging
-  useEffect(() => {
-    console.log("Display photos count:", displayedPhotos.length);
-    console.log("Photos with URLs:", displayedPhotos.filter(p => p.url).length);
-    console.log("Settings:", settings.animationPattern, settings.useStockPhotos);
-  }, [displayedPhotos, settings]);
 
   return (
     <div className="w-full h-full">
