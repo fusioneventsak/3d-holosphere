@@ -37,6 +37,21 @@ type CollageState = {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
 };
 
+// Helper function to determine correct MIME type based on file extension
+const getMimeType = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const mimeTypes: { [key: string]: string } = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+    'svg': 'image/svg+xml'
+  };
+  return mimeTypes[ext || ''] || 'application/octet-stream';
+};
+
 export const useCollageStore = create<CollageState>((set, get) => ({
   collages: [],
   currentCollage: null,
@@ -372,8 +387,19 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         throw new Error('File size exceeds 10MB limit');
       }
 
+      // Validate file type
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
+      let contentType = file.type;
+
+      // If content type is not valid or is application/json, infer from extension
+      if (!validImageTypes.includes(contentType) || contentType === 'application/json') {
+        contentType = getMimeType(file.name);
+        if (!validImageTypes.includes(contentType)) {
+          throw new Error('Invalid file type. Only images are supported.');
+        }
+      }
+
       // Ensure collage exists before proceeding
-      // Verify collage exists
       const { data: collage, error: collageError } = await supabase
         .from('collages')
         .select('id, code')
@@ -397,7 +423,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Store photos in collage-specific folders
       const filePath = `collages/${collageId}/${fileName}`;
 
-      console.log(`Uploading file to ${filePath}`);
+      console.log(`Uploading file to ${filePath} with content type ${contentType}`);
 
       // Upload file to storage with the correct content type
       const { error: uploadError, data: uploadData } = await supabase.storage
@@ -405,7 +431,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
-          contentType: file.type
+          contentType: contentType
         });
 
       if (uploadError) {
