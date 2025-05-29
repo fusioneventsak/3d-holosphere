@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 
@@ -36,10 +36,19 @@ const StockPhotoManager: React.FC = () => {
       }
       
       const { data, error } = await query;
-        
-      if (error) throw error;
       
-      setPhotos(data || []);
+      if (error) {
+        // Handle specific error for the "relation already exists" issue
+        if (error.message && error.message.includes('already exists')) {
+          console.warn('Database schema issue detected:', error.message);
+          setError('There is a database schema issue. Please contact the administrator.');
+          setPhotos([]);
+        } else {
+          throw error;
+        }
+      } else {
+        setPhotos(data || []);
+      }
     } catch (err: any) {
       console.error('Error fetching stock photos:', err);
       setError(err.message || 'Failed to load stock photos');
@@ -62,19 +71,18 @@ const StockPhotoManager: React.FC = () => {
             </Link>
             <h1 className="text-2xl font-bold text-white">Stock Photo Manager</h1>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="bg-black/30 border border-gray-700 rounded-md py-2 px-3 text-white text-sm"
-            >
-              <option value="all">All Categories</option>
-              <option value="people">People</option>
-              <option value="landscape">Landscape</option>
-              <option value="abstract">Abstract</option>
-              <option value="other">Other</option>
-            </select>
+        </div>
+        
+        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-6 mb-6">
+          <div className="flex items-start">
+            <AlertTriangle className="h-6 w-6 text-yellow-400 mr-3 mt-0.5" />
+            <div>
+              <h3 className="text-lg font-medium text-yellow-300 mb-2">Stock Photo Functionality Disabled</h3>
+              <p className="text-yellow-200">
+                The stock photo functionality has been disabled due to database schema issues. 
+                This feature will be restored in a future update.
+              </p>
+            </div>
           </div>
         </div>
         
@@ -85,61 +93,10 @@ const StockPhotoManager: React.FC = () => {
         )}
         
         <div className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-medium text-white">Current Stock Photos</h2>
-            <p className="text-sm text-gray-400">
-              Found {photos.length} photos {category !== 'all' ? `in ${category}` : 'total'}
-            </p>
+          <div className="text-center py-12">
+            <p className="text-gray-400 mb-2">Stock photo functionality is currently unavailable.</p>
+            <p className="text-sm text-gray-500">Please use the photo uploader in the collage editor to add your own photos.</p>
           </div>
-          
-          <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500 rounded-md">
-            <p className="text-blue-200">
-              <strong>Note:</strong> To add new stock photos, upload them directly through the Supabase dashboard:
-            </p>
-            <ol className="list-decimal list-inside mt-2 text-blue-200 text-sm">
-              <li>Go to your Supabase project dashboard</li>
-              <li>Navigate to Storage → Buckets</li>
-              <li>Select or create a "stock-photos" bucket</li>
-              <li>Upload your photos</li>
-              <li>Add entries to the stock_photos table with the public URLs</li>
-            </ol>
-          </div>
-          
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-              <p className="mt-2 text-gray-400">Loading photos...</p>
-            </div>
-          ) : photos.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-gray-700 rounded-lg">
-              <p className="text-gray-400 mb-2">No stock photos found in the database.</p>
-              {category !== 'all' && (
-                <p className="text-sm text-gray-500">Try selecting a different category.</p>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {photos.map(photo => (
-                <div key={photo.id} className="rounded-lg overflow-hidden bg-black/30 border border-white/10">
-                  <div className="aspect-[3/4] relative">
-                    <img
-                      src={photo.url}
-                      alt="Stock photo"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/300x400?text=Image+Error';
-                      }}
-                    />
-                  </div>
-                  <div className="p-2">
-                    <p className="text-xs text-gray-400 truncate">{photo.category}</p>
-                    <p className="text-xs text-gray-500 truncate mt-1">{photo.id.substring(0, 8)}...</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </Layout>

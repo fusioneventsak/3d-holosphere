@@ -1,8 +1,6 @@
 import { supabase } from './supabase';
 
-let stockPhotoCache: string[] | null = null;
-let lastFetchTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// This file is maintained for backward compatibility but no longer actively used
 
 // Fallback stock photos in case database call fails
 const FALLBACK_STOCK_PHOTOS = [
@@ -19,42 +17,11 @@ const FALLBACK_STOCK_PHOTOS = [
 ];
 
 export const getStockPhotos = async (): Promise<string[]> => {
-  const now = Date.now();
-  if (stockPhotoCache && (now - lastFetchTime) < CACHE_DURATION) {
-    console.log('Using cached stock photos, count:', stockPhotoCache.length);
-    return stockPhotoCache;
-  }
-
-  try {
-    console.log('Fetching stock photos from database');
-    const { data, error } = await supabase
-      .from('stock_photos')
-      .select('url')
-      .eq('category', 'people')
-      .limit(20);
-
-    if (error) {
-      console.error('Error fetching stock photos:', error);
-      return FALLBACK_STOCK_PHOTOS;
-    }
-
-    if (!data || data.length === 0) {
-      console.warn('No stock photos found in database, using fallback');
-      return FALLBACK_STOCK_PHOTOS;
-    }
-
-    console.log(`Successfully fetched ${data.length} stock photos`);
-    stockPhotoCache = data.map(photo => photo.url);
-    lastFetchTime = now;
-    return stockPhotoCache;
-  } catch (error) {
-    console.error('Error fetching stock photos:', error);
-    return FALLBACK_STOCK_PHOTOS;
-  }
+  console.log('Stock photos functionality is disabled');
+  return [];
 };
 
 // Clear cache when needed
 export const clearStockPhotoCache = () => {
-  stockPhotoCache = null;
-  lastFetchTime = 0;
+  // No-op function maintained for backward compatibility
 };

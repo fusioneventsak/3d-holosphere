@@ -30,7 +30,7 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
         Try Again
       </button>
       <p className="mt-4 text-gray-400 text-sm">
-        Tip: Try disabling stock photos or reducing the photo count in settings if the issue persists.
+        Tip: Try reducing the photo count in settings if the issue persists.
       </p>
     </div>
   );
@@ -136,7 +136,6 @@ const CollageEditorPage: React.FC = () => {
   const handleErrorReset = () => {
     // Reset to safer settings first
     const saferSettings = {
-      useStockPhotos: false,
       photoCount: Math.min(settings.photoCount, 20),
       animationEnabled: false
     };
@@ -266,7 +265,7 @@ const CollageEditorPage: React.FC = () => {
                 <ErrorBoundary 
                   FallbackComponent={SceneErrorFallback}
                   onReset={handleErrorReset}
-                  resetKeys={[settings.useStockPhotos, settings.photoCount]}
+                  resetKeys={[settings.photoCount]}
                 >
                   <CollageScene
                     photos={photos}

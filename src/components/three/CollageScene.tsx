@@ -174,18 +174,6 @@ const normalizeFileExtension = (url: string): string => {
   }
 };
 
-// Extract filename from URL
-const extractFilename = (url: string): string => {
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    return pathParts[pathParts.length - 1].split('?')[0];
-  } catch (e) {
-    console.warn('Failed to extract filename from URL:', url, e);
-    return '';
-  }
-};
-
 // Enhanced loadTexture function with better error handling and optimizations
 const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
@@ -204,19 +192,18 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
       console.warn(`URL has incorrect collage ID: ${info.collageId}, should be: ${collageId}`);
       
       // Try to extract the file name
-      const fileName = extractFilename(url);
+      const pathParts = url.split('/');
+      const fileName = pathParts[pathParts.length - 1].split('?')[0];
       
-      if (fileName) {
-        // Regenerate URL through Supabase's getFileUrl function
-        const bucket = 'photos';
-        const newPath = `${collageId}/${fileName}`;
-        url = getFileUrl(bucket, newPath);
-        
-        // Also normalize this URL's file extension
-        url = normalizeFileExtension(url);
-        
-        console.log(`Regenerated URL: ${url}`);
-      }
+      // Regenerate URL through Supabase's getFileUrl function
+      const bucket = 'photos';
+      const newPath = `${collageId}/${fileName}`;
+      url = getFileUrl(bucket, newPath);
+      
+      // Also normalize this URL's file extension
+      url = normalizeFileExtension(url);
+      
+      console.log(`Regenerated URL: ${url}`);
     }
   }
   
@@ -249,40 +236,6 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
   // Create a temporary Image for loading
   const tempImage = new Image();
   tempImage.crossOrigin = 'anonymous';
-  
-  // Try different case variations of the extension if it's a Supabase URL
-  const tryVariations = (originalUrl: string, retryCount: number = 0): string => {
-    if (isSupabaseStorageUrl(originalUrl) && retryCount > 0) {
-      try {
-        const urlObj = new URL(originalUrl);
-        const pathname = urlObj.pathname;
-        const lastDotIndex = pathname.lastIndexOf('.');
-        
-        if (lastDotIndex !== -1) {
-          // Get the extension and filename
-          const extension = pathname.substring(lastDotIndex + 1).split('?')[0];
-          const filenameWithoutExt = pathname.substring(0, lastDotIndex);
-          
-          // Try different case variations
-          let newExt;
-          if (extension === extension.toLowerCase()) {
-            // If current is lowercase, try uppercase
-            newExt = extension.toUpperCase();
-          } else {
-            // If current is uppercase, try lowercase
-            newExt = extension.toLowerCase();
-          }
-          
-          // Create new URL with different extension case
-          urlObj.pathname = `${filenameWithoutExt}.${newExt}`;
-          return urlObj.toString();
-        }
-      } catch (e) {
-        console.warn('Failed to create URL variation:', originalUrl, e);
-      }
-    }
-    return originalUrl;
-  };
   
   // Handle successful image load
   tempImage.onload = () => {
@@ -320,36 +273,11 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
       
       if (retryCount < maxRetries - 1) {
         retryCount++;
-        
-        // Try a different URL variation based on file extension case
-        const variationUrl = tryVariations(loadUrl, retryCount);
-        const retryWithVariation = variationUrl !== loadUrl;
-        
         setTimeout(() => {
-          console.log(`Retrying load (${retryCount}/${maxRetries}) ${retryWithVariation ? 'with extension case variation' : 'with new URL'}...`);
-          
+          console.log(`Retrying load (${retryCount}/${maxRetries}) with new URL...`);
           // Generate a fresh URL with cache busting
-          let retryUrl;
-          if (retryWithVariation) {
-            retryUrl = addCacheBustToUrl(variationUrl);
-          } else {
-            retryUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(normalizeFileExtension(url)) : url;
-          }
-          
-          // Create a new Image object for the retry to avoid potential caching issues
-          const newTempImage = new Image();
-          newTempImage.crossOrigin = 'anonymous';
-          newTempImage.onload = tempImage.onload;
-          newTempImage.onerror = tempImage.onerror;
-          
-          // Try to load using the new URL
-          newTempImage.src = retryUrl;
-          
-          // Replace the original tempImage with the new one
-          tempImage.onload = null;
-          tempImage.onerror = null;
-          tempImage = newTempImage;
-          
+          const retryUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(normalizeFileExtension(url)) : url;
+          tempImage.src = retryUrl;
         }, 1000 * retryCount); // Increase delay with each retry
       } else {
         console.error(`Failed to load image after ${maxRetries} attempts:`, loadUrl);
@@ -365,7 +293,6 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
       }
     };
     
-    // Start loading with the processed URL
     tempImage.src = loadUrl;
   };
   
