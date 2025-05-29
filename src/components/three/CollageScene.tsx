@@ -185,11 +185,10 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
 // Photo frame component with 9:16 aspect ratio
 const PhotoFrame: React.FC<{
   position: [number, number, number];
-  rotation: [number, number, number];
   url: string;
   scale: number;
   emptySlotColor: string;
-}> = ({ position, rotation, url, scale, emptySlotColor }) => {
+}> = ({ position, url, scale, emptySlotColor }) => {
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
@@ -205,7 +204,7 @@ const PhotoFrame: React.FC<{
   const height = scale * (16/9);
 
   return (
-    <mesh position={position} rotation={rotation}>
+    <mesh position={position} rotation={[0, 0, 0]}>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial
         ref={materialRef}
@@ -217,22 +216,27 @@ const PhotoFrame: React.FC<{
   );
 };
 
-// Floor component with its own grid
+// Floor component with grid
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-      <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-      <meshStandardMaterial
-        color={settings.floorColor}
-        transparent
-        opacity={settings.floorOpacity}
-        metalness={settings.floorMetalness}
-        roughness={settings.floorRoughness}
-      />
+    <group position={[0, -2, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+        <meshStandardMaterial
+          color={settings.floorColor}
+          transparent
+          opacity={settings.floorOpacity}
+          metalness={settings.floorMetalness}
+          roughness={settings.floorRoughness}
+        />
+      </mesh>
+      
       {settings.gridEnabled && (
         <Grid
+          position={[0, 0.01, 0]} // Slightly above floor to prevent z-fighting
+          rotation={[-Math.PI / 2, 0, 0]}
           args={[settings.floorSize, settings.floorSize]}
           cellSize={1}
           cellThickness={0.5}
@@ -241,58 +245,41 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           fadeDistance={30}
           fadeStrength={1}
           infiniteGrid={false}
-          position={[0, 0.01, 0]} // Slightly above the floor to prevent z-fighting
         />
       )}
-    </mesh>
+    </group>
   );
 };
 
-// PhotosContainer component with its own grid
-const PhotosContainer: React.FC<{
+// Photo wall component
+const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
   const positions = useMemo(() => {
     const totalPhotos = Math.min(settings.photoCount, 500);
-    const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+    const aspectRatio = settings.gridAspectRatio;
+    const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
+    const rows = Math.ceil(totalPhotos / columns);
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
     return Array.from({ length: totalPhotos }).map((_, index) => {
-      const row = Math.floor(index / gridSize);
-      const col = index % gridSize;
-      const x = (col - gridSize / 2) * spacing;
-      const z = (row - gridSize / 2) * spacing; // Use Z axis for depth
-      const y = 0; // Base height at 0
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      const x = (col - columns / 2) * spacing;
+      const y = (rows / 2 - row) * spacing * (16/9); // Adjust for photo aspect ratio
+      const z = 0;
       
       return [x, y, z] as [number, number, number];
     });
-  }, [settings.photoCount, settings.photoSize, settings.photoSpacing]);
+  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio]);
 
   return (
     <group position={[0, settings.wallHeight, 0]}>
-      {/* Grid for photo alignment */}
-      {settings.gridEnabled && (
-        <Grid
-          args={[settings.gridSize, settings.gridSize]}
-          cellSize={1}
-          cellThickness={0.5}
-          cellColor={settings.gridColor}
-          sectionSize={Math.ceil(settings.gridDivisions / 10)}
-          fadeDistance={30}
-          fadeStrength={1}
-          infiniteGrid={false}
-          rotation={[0, 0, 0]}
-          position={[0, -0.01, 0]} // Just below the photos
-        />
-      )}
-      
-      {/* Photos */}
       {positions.map((position, index) => (
         <PhotoFrame
           key={index}
           position={position}
-          rotation={[0, 0, 0]} // No rotation needed now
           url={photos[index]?.url || ''}
           scale={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
@@ -319,7 +306,7 @@ const Scene: React.FC<{
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
-      <PhotosContainer photos={photos} settings={settings} />
+      <PhotoWall photos={photos} settings={settings} />
       <Floor settings={settings} />
     </>
   );
