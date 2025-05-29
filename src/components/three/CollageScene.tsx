@@ -1,6 +1,6 @@
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
+import { PerspectiveCamera, OrbitControls, Grid, Plane, Html, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { getStockPhotos } from '../../lib/stockPhotos';
@@ -112,6 +112,8 @@ const loadTexture = (url: string): THREE.Texture => {
     undefined,
     (error) => {
       console.error(`Error loading texture: ${url}`, error);
+      // We keep the failed texture in the cache, it's a valid THREE.Texture object
+      // even if the image data failed to load
     }
   );
   
@@ -152,6 +154,38 @@ setInterval(cleanupOldTextures, 30000); // Run cleanup every 30 seconds
 
 // Define floor height as a constant since it's used in multiple components
 const FLOOR_HEIGHT = -2;
+
+// Loading overlay component using drei's useProgress
+const LoadingOverlay = () => {
+  const { active, progress, errors, item, loaded, total } = useProgress();
+  
+  // Only show while actively loading and if there are items to load
+  if (!active && loaded > 0) return null;
+  
+  return (
+    <Html fullscreen>
+      <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+          <p className="text-lg text-white font-medium">Loading scene</p>
+          <p className="text-sm text-gray-300 mt-2">
+            {loaded} of {Math.max(loaded, total)} items loaded ({Math.round(progress)}%)
+          </p>
+          {item && (
+            <p className="text-xs text-gray-400 mt-1 max-w-md truncate">
+              Loading: {item}
+            </p>
+          )}
+          {errors.length > 0 && (
+            <p className="text-xs text-red-400 mt-2">
+              {errors.length} error{errors.length > 1 ? 's' : ''} occurred
+            </p>
+          )}
+        </div>
+      </div>
+    </Html>
+  );
+};
 
 type PhotoPlaneProps = {
   url: string;
@@ -234,16 +268,6 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         );
       })}
     </>
-  );
-};
-
-// Loading fallback component
-const LoadingFallback: React.FC = () => {
-  return (
-    <mesh position={[0, 0, 0]}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="white" />
-    </mesh>
   );
 };
 
@@ -655,7 +679,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [stockPhotos, setStockPhotos] = useState<string[]>([]);
   const [displayedPhotos, setDisplayedPhotos] = useState<Photo[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isSceneReady, setIsSceneReady] = useState(false);
   const [isStockPhotosFetched, setIsStockPhotosFetched] = useState(false);
 
   // Fetch stock photos on first render
@@ -700,9 +723,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     gl.setClearColor(0x000000, 0);
     gl.info.autoReset = true;
     gl.physicallyCorrectLights = true;
-    
-    // Mark scene as ready after a short delay to ensure everything is initialized
-    setTimeout(() => setIsSceneReady(true), 100);
   };
 
   return (
@@ -725,48 +745,36 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           far: 2000,
           position: [0, settings.cameraHeight, settings.cameraDistance]
         }}
-        style={{ visibility: isSceneReady ? 'visible' : 'hidden' }}
       >
-        <React.Suspense fallback={<LoadingFallback />}>
-          {isSceneReady && (
-            <>
-              <CameraSetup settings={settings} />
-              <Floor settings={settings} />
-              <SceneSetup settings={settings} />
-              
-              <OrbitControls 
-                makeDefault
-                enableZoom={true}
-                enablePan={true}
-                target={[0, 0, 0]}
-                autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-                autoRotateSpeed={settings.cameraRotationSpeed}
-                minDistance={5}
-                maxDistance={100}
-                minPolarAngle={0}
-                maxPolarAngle={Math.PI * 0.85}
-                enableDamping={true}
-                dampingFactor={0.05}
-                rotateSpeed={0.8}
-                zoomSpeed={0.8}
-                screenSpacePanning={false}
-              />
-              
-              {displayedPhotos.length > 0 && (
-                <PhotosContainer photos={displayedPhotos} settings={settings} />
-              )}
-            </>
+        <React.Suspense fallback={null}>
+          <LoadingOverlay />
+          <CameraSetup settings={settings} />
+          <Floor settings={settings} />
+          <SceneSetup settings={settings} />
+          
+          <OrbitControls 
+            makeDefault
+            enableZoom={true}
+            enablePan={true}
+            target={[0, 0, 0]}
+            autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+            autoRotateSpeed={settings.cameraRotationSpeed}
+            minDistance={5}
+            maxDistance={100}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI * 0.85}
+            enableDamping={true}
+            dampingFactor={0.05}
+            rotateSpeed={0.8}
+            zoomSpeed={0.8}
+            screenSpacePanning={false}
+          />
+          
+          {displayedPhotos.length > 0 && (
+            <PhotosContainer photos={displayedPhotos} settings={settings} />
           )}
         </React.Suspense>
       </Canvas>
-      {!isSceneReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-            <p className="mt-2 text-gray-400">Loading scene...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
