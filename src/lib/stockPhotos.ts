@@ -17,7 +17,25 @@ export const getStockPhotos = async (): Promise<string[]> => {
 
     if (error) {
       console.error('Error fetching stock photos:', error);
-      return [];
+      // Return some fallback stock photos if we can't load from the database
+      return [
+        'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg',
+        'https://images.pexels.com/photos/1366630/pexels-photo-1366630.jpeg',
+        'https://images.pexels.com/photos/1366957/pexels-photo-1366957.jpeg',
+        'https://images.pexels.com/photos/1386604/pexels-photo-1386604.jpeg',
+        'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg'
+      ];
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('No stock photos found in the database, using fallbacks');
+      return [
+        'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg',
+        'https://images.pexels.com/photos/1366630/pexels-photo-1366630.jpeg',
+        'https://images.pexels.com/photos/1366957/pexels-photo-1366957.jpeg',
+        'https://images.pexels.com/photos/1386604/pexels-photo-1386604.jpeg',
+        'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg'
+      ];
     }
 
     stockPhotoCache = data.map(photo => photo.url);
@@ -25,7 +43,14 @@ export const getStockPhotos = async (): Promise<string[]> => {
     return stockPhotoCache;
   } catch (error) {
     console.error('Error fetching stock photos:', error);
-    return [];
+    // Return fallback stock photos
+    return [
+      'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg',
+      'https://images.pexels.com/photos/1366630/pexels-photo-1366630.jpeg',
+      'https://images.pexels.com/photos/1366957/pexels-photo-1366957.jpeg',
+      'https://images.pexels.com/photos/1386604/pexels-photo-1386604.jpeg',
+      'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg'
+    ];
   }
 };
 

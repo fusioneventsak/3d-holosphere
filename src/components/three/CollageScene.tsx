@@ -8,60 +8,39 @@ import { getStockPhotos } from '../../lib/stockPhotos';
 type Photo = {
   id: string;
   url: string;
+  wall?: 'front' | 'back';
 };
 
-const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): (Photo & { wall?: 'front' | 'back' })[] => {
+const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
   const result: Photo[] = [];
   const userPhotos = photos.slice(0, maxCount);
   
-  if (useStockPhotos && stockPhotos.length > 0) {
-    // Fill all slots with either user photos or stock photos
-    for (let i = 0; i < maxCount; i++) {
-      if (i < userPhotos.length) {
-        result.push(userPhotos[i]);
-      } else {
-        // Ensure even distribution of stock photos
-        const stockIndex = Math.floor(Math.random() * stockPhotos.length);
-        result.push({
-          id: `stock-${i}`,
-          url: stockPhotos[stockIndex]
-        });
-      }
+  // Calculate how many slots we need to fill
+  const emptySlots = maxCount - userPhotos.length;
+  
+  // First add all user photos
+  userPhotos.forEach(photo => {
+    result.push(photo);
+  });
+  
+  // Then fill remaining slots with stock photos or empty slots
+  if (useStockPhotos && stockPhotos.length > 0 && emptySlots > 0) {
+    for (let i = 0; i < emptySlots; i++) {
+      // Select a random stock photo
+      const stockIndex = Math.floor(Math.random() * stockPhotos.length);
+      result.push({
+        id: `stock-${i}-${Date.now()}`,
+        url: stockPhotos[stockIndex]
+      });
     }
   } else {
-    // Split photos between front and back walls
-    const photosPerWall = Math.ceil(maxCount / 2);
-    
-    // Add empty slots and photos to front wall
-    for (let i = 0; i < photosPerWall; i++) {
-      if (i < userPhotos.length) {
-        result.push({ ...userPhotos[i], wall: 'front' });
-      } else {
-        result.push({
-          id: `empty-front-${i}`,
-          url: '',
-          wall: 'front'
-        });
-      }
+    // Add empty slots to reach the desired count
+    for (let i = 0; i < emptySlots; i++) {
+      result.push({
+        id: `empty-${i}-${Date.now()}`,
+        url: ''
+      });
     }
-    
-    // Add empty slots and remaining photos to back wall
-    for (let i = photosPerWall; i < maxCount; i++) {
-      if (i < userPhotos.length) {
-        result.push({ ...userPhotos[i], wall: 'back' });
-      } else {
-        result.push({
-          id: `empty-back-${i - photosPerWall}`,
-          url: '',
-          wall: 'back'
-        });
-      }
-    }
-  }
-  
-  // Ensure we have exactly maxCount photos
-  if (result.length > maxCount) {
-    result.length = maxCount;
   }
   
   return result;
@@ -97,6 +76,8 @@ const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 const loadTexture = (url: string): THREE.Texture => {
+  if (!url) return new THREE.Texture(); // Return empty texture for empty slots
+  
   if (textureCache.has(url)) {
     const entry = textureCache.get(url)!;
     entry.lastUsed = Date.now();
@@ -636,20 +617,34 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSceneReady, setIsSceneReady] = React.useState(false);
+  const [loadingStockPhotos, setLoadingStockPhotos] = React.useState(false);
 
+  // Load stock photos when needed
   useEffect(() => {
-    getStockPhotos().then(setStockPhotos);
-  }, []);
+    if (settings.useStockPhotos && stockPhotos.length === 0 && !loadingStockPhotos) {
+      setLoadingStockPhotos(true);
+      getStockPhotos()
+        .then(photos => {
+          setStockPhotos(photos);
+          setLoadingStockPhotos(false);
+        })
+        .catch(err => {
+          console.error("Failed to load stock photos:", err);
+          setLoadingStockPhotos(false);
+        });
+    }
+  }, [settings.useStockPhotos, stockPhotos.length, loadingStockPhotos]);
 
-  const displayedPhotos = useMemo(() => 
-    generatePhotoList(
-      Array.isArray(photos) ? photos : [],
+  // Generate the combined photo list with user photos and stock photos
+  const displayedPhotos = useMemo(() => {
+    const photoList = Array.isArray(photos) ? photos : [];
+    return generatePhotoList(
+      photoList,
       settings.photoCount,
       settings.useStockPhotos,
       stockPhotos
-    ),
-    [photos, settings.photoCount, settings.useStockPhotos, stockPhotos]
-  );
+    );
+  }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos]);
 
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
