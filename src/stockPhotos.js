@@ -15,7 +15,7 @@ const stockPhotos = [
   "https://images.pexels.com/photos/3812207/pexels-photo-3812207.jpeg", // Black woman professional
   
   // Middle Eastern
-  "https://images.pexels.com/photos/3393570/pexels-photo-3393570.jpeg", // Middle Eastern woman smiling
+  "https://images.pexels.com/photos/6321143/pexels-photo-6321143.jpeg", // Middle Eastern woman smiling (replaced broken URL)
   "https://images.pexels.com/photos/7108133/pexels-photo-7108133.jpeg", // Middle Eastern man
   
   // Latin/Hispanic
