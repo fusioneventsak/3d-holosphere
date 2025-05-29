@@ -393,6 +393,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       onChange={(e) => onSettingsChange({
                         backgroundGradientEnd: e.target.value
                       }, true)}
+                
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
                     />
                   </div>
@@ -732,7 +733,6 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     type="range"
                     min="0"
                     max="1"
-                
                     step="0.1"
                     value={settings.gridOpacity}
                     onChange={(e) => onSettingsChange({

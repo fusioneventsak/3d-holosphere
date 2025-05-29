@@ -218,11 +218,11 @@ const PhotosContainer: React.FC<{
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
   const positions = useMemo(() => {
-    const totalSlots = settings.photoCount;
-    const gridSize = Math.ceil(Math.sqrt(totalSlots));
+    const totalPhotos = Math.min(settings.photoCount, 500);
+    const gridSize = Math.ceil(Math.sqrt(totalPhotos));
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
-    return Array(totalSlots).fill(null).map((_, index) => {
+    return Array.from({ length: totalPhotos }).map((_, index) => {
       const row = Math.floor(index / gridSize);
       const col = index % gridSize;
       const x = (col - gridSize / 2) * spacing;
@@ -235,19 +235,16 @@ const PhotosContainer: React.FC<{
 
   return (
     <group>
-      {positions.map((position, index) => {
-        const photo = photos[index];
-        return (
-          <PhotoFrame
-            key={index}
-            position={position}
-            rotation={[0, 0, 0]}
-            url={photo?.url || ''}
-            scale={settings.photoSize}
-            emptySlotColor={settings.emptySlotColor}
-          />
-        );
-      })}
+      {positions.map((position, index) => (
+        <PhotoFrame
+          key={index}
+          position={position}
+          rotation={[0, 0, 0]}
+          url={photos[index]?.url || ''}
+          scale={settings.photoSize}
+          emptySlotColor={settings.emptySlotColor}
+        />
+      ))}
     </group>
   );
 };
