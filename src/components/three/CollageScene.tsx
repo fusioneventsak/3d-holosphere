@@ -12,43 +12,43 @@ type Photo = {
 };
 
 const generatePhotoList = (userPhotos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
-  // Create an empty result array with the length we want
-  const result: Photo[] = [];
+  console.log(`Generating photo list with ${userPhotos.length} user photos, ${stockPhotos.length} stock photos available`);
+  console.log(`useStockPhotos setting: ${useStockPhotos}, photoCount: ${maxCount}`);
   
-  // First add all available user photos
-  const availableUserPhotos = userPhotos.slice(0, maxCount);
-  result.push(...availableUserPhotos);
+  // Create a new array with all available user photos (up to maxCount)
+  const result = [...userPhotos.slice(0, maxCount)];
   
   // Calculate how many more photos we need
   const photosNeeded = maxCount - result.length;
+  console.log(`Need ${photosNeeded} more photos to reach requested count of ${maxCount}`);
   
-  if (photosNeeded > 0 && useStockPhotos && stockPhotos.length > 0) {
-    // Fill remaining slots with stock photos
-    for (let i = 0; i < photosNeeded; i++) {
-      const stockIndex = Math.floor(Math.random() * stockPhotos.length);
-      const stockUrl = stockPhotos[stockIndex];
-      result.push({
-        id: `stock-${i}-${stockIndex}`, // Ensure unique IDs
-        url: stockUrl
-      });
+  // Add stock photos or empty slots based on settings
+  if (photosNeeded > 0) {
+    if (useStockPhotos && stockPhotos.length > 0) {
+      console.log(`Adding ${photosNeeded} stock photos`);
+      
+      for (let i = 0; i < photosNeeded; i++) {
+        const stockIndex = Math.floor(Math.random() * stockPhotos.length);
+        const stockUrl = stockPhotos[stockIndex];
+        
+        result.push({
+          id: `stock-${Date.now()}-${i}-${stockIndex}`, // Ensure truly unique IDs
+          url: stockUrl
+        });
+      }
+    } else {
+      console.log(`Adding ${photosNeeded} empty slots (stock photos disabled or unavailable)`);
+      
+      for (let i = 0; i < photosNeeded; i++) {
+        result.push({
+          id: `empty-${Date.now()}-${i}`,
+          url: ''
+        });
+      }
     }
-    console.log(`Added ${photosNeeded} stock photos to display`);
-  } else if (photosNeeded > 0) {
-    // No stock photos available or option disabled, add empty slots
-    for (let i = 0; i < photosNeeded; i++) {
-      result.push({
-        id: `empty-${i}`,
-        url: ''
-      });
-    }
-    console.log(`Added ${photosNeeded} empty slots (stock photos disabled or unavailable)`);
   }
   
-  // Ensure we have exactly maxCount photos
-  if (result.length > maxCount) {
-    result.length = maxCount;
-  }
-  
+  console.log(`Final photo list contains ${result.length} items`);
   return result;
 };
 
@@ -82,8 +82,8 @@ const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 const loadTexture = (url: string): THREE.Texture => {
+  // For empty slots, create a simple colored texture
   if (!url) {
-    // Return a default texture for empty slots
     const canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
@@ -92,17 +92,29 @@ const loadTexture = (url: string): THREE.Texture => {
       context.fillStyle = '#1A1A1A';
       context.fillRect(0, 0, 1, 1);
     }
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
+    return new THREE.CanvasTexture(canvas);
   }
   
+  // Check if texture is already cached
   if (textureCache.has(url)) {
     const entry = textureCache.get(url)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
   
-  const texture = textureLoader.load(url);
+  // Create new texture
+  console.log(`Loading new texture: ${url}`);
+  const texture = textureLoader.load(
+    url,
+    (loadedTexture) => {
+      console.log(`Successfully loaded texture: ${url}`);
+    },
+    undefined,
+    (error) => {
+      console.error(`Error loading texture: ${url}`, error);
+    }
+  );
+  
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
@@ -112,6 +124,7 @@ const loadTexture = (url: string): THREE.Texture => {
     texture,
     lastUsed: Date.now()
   });
+  
   return texture;
 };
 
@@ -280,10 +293,12 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
     }
   }, [pattern, settings.floorSize, settings.cameraHeight]);
   
+  // Load texture for this photo
   const texture = useMemo(() => {
     return loadTexture(url);
   }, [url]);
   
+  // Cleanup texture when component unmounts or URL changes
   useEffect(() => {
     return () => {
       if (url) cleanupTexture(url);
@@ -432,7 +447,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
     }
   });
 
-  // The material for empty slots vs. photos
   return (
     <mesh ref={meshRef} position={position} rotation={rotation}>
       <planeGeometry args={[size, size * 1.5]} />
@@ -623,46 +637,45 @@ type CollageSceneProps = {
 // Main scene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [stockPhotos, setStockPhotos] = useState<string[]>([]);
+  const [displayedPhotos, setDisplayedPhotos] = useState<Photo[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSceneReady, setIsSceneReady] = useState(false);
+  const [isStockPhotosFetched, setIsStockPhotosFetched] = useState(false);
 
+  // Fetch stock photos on first render
   useEffect(() => {
-    // Log settings to help debug
-    console.log('Rendering CollageScene with settings:', {
-      animationPattern: settings.animationPattern,
-      useStockPhotos: settings.useStockPhotos,
-      photoCount: settings.photoCount
-    });
-    
-    // Fetch stock photos
+    console.log('Fetching stock photos...');
     getStockPhotos()
       .then(photos => {
-        setStockPhotos(photos);
         console.log(`Loaded ${photos.length} stock photos`);
+        setStockPhotos(photos);
+        setIsStockPhotosFetched(true);
       })
       .catch(error => {
         console.error('Failed to load stock photos:', error);
+        setIsStockPhotosFetched(true); // Still mark as fetched even on error
       });
   }, []);
 
-  // Generate the list of photos to display (user photos + stock photos if needed)
-  const displayedPhotos = useMemo(() => {
-    // Ensure photos is an array
-    const userPhotos = Array.isArray(photos) ? photos : [];
-    console.log(`Generating photo list with ${userPhotos.length} user photos, ${stockPhotos.length} stock photos`);
-    console.log(`Stock photos enabled: ${settings.useStockPhotos}, max photos: ${settings.photoCount}`);
+  // Generate displayed photo list whenever photos, settings, or stock photos change
+  useEffect(() => {
+    if (!isStockPhotosFetched) return; // Wait until stock photos are fetched
     
-    return generatePhotoList(
-      userPhotos,
-      settings.photoCount,
-      settings.useStockPhotos,
+    console.log('Regenerating displayed photos list...');
+    console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
+    
+    // Create photo list with user photos and stock photos
+    const userPhotos = Array.isArray(photos) ? photos : [];
+    const generatedPhotos = generatePhotoList(
+      userPhotos, 
+      settings.photoCount, 
+      settings.useStockPhotos, 
       stockPhotos
     );
-  }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos]);
-
-  useEffect(() => {
-    console.log(`Displaying ${displayedPhotos.length} photos in the scene`);
-  }, [displayedPhotos.length]);
+    
+    console.log(`Generated ${generatedPhotos.length} photos for display`);
+    setDisplayedPhotos(generatedPhotos);
+  }, [photos, settings.photoCount, settings.useStockPhotos, stockPhotos, isStockPhotosFetched]);
 
   const handleCreated = ({ gl }: { gl: THREE.WebGLRenderer }) => {
     gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -723,7 +736,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
                 screenSpacePanning={false}
               />
               
-              <PhotosContainer photos={displayedPhotos} settings={settings} />
+              {displayedPhotos.length > 0 && (
+                <PhotosContainer photos={displayedPhotos} settings={settings} />
+              )}
             </>
           )}
         </React.Suspense>

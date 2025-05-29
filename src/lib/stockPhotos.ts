@@ -10,7 +10,12 @@ const FALLBACK_STOCK_PHOTOS = [
   'https://images.pexels.com/photos/1366630/pexels-photo-1366630.jpeg',
   'https://images.pexels.com/photos/1366957/pexels-photo-1366957.jpeg',
   'https://images.pexels.com/photos/1386604/pexels-photo-1386604.jpeg',
-  'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg'
+  'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg',
+  'https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg',
+  'https://images.pexels.com/photos/572897/pexels-photo-572897.jpeg',
+  'https://images.pexels.com/photos/1485894/pexels-photo-1485894.jpeg',
+  'https://images.pexels.com/photos/1770809/pexels-photo-1770809.jpeg',
+  'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg'
 ];
 
 export const getStockPhotos = async (): Promise<string[]> => {
