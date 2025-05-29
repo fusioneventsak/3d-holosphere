@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Settings, Image, Shield } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
@@ -43,6 +43,8 @@ const CollageEditorPage: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<Tab>('settings');
   const [updateError, setUpdateError] = React.useState<string | null>(null);
   const navigate = useNavigate();
+  const settingsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [pendingSettingsUpdate, setPendingSettingsUpdate] = useState<typeof settings | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -57,22 +59,71 @@ const CollageEditorPage: React.FC = () => {
     }
   }, [currentCollage?.settings, updateSceneSettings]);
 
+  // Effect for debounced database updates
+  useEffect(() => {
+    // Only proceed if there are pending settings to update
+    if (pendingSettingsUpdate && id) {
+      // Clear any existing timeout
+      if (settingsUpdateTimeoutRef.current) {
+        clearTimeout(settingsUpdateTimeoutRef.current);
+      }
+      
+      // Set a new timeout for the database update
+      settingsUpdateTimeoutRef.current = setTimeout(async () => {
+        try {
+          setUpdateError(null);
+          await useCollageStore.getState().updateCollageSettings(id, pendingSettingsUpdate);
+          // Clear pending update after successful save
+          setPendingSettingsUpdate(null);
+        } catch (err: any) {
+          console.error('Debounced settings update error:', err);
+          setUpdateError(err.message || 'Failed to save settings to database');
+        }
+      }, 500); // 500ms debounce time
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (settingsUpdateTimeoutRef.current) {
+        clearTimeout(settingsUpdateTimeoutRef.current);
+      }
+    };
+  }, [pendingSettingsUpdate, id]);
+
   // Handle settings updates
-  const handleSettingsChange = async (newSettings: Partial<typeof settings>, debounce: boolean = false) => {
-    // Update local scene state
+  const handleSettingsChange = (newSettings: Partial<typeof settings>, debounce: boolean = false) => {
+    // Update local scene state immediately
     updateSceneSettings(newSettings, debounce);
     
     // Clear previous errors
     setUpdateError(null);
     
-    if (!debounce) {
-      // Persist to database
-      if (currentCollage && id) {
+    // Update pending settings for database sync
+    if (currentCollage && id) {
+      // Create a merged version of all settings
+      const mergedSettings = { ...settings, ...newSettings };
+      
+      // Store the merged settings for the debounced update
+      setPendingSettingsUpdate(mergedSettings);
+      
+      // If not debouncing, update database immediately
+      if (!debounce) {
         try {
-          // Merge with current settings
-          const mergedSettings = { ...settings, ...newSettings };
+          // Clear any existing timeout to prevent duplicate updates
+          if (settingsUpdateTimeoutRef.current) {
+            clearTimeout(settingsUpdateTimeoutRef.current);
+            settingsUpdateTimeoutRef.current = null;
+          }
           
-          await useCollageStore.getState().updateCollageSettings(id, mergedSettings);
+          // Immediate update
+          useCollageStore.getState().updateCollageSettings(id, mergedSettings)
+            .catch((err) => {
+              console.error('Immediate settings update error:', err);
+              setUpdateError(err.message || 'Failed to save settings to database');
+            });
+          
+          // Clear pending update since we've handled it
+          setPendingSettingsUpdate(null);
         } catch (err: any) {
           console.error('Settings update error:', err);
           setUpdateError(err.message || 'Failed to update settings');

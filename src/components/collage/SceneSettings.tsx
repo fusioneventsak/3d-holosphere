@@ -78,7 +78,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       value={settings.cameraRotationSpeed}
                       onChange={(e) => onSettingsChange({ 
                         cameraRotationSpeed: parseFloat(e.target.value) 
-                      })}
+                      }, true)}
                       className="w-full bg-gray-800"
                     />
                   </div>
@@ -176,7 +176,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.animationSpeed}
                     onChange={(e) => onSettingsChange({ 
                       animationSpeed: parseFloat(e.target.value) 
-                    })}
+                    }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -201,7 +201,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               value={settings.wallHeight}
               onChange={(e) => onSettingsChange({ 
                 wallHeight: parseFloat(e.target.value) 
-              })}
+              }, true)}
               className="w-full bg-gray-800"
             />
           </div>
@@ -264,7 +264,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   value={settings.gridAspectRatio}
                   onChange={(e) => onSettingsChange({
                     gridAspectRatio: parseFloat(e.target.value)
-                  })}
+                  }, true)}
                   className="w-full bg-gray-800"
                 />
               </div>
@@ -282,7 +282,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.photoSize}
                 onChange={(e) => onSettingsChange({ 
                   photoSize: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -300,7 +300,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.photoSpacing}
                 onChange={(e) => onSettingsChange({ 
                   photoSpacing: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
               <p className="mt-1 text-xs text-gray-400">
@@ -344,7 +344,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.photoCount}
                 onChange={(e) => onSettingsChange({ 
                   photoCount: parseInt(e.target.value)
-                })}
+                }, true)}
                 className="flex-1 bg-gray-800"
               />
               <input
@@ -354,7 +354,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.photoCount}
                 onChange={(e) => onSettingsChange({
                   photoCount: parseInt(e.target.value)
-                })}
+                }, true)}
                 className="w-16 bg-gray-800 border border-gray-700 rounded-md py-1 px-2 text-white text-sm"
               />
             </div>
@@ -394,7 +394,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       value={settings.backgroundGradientStart}
                       onChange={(e) => onSettingsChange({
                         backgroundGradientStart: e.target.value
-                      })}
+                      }, true)}
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
                     />
                   </div>
@@ -406,7 +406,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       value={settings.backgroundGradientEnd}
                       onChange={(e) => onSettingsChange({
                         backgroundGradientEnd: e.target.value
-                      })}
+                      }, true)}
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
                     />
                   </div>
@@ -417,7 +417,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   value={settings.backgroundColor}
                   onChange={(e) => onSettingsChange({
                     backgroundColor: e.target.value
-                  })}
+                  }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
               )}
@@ -432,7 +432,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.emptySlotColor}
                 onChange={(e) => onSettingsChange({ 
                   emptySlotColor: e.target.value 
-                })}
+                }, true)}
                 className="w-full h-8 rounded cursor-pointer bg-gray-800"
               />
             </div>
@@ -447,7 +447,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   value={settings.spotlightColor}
                   onChange={(e) => onSettingsChange({ 
                     spotlightColor: e.target.value 
-                  })}
+                  }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
                 />
                 
@@ -461,7 +461,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.spotlightCount}
                     onChange={(e) => onSettingsChange({ 
                       spotlightCount: parseInt(e.target.value) 
-                    })}
+                    }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -480,7 +480,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.ambientLightIntensity}
                 onChange={(e) => onSettingsChange({ 
                   ambientLightIntensity: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -507,7 +507,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightHeight}
                 onChange={(e) => onSettingsChange({ 
                   spotlightHeight: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -524,7 +524,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightDistance}
                 onChange={(e) => onSettingsChange({ 
                   spotlightDistance: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -541,7 +541,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightWidth}
                 onChange={(e) => onSettingsChange({ 
                   spotlightWidth: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -558,7 +558,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightIntensity}
                 onChange={(e) => onSettingsChange({ 
                   spotlightIntensity: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -575,7 +575,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightAngle}
                 onChange={(e) => onSettingsChange({ 
                   spotlightAngle: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -592,7 +592,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 value={settings.spotlightPenumbra}
                 onChange={(e) => onSettingsChange({ 
                   spotlightPenumbra: parseFloat(e.target.value) 
-                })}
+                }, true)}
                 className="w-full bg-gray-800"
               />
             </div>
@@ -648,7 +648,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.floorColor}
                     onChange={(e) => onSettingsChange({ 
                       floorColor: e.target.value 
-                    })}
+                    }, true)}
                     className="w-full h-8 rounded cursor-pointer bg-gray-800"
                   />
                 </div>
@@ -665,7 +665,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.floorOpacity}
                     onChange={(e) => onSettingsChange({ 
                       floorOpacity: parseFloat(e.target.value) 
-                    })}
+                    }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -704,7 +704,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.gridColor}
                     onChange={(e) => onSettingsChange({
                       gridColor: e.target.value
-                    })}
+                    }, true)}
                     className="w-full h-8 rounded cursor-pointer bg-gray-800"
                   />
                 </div>
@@ -735,7 +735,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.gridDivisions}
                     onChange={(e) => onSettingsChange({
                       gridDivisions: parseFloat(e.target.value)
-                    })}
+                    }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>
@@ -750,7 +750,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     value={settings.gridOpacity}
                     onChange={(e) => onSettingsChange({
                       gridOpacity: parseFloat(e.target.value)
-                    })}
+                    }, true)}
                     className="w-full bg-gray-800"
                   />
                 </div>

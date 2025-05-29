@@ -106,36 +106,42 @@ const defaultSettings: SceneSettings = {
 };
 
 export const useSceneStore = create<SceneState>()(
-  (set) => ({
-    settings: defaultSettings,
-    updateSettings: (() => {
-      const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
-        if (newSettings.photoCount !== undefined) {
-          const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
-          if (!isNaN(count)) {
-            newSettings.photoCount = count;
-          } else {
-            delete newSettings.photoCount;
-          }
+  (set) => {
+    // Create immediate and debounced update functions
+    const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
+      // Validate photoCount to ensure it's a valid number between 5-500
+      if (newSettings.photoCount !== undefined) {
+        const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
+        if (!isNaN(count)) {
+          newSettings.photoCount = count;
+        } else {
+          delete newSettings.photoCount;
         }
+      }
 
-        set((state) => ({
-          settings: { ...state.settings, ...newSettings },
-        }));
-      };
+      set((state) => ({
+        settings: { ...state.settings, ...newSettings },
+      }));
+    };
+    
+    // Create a debounced version of the update function with a shorter delay
+    const debouncedUpdate = debounce(immediateUpdate, 100);
+    
+    return {
+      settings: defaultSettings,
       
-      const debouncedUpdate = debounce(immediateUpdate, 100);
-      
-      return (newSettings: Partial<SceneSettings>, debounce = false) => {
+      // updateSettings function that can use either immediate or debounced updates
+      updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
         if (debounce) {
           debouncedUpdate(newSettings);
         } else {
           immediateUpdate(newSettings);
         }
-      };
-    })(),
-    resetSettings: () => set({ settings: defaultSettings }),
-  })
+      },
+      
+      resetSettings: () => set({ settings: defaultSettings }),
+    };
+  }
 );
 
 export { defaultSettings };
