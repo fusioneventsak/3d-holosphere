@@ -5,6 +5,12 @@ import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { getStockPhotos } from '../../lib/stockPhotos';
 
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+};
+
 // Function to strip cache-busting parameters from URLs
 const stripCacheBustingParams = (url: string): string => {
   if (!url) return '';
@@ -174,6 +180,72 @@ const PhotoFrame: React.FC<{
         side={THREE.DoubleSide}
       />
     </mesh>
+  );
+};
+
+// Floor component
+const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+      <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+      <meshStandardMaterial
+        color={settings.floorColor}
+        transparent
+        opacity={settings.floorOpacity}
+        metalness={settings.floorMetalness}
+        roughness={settings.floorRoughness}
+      />
+      {settings.gridEnabled && (
+        <Grid
+          args={[settings.floorSize, settings.floorSize]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={Math.ceil(settings.gridDivisions / 10)}
+          fadeDistance={30}
+          fadeStrength={1}
+          infiniteGrid={false}
+        />
+      )}
+    </mesh>
+  );
+};
+
+// PhotosContainer component
+const PhotosContainer: React.FC<{
+  photos: Photo[];
+  settings: SceneSettings;
+}> = ({ photos, settings }) => {
+  const positions = useMemo(() => {
+    const gridSize = Math.ceil(Math.sqrt(photos.length));
+    const spacing = settings.photoSize * (1 + settings.photoSpacing);
+    
+    return photos.map((_, index) => {
+      const row = Math.floor(index / gridSize);
+      const col = index % gridSize;
+      const x = (col - gridSize / 2) * spacing;
+      const y = (row - gridSize / 2) * spacing + settings.wallHeight;
+      const z = 0;
+      
+      return [x, y, z] as [number, number, number];
+    });
+  }, [photos.length, settings.photoSize, settings.photoSpacing, settings.wallHeight]);
+
+  return (
+    <group>
+      {photos.map((photo, index) => (
+        <PhotoFrame
+          key={photo.id}
+          position={positions[index]}
+          rotation={[0, 0, 0]}
+          url={photo.url}
+          scale={settings.photoSize}
+          emptySlotColor={settings.emptySlotColor}
+        />
+      ))}
+    </group>
   );
 };
 
