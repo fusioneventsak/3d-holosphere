@@ -239,21 +239,15 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        throw new Error('You must be logged in to create a collage');
-      }
-
+      // Generate a unique code
       const code = nanoid(6).toLowerCase();
       
-      // Create collage
+      // Create collage without requiring a user_id
       const { data: collage, error: collageError } = await supabase
         .from('collages')
         .insert([{
           name,
-          code,
-          user_id: user.id
+          code
         }])
         .select()
         .single();
@@ -291,30 +285,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
   updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
     try {
-      // First verify that the user owns this collage
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        console.error('Authentication error:', authError?.message || 'User not authenticated');
-        throw new Error('You must be logged in to update settings');
-      }
-      
-      // Verify collage ownership
-      const { data: collageData, error: collageError } = await supabase
-        .from('collages')
-        .select('user_id')
-        .eq('id', collageId)
-        .single();
-        
-      if (collageError) {
-        console.error('Failed to verify collage ownership:', collageError.message);
-        throw new Error('Could not verify collage ownership');
-      }
-      
-      if (collageData.user_id !== user.id) {
-        throw new Error('You do not have permission to update this collage');
-      }
-      
       // Get current settings to merge with updates
       const { data: currentSettings, error: settingsError } = await supabase
         .from('collage_settings')

@@ -14,7 +14,7 @@ const CollageList: React.FC = () => {
     return (
       <div className="p-6 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-        <p className="mt-2 text-gray-400">Loading your collages...</p>
+        <p className="mt-2 text-gray-400">Loading collages...</p>
       </div>
     );
   }

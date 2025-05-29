@@ -1,12 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
 import Layout from '../components/layout/Layout';
 import { ArrowRight, CameraIcon, CloudCog, Share2, ShieldCheck } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
-  const { user } = useAuthStore();
-
   return (
     <Layout>
       {/* Hero Section */}
@@ -26,31 +23,19 @@ const LandingPage: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
-              {user ? (
-                <Link
-                  to="/dashboard"
-                  className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center"
-                >
-                  Go to Dashboard
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    to="/signup"
-                    className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center"
-                  >
-                    Get Started
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                  <Link
-                    to="/login"
-                    className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/30 border border-white/20 hover:bg-white/10 transition-colors flex items-center justify-center"
-                  >
-                    Sign In
-                  </Link>
-                </>
-              )}
+              <Link
+                to="/dashboard"
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center"
+              >
+                Create Collage
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+              <Link
+                to="/join"
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/30 border border-white/20 hover:bg-white/10 transition-colors flex items-center justify-center"
+              >
+                Join Existing
+              </Link>
             </div>
           </div>
         </div>
@@ -116,15 +101,15 @@ const LandingPage: React.FC = () => {
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold text-white">Ready to create your first 3D collage?</h2>
                 <p className="mt-3 text-gray-400 max-w-3xl">
-                  Join now and transform your photos into interactive 3D experiences. It's free to get started!
+                  Start now and transform your photos into interactive 3D experiences. It's completely free!
                 </p>
               </div>
               <div className="mt-8 md:mt-0">
                 <Link
-                  to={user ? "/dashboard" : "/signup"}
+                  to="/dashboard"
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors"
                 >
-                  {user ? "Go to Dashboard" : "Get Started for Free"}
+                  Create Your Collage
                 </Link>
               </div>
             </div>
