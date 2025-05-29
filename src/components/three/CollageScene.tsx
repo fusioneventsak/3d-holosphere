@@ -12,38 +12,37 @@ type Photo = {
 };
 
 const generatePhotoList = (photos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
-  const result: Photo[] = [];
+  // First add user photos (limited to maxCount)
   const userPhotos = photos.slice(0, maxCount);
+  const result = [...userPhotos];
   
   // Calculate how many slots we need to fill
-  const emptySlots = maxCount - userPhotos.length;
+  const remainingSlots = maxCount - userPhotos.length;
   
-  // First add all user photos
-  userPhotos.forEach(photo => {
-    result.push(photo);
-  });
-  
-  // Then fill remaining slots with stock photos or empty slots
-  if (useStockPhotos && stockPhotos.length > 0 && emptySlots > 0) {
-    for (let i = 0; i < emptySlots; i++) {
-      // Select a random stock photo
-      const stockIndex = Math.floor(Math.random() * stockPhotos.length);
-      result.push({
-        id: `stock-${i}-${Date.now()}`,
-        url: stockPhotos[stockIndex]
-      });
-    }
-  } else {
-    // Add empty slots to reach the desired count
-    for (let i = 0; i < emptySlots; i++) {
-      result.push({
-        id: `empty-${i}-${Date.now()}`,
-        url: ''
-      });
+  // If we need to fill slots and useStockPhotos is enabled
+  if (remainingSlots > 0) {
+    if (useStockPhotos && stockPhotos.length > 0) {
+      // Add stock photos to fill remaining slots
+      for (let i = 0; i < remainingSlots; i++) {
+        const stockIndex = i % stockPhotos.length;
+        result.push({
+          id: `stock-${i}-${Date.now()}`,
+          url: stockPhotos[stockIndex]
+        });
+      }
+    } else {
+      // Add empty slots if not using stock photos
+      for (let i = 0; i < remainingSlots; i++) {
+        result.push({
+          id: `empty-${i}-${Date.now()}`,
+          url: ''
+        });
+      }
     }
   }
-  
-  return result;
+
+  // Make sure we don't exceed the maximum
+  return result.slice(0, maxCount);
 };
 
 // Create gradient background shader
@@ -76,7 +75,12 @@ const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 const loadTexture = (url: string): THREE.Texture => {
-  if (!url) return new THREE.Texture(); // Return empty texture for empty slots
+  if (!url) {
+    // Return an empty texture for empty slots
+    const emptyTexture = new THREE.Texture();
+    emptyTexture.needsUpdate = true;
+    return emptyTexture;
+  }
   
   if (textureCache.has(url)) {
     const entry = textureCache.get(url)!;
@@ -449,7 +453,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         transparent={false}
         opacity={1}
         toneMapped={true}
-        depthWrite={false}
+        depthWrite={true}
         depthTest={true}
         metalness={0.1}
         roughness={0.9}
@@ -617,29 +621,33 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [stockPhotos, setStockPhotos] = React.useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSceneReady, setIsSceneReady] = React.useState(false);
-  const [loadingStockPhotos, setLoadingStockPhotos] = React.useState(false);
+  const [isLoadingStockPhotos, setIsLoadingStockPhotos] = React.useState(false);
 
-  // Load stock photos when needed
+  // Load stock photos when component mounts or when useStockPhotos setting changes
   useEffect(() => {
-    if (settings.useStockPhotos && stockPhotos.length === 0 && !loadingStockPhotos) {
-      setLoadingStockPhotos(true);
+    if (settings.useStockPhotos && stockPhotos.length === 0 && !isLoadingStockPhotos) {
+      setIsLoadingStockPhotos(true);
       getStockPhotos()
         .then(photos => {
+          console.log("Loaded stock photos:", photos.length);
           setStockPhotos(photos);
-          setLoadingStockPhotos(false);
+          setIsLoadingStockPhotos(false);
         })
         .catch(err => {
           console.error("Failed to load stock photos:", err);
-          setLoadingStockPhotos(false);
+          setIsLoadingStockPhotos(false);
         });
     }
-  }, [settings.useStockPhotos, stockPhotos.length, loadingStockPhotos]);
+  }, [settings.useStockPhotos, stockPhotos.length, isLoadingStockPhotos]);
 
-  // Generate the combined photo list with user photos and stock photos
+  // Generate the photo list including user photos and stock photos
   const displayedPhotos = useMemo(() => {
-    const photoList = Array.isArray(photos) ? photos : [];
+    const photoArray = Array.isArray(photos) ? [...photos] : [];
+    console.log("User photos:", photoArray.length, "Stock photos:", stockPhotos.length);
+    console.log("useStockPhotos setting:", settings.useStockPhotos);
+    
     return generatePhotoList(
-      photoList,
+      photoArray,
       settings.photoCount,
       settings.useStockPhotos,
       stockPhotos
@@ -657,6 +665,13 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     // Mark scene as ready after a short delay to ensure everything is initialized
     setTimeout(() => setIsSceneReady(true), 100);
   };
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Display photos count:", displayedPhotos.length);
+    console.log("Photos with URLs:", displayedPhotos.filter(p => p.url).length);
+    console.log("Settings:", settings.animationPattern, settings.useStockPhotos);
+  }, [displayedPhotos, settings]);
 
   return (
     <div className="w-full h-full">
