@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
-import { checkSupabaseConnection } from '../../lib/supabase';
 
 type AuthFormProps = {
   isLogin?: boolean;
@@ -13,20 +12,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin = true }) => {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
   const navigate = useNavigate();
   
   const { signIn, signUp, loading, error, clearError, user } = useAuthStore();
-
-  // Test Supabase connection on component mount
-  useEffect(() => {
-    const testConnection = async () => {
-      const isConnected = await checkSupabaseConnection();
-      setConnectionStatus(isConnected);
-    };
-    
-    testConnection();
-  }, []);
 
   // If user is already logged in, redirect to dashboard
   useEffect(() => {
@@ -47,12 +35,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin = true }) => {
     clearError();
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    // Check connection status before attempting auth
-    if (connectionStatus === false) {
-      setErrorMessage("We're having trouble connecting to our services. Please try again in a few minutes.");
-      return;
-    }
 
     // Validate input
     if (!email || !password) {
@@ -123,12 +105,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin = true }) => {
           {isLogin ? 'Sign In' : 'Create Account'}
         </h2>
         
-        {connectionStatus === false && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
-            We're having trouble connecting to our services. Please try again in a few minutes.
-          </div>
-        )}
-        
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
             {errorMessage}
@@ -186,9 +162,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin = true }) => {
           <div>
             <button
               type="submit"
-              disabled={loading || connectionStatus === false}
+              disabled={loading}
               className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 ${
-                loading || connectionStatus === false ? 'opacity-70 cursor-not-allowed' : ''
+                loading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {loading ? (
