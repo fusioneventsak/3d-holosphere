@@ -143,4 +143,248 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   return placeholderTexture;
 };
 
+// Loading indicator component
+const LoadingIndicator = () => {
+  const { progress } = useProgress();
+  return (
+    <Html center>
+      <div className="text-white text-lg">
+        Loading... {progress.toFixed(0)}%
+      </div>
+    </Html>
+  );
+};
+
+// Photo frame component
+const PhotoFrame: React.FC<{
+  position: [number, number, number];
+  rotation: [number, number, number];
+  url: string;
+  scale: number;
+  emptySlotColor: string;
+}> = ({ position, rotation, url, scale, emptySlotColor }) => {
+  const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.map = texture;
+      materialRef.current.needsUpdate = true;
+    }
+  }, [texture]);
+
+  return (
+    <mesh position={position} rotation={rotation}>
+      <planeGeometry args={[1 * scale, 1 * scale]} />
+      <meshStandardMaterial
+        ref={materialRef}
+        map={texture}
+        transparent
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+};
+
+interface CollageSceneProps {
+  photos: Array<{ url: string; id: string }>;
+  settings: SceneSettings;
+  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
+}
+
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+  const {
+    gridSize = 200,
+    floorSize = 200,
+    gridColor = '#444444',
+    photoSize = 0.8,
+    floorColor = '#1A1A1A',
+    photoCount = 50,
+    wallHeight = 0,
+    gridEnabled = true,
+    gridOpacity = 1.0,
+    cameraHeight = 10,
+    floorEnabled = true,
+    floorOpacity = 0.8,
+    photoSpacing = 0,
+    cameraEnabled = true,
+    gridDivisions = 30,
+    animationSpeed = 0.5,
+    cameraDistance = 25,
+    emptySlotColor = '#1A1A1A',
+    floorMetalness = 0.4,
+    floorRoughness = 0.5,
+    spotlightAngle = Math.PI / 4,
+    spotlightColor = '#ffffff',
+    spotlightCount = 2,
+    spotlightWidth = 0.8,
+    useStockPhotos = true,
+    backgroundColor = '#000000',
+    gridAspectRatio = 1.5,
+    spotlightHeight = 15,
+    animationEnabled = false,
+    animationPattern = 'grid',
+    floorReflectivity = 0.6,
+    spotlightDistance = 30,
+    spotlightPenumbra = 0.8,
+    backgroundGradient = false,
+    spotlightIntensity = 100.0,
+    cameraRotationSpeed = 0.2,
+    ambientLightIntensity = 0.5
+  } = settings;
+
+  // Camera controls setup
+  const controlsRef = useRef<any>();
+  
+  // Animation frame counter
+  const frameCount = useRef(0);
+
+  // Calculate grid positions
+  const positions = useMemo(() => {
+    const pos: [number, number, number][] = [];
+    const cols = Math.ceil(Math.sqrt(photoCount) * gridAspectRatio);
+    const rows = Math.ceil(photoCount / cols);
+    const spacing = photoSize + photoSpacing;
+    
+    for (let i = 0; i < photoCount; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = (col - (cols - 1) / 2) * spacing;
+      const z = (row - (rows - 1) / 2) * spacing;
+      const y = wallHeight;
+      pos.push([x, y, z]);
+    }
+    
+    return pos;
+  }, [photoCount, photoSize, photoSpacing, wallHeight, gridAspectRatio]);
+
+  // Camera animation
+  useFrame((state) => {
+    if (cameraEnabled && controlsRef.current) {
+      if (animationEnabled) {
+        frameCount.current += animationSpeed;
+        
+        // Different animation patterns
+        switch (animationPattern) {
+          case 'orbit':
+            controlsRef.current.setAzimuthalAngle(
+              frameCount.current * 0.01 * cameraRotationSpeed
+            );
+            break;
+          case 'wave':
+            controlsRef.current.setAzimuthalAngle(
+              Math.sin(frameCount.current * 0.01) * cameraRotationSpeed
+            );
+            break;
+          default:
+            // Default grid pattern
+            controlsRef.current.setAzimuthalAngle(
+              Math.sin(frameCount.current * 0.005) * cameraRotationSpeed
+            );
+        }
+      }
+    }
+  });
+
+  return (
+    <Canvas
+      style={{ background: backgroundColor }}
+      camera={{ position: [0, cameraHeight, cameraDistance], fov: 75 }}
+    >
+      <LoadingIndicator />
+      
+      {/* Camera Controls */}
+      <OrbitControls
+        ref={controlsRef}
+        enableDamping
+        dampingFactor={0.05}
+        minDistance={5}
+        maxDistance={50}
+        minPolarAngle={0}
+        maxPolarAngle={Math.PI / 2}
+      />
+      
+      {/* Lighting */}
+      <ambientLight intensity={ambientLightIntensity} />
+      
+      {Array.from({ length: spotlightCount }).map((_, i) => {
+        const angle = (i / spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * spotlightDistance;
+        const z = Math.sin(angle) * spotlightDistance;
+        
+        return (
+          <spotLight
+            key={i}
+            position={[x, spotlightHeight, z]}
+            angle={spotlightAngle}
+            penumbra={spotlightPenumbra}
+            intensity={spotlightIntensity}
+            color={spotlightColor}
+            distance={spotlightDistance * 2}
+          />
+        );
+      })}
+      
+      {/* Floor */}
+      {floorEnabled && (
+        <Plane
+          args={[floorSize, floorSize]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0, 0]}
+        >
+          <meshStandardMaterial
+            color={floorColor}
+            transparent
+            opacity={floorOpacity}
+            metalness={floorMetalness}
+            roughness={floorRoughness}
+          />
+        </Plane>
+      )}
+      
+      {/* Grid */}
+      {gridEnabled && (
+        <Grid
+          args={[gridSize, gridSize, gridDivisions, gridDivisions]}
+          position={[0, 0.01, 0]}
+          cellColor={gridColor}
+          sectionColor={gridColor}
+          fadeDistance={cameraDistance * 2}
+          fadeStrength={1}
+          transparent
+          opacity={gridOpacity}
+        />
+      )}
+      
+      {/* Photos */}
+      {positions.map((position, index) => {
+        const photo = photos[index];
+        const rotation: [number, number, number] = [0, 0, 0];
+        
+        if (animationEnabled) {
+          switch (animationPattern) {
+            case 'wave':
+              rotation[0] = Math.sin(frameCount.current * 0.02 + index * 0.1) * 0.1;
+              break;
+            case 'spiral':
+              rotation[1] = (index / positions.length) * Math.PI * 2;
+              break;
+          }
+        }
+        
+        return (
+          <PhotoFrame
+            key={index}
+            position={position}
+            rotation={rotation}
+            url={photo?.url || ''}
+            scale={photoSize}
+            emptySlotColor={emptySlotColor}
+          />
+        );
+      })}
+    </Canvas>
+  );
+};
+
 export default CollageScene;
