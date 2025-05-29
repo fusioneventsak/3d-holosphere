@@ -364,12 +364,15 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   uploadPhoto: async (collageId: string, file: File) => {
     set({ loading: true, error: null });
     try {
+      console.log('Starting photo upload process for collage:', collageId);
+      
       // Check file size (10MB limit)
       const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
       if (file.size > MAX_FILE_SIZE) {
         throw new Error('File size exceeds 10MB limit');
       }
 
+      // Ensure collage exists before proceeding
       // Verify collage exists
       const { data: collage, error: collageError } = await supabase
         .from('collages')
@@ -391,7 +394,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
-      const filePath = `${collageId}/${fileName}`;
+      // Store photos in collage-specific folders
+      const filePath = `collages/${collageId}/${fileName}`;
 
       console.log(`Uploading file to ${filePath}`);
 
@@ -420,7 +424,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .from('photos')
         .insert([{
           collage_id: collageId,
-          url: publicUrl
+          url: normalizeFileExtension(publicUrl)
         }])
         .select()
         .single();
