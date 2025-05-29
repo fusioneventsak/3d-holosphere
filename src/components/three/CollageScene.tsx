@@ -83,92 +83,67 @@ const addCacheBustToUrl = (url: string): string => {
   return `${url}${separator}t=${timestamp}`;
 };
 
-// Update the loadTexture function with improved error handling and retries
+// Updated loadTexture function using Three.js TextureLoader
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
-  
+
   const cleanUrl = stripCacheBustingParams(url);
   
+  // Check cache first
   if (textureCache.has(cleanUrl)) {
     const entry = textureCache.get(cleanUrl)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
-  
-  const fallbackTexture = createFallbackTexture();
+
+  // Create initial placeholder texture
   const placeholderTexture = createEmptySlotTexture('#333333');
   
-  let loadUrl = cleanUrl;
-  if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
-    loadUrl = addCacheBustToUrl(cleanUrl);
-  }
-  
-  const updateCanvasTexture = (image: HTMLImageElement | HTMLCanvasElement, texture: THREE.Texture) => {
-    const canvas = (texture.source.data as HTMLCanvasElement);
-    const ctx = canvas.getContext('2d')!;
-    
-    // Clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Calculate dimensions to maintain aspect ratio
-    const aspectRatio = image.width / image.height;
-    let drawWidth = canvas.width;
-    let drawHeight = canvas.height;
-    
-    if (aspectRatio > 1) {
-      drawHeight = canvas.width / aspectRatio;
-    } else {
-      drawWidth = canvas.height * aspectRatio;
-    }
-    
-    const x = (canvas.width - drawWidth) / 2;
-    const y = (canvas.height - drawHeight) / 2;
-    
-    // Draw the image centered and scaled
-    ctx.drawImage(image, x, y, drawWidth, drawHeight);
-    
-    // Update texture properties
-    texture.needsUpdate = true;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false;
-    texture.anisotropy = 1;
-  };
-  
-  const loadWithRetry = (attempts = 3) => {
-    const tempImage = new Image();
-    tempImage.crossOrigin = 'anonymous';
-    
-    tempImage.onload = () => {
-      updateCanvasTexture(tempImage, placeholderTexture);
-      console.log(`Successfully loaded texture: ${cleanUrl}`);
-    };
-    
-    tempImage.onerror = (error) => {
-      console.error(`Error loading texture (attempt ${4 - attempts}): ${cleanUrl}`, error);
-      
-      if (attempts > 1) {
-        console.log(`Retrying texture load for: ${cleanUrl}`);
-        setTimeout(() => loadWithRetry(attempts - 1), 1000);
-      } else {
-        console.error(`Failed to load texture after retries: ${cleanUrl}`);
-        const fallbackCanvas = (fallbackTexture.source.data as HTMLCanvasElement);
-        updateCanvasTexture(fallbackCanvas, placeholderTexture);
-      }
-    };
-    
-    tempImage.src = loadUrl;
-  };
-  
-  loadWithRetry();
-  
+  // Add to cache immediately with placeholder
   textureCache.set(cleanUrl, {
     texture: placeholderTexture,
     lastUsed: Date.now()
   });
-  
+
+  // Prepare URL with cache busting if needed
+  let loadUrl = cleanUrl;
+  if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
+    loadUrl = addCacheBustToUrl(cleanUrl);
+  }
+
+  // Load the actual texture
+  textureLoader.load(
+    loadUrl,
+    (loadedTexture) => {
+      // Copy properties from loaded texture to placeholder
+      placeholderTexture.image = loadedTexture.image;
+      placeholderTexture.needsUpdate = true;
+      
+      // Configure texture properties
+      placeholderTexture.minFilter = THREE.LinearFilter;
+      placeholderTexture.magFilter = THREE.LinearFilter;
+      placeholderTexture.generateMipmaps = false;
+      placeholderTexture.flipY = true;
+      
+      // Update cache entry
+      const entry = textureCache.get(cleanUrl);
+      if (entry) {
+        entry.lastUsed = Date.now();
+      }
+    },
+    undefined, // onProgress callback not needed
+    (error) => {
+      console.error(`Failed to load texture: ${cleanUrl}`, error);
+      
+      // Use fallback texture on error
+      const fallbackTexture = createFallbackTexture();
+      placeholderTexture.image = fallbackTexture.image;
+      placeholderTexture.needsUpdate = true;
+    }
+  );
+
   // Clean up old textures from cache
   const now = Date.now();
   const maxAge = 5 * 60 * 1000; // 5 minutes
@@ -178,7 +153,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
       textureCache.delete(url);
     }
   }
-  
+
   return placeholderTexture;
 };
 
