@@ -262,15 +262,15 @@ const PhotosContainer: React.FC<{
       const row = Math.floor(index / gridSize);
       const col = index % gridSize;
       const x = (col - gridSize / 2) * spacing;
-      const y = settings.wallHeight; // Base height for all photos
       const z = (row - gridSize / 2) * spacing; // Use Z axis for depth
+      const y = 0; // Base height at 0
       
       return [x, y, z] as [number, number, number];
     });
-  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.wallHeight]);
+  }, [settings.photoCount, settings.photoSize, settings.photoSpacing]);
 
   return (
-    <group position={[0, 0, 0]}>
+    <group position={[0, settings.wallHeight, 0]}>
       {/* Grid for photo alignment */}
       {settings.gridEnabled && (
         <Grid
@@ -282,8 +282,8 @@ const PhotosContainer: React.FC<{
           fadeDistance={30}
           fadeStrength={1}
           infiniteGrid={false}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, settings.wallHeight - 0.01, 0]} // Just below the photos
+          rotation={[0, 0, 0]}
+          position={[0, -0.01, 0]} // Just below the photos
         />
       )}
       
@@ -292,7 +292,7 @@ const PhotosContainer: React.FC<{
         <PhotoFrame
           key={index}
           position={position}
-          rotation={[-Math.PI / 2, 0, 0]} // Rotate to face upward
+          rotation={[0, 0, 0]} // No rotation needed now
           url={photos[index]?.url || ''}
           scale={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
