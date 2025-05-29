@@ -15,15 +15,16 @@ const stripCacheBustingParams = (url: string): string => {
   if (!url) return '';
   try {
     const urlObj = new URL(url);
+    // Only remove the 't' parameter if it exists
     const params = new URLSearchParams(urlObj.search);
-    const cleanParams = new URLSearchParams();
-    Array.from(params.entries()).forEach(([key, value]) => {
-      if (key !== 't') cleanParams.append(key, value);
-    });
-    urlObj.search = cleanParams.toString();
+    if (params.has('t')) {
+      params.delete('t');
+      urlObj.search = params.toString();
+    }
     return urlObj.toString();
   } catch (e) {
-    console.warn('Failed to parse URL:', url, e);
+    console.warn('Failed to parse URL:', url);
+    // Return the original URL if parsing fails
     return url;
   }
 };
@@ -78,9 +79,17 @@ const createFallbackTexture = (): THREE.Texture => {
 // Helper function to add cache busting to URLs
 const addCacheBustToUrl = (url: string): string => {
   if (!url) return '';
-  const timestamp = Date.now();
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}t=${timestamp}`;
+  try {
+    const urlObj = new URL(url);
+    const timestamp = Date.now();
+    urlObj.searchParams.set('t', timestamp.toString());
+    return urlObj.toString();
+  } catch (e) {
+    console.warn('Failed to add cache bust to URL:', url);
+    // If URL parsing fails, append the cache-bust parameter directly
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
 };
 
 // Updated loadTexture function with improved error handling
@@ -107,8 +116,8 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     lastUsed: Date.now()
   });
 
-  // Prepare URL with cache busting if needed
-  const loadUrl = cleanUrl.includes('supabase.co/storage/v1/object/public') 
+  // Load the image
+  const loadUrl = url.includes('supabase.co/storage/v1/object/public') 
     ? addCacheBustToUrl(cleanUrl)
     : cleanUrl;
 
@@ -116,33 +125,49 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   const tempImage = new Image();
   tempImage.crossOrigin = 'anonymous';
   
-  tempImage.onload = () => {
-    const texture = new THREE.Texture(tempImage);
-    texture.needsUpdate = true;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false;
-    texture.anisotropy = 4;
-    
-    // Update the placeholder texture with the loaded image
-    placeholderTexture.image = tempImage;
-    placeholderTexture.needsUpdate = true;
-    
-    // Update cache timestamp
-    const entry = textureCache.get(cleanUrl);
-    if (entry) {
-      entry.lastUsed = Date.now();
-    }
-  };
+  let retryCount = 0;
+  const maxRetries = 3;
   
-  tempImage.onerror = () => {
-    console.error(`Failed to load image: ${loadUrl}`);
-    const fallbackTexture = createFallbackTexture();
-    placeholderTexture.image = fallbackTexture.image;
-    placeholderTexture.needsUpdate = true;
+  const loadImage = () => {
+    tempImage.onload = () => {
+      texture.image = tempImage;
+      texture.needsUpdate = true;
+      
+      // Update cache timestamp
+      const entry = textureCache.get(cleanUrl);
+      if (entry) {
+        entry.lastUsed = Date.now();
+      }
+    };
+    
+    tempImage.onerror = () => {
+      if (retryCount < maxRetries) {
+        retryCount++;
+        console.warn(`Retrying image load (${retryCount}/${maxRetries}):`, loadUrl);
+        // Add a small delay before retrying
+        setTimeout(() => {
+          tempImage.src = addCacheBustToUrl(cleanUrl);
+        }, 1000 * retryCount);
+      } else {
+        console.error(`Failed to load image after ${maxRetries} attempts:`, loadUrl);
+        const fallbackTexture = createFallbackTexture();
+        texture.image = fallbackTexture.image;
+        texture.needsUpdate = true;
+      }
+    };
+
+    tempImage.src = loadUrl;
   };
-  
-  tempImage.src = loadUrl;
+
+  // Create and configure the texture
+  const texture = new THREE.Texture();
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.anisotropy = 4;
+
+  // Start loading
+  loadImage();
 
   // Clean up old textures from cache
   const now = Date.now();
@@ -154,7 +179,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     }
   }
 
-  return placeholderTexture;
+  return texture;
 };
 
 // Photo frame component with 9:16 aspect ratio
