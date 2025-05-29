@@ -3,30 +3,12 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
+import { getFileUrl } from '../../lib/supabase';
 
 type Photo = {
   id: string;
   url: string;
   collage_id?: string;
-};
-
-// Function to strip cache-busting parameters from URLs
-const stripCacheBustingParams = (url: string): string => {
-  if (!url) return '';
-  try {
-    const urlObj = new URL(url);
-    // Only remove the 't' parameter if it exists
-    const params = new URLSearchParams(urlObj.search);
-    if (params.has('t')) {
-      params.delete('t');
-      urlObj.search = params.toString();
-    }
-    return urlObj.toString();
-  } catch (e) {
-    console.warn('Failed to parse URL:', url);
-    // Return the original URL if parsing fails
-    return url;
-  }
 };
 
 // Create a shared texture loader with memory management
@@ -39,16 +21,15 @@ const logUrlStructure = (url: string) => {
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/');
-    console.log('URL structure:', {
+    console.log('URL structure analysis:', {
       fullUrl: url,
       host: urlObj.host,
       pathname: urlObj.pathname,
-      pathParts: pathParts,
-      collageId: pathParts.length >= 7 ? pathParts[6] : 'not-found',
-      fileName: pathParts.length >= 8 ? pathParts[7] : 'not-found'
+      pathSegments: pathParts,
+      searchParams: Object.fromEntries(urlObj.searchParams.entries())
     });
   } catch (e) {
-    console.warn('Failed to parse URL for structure logging:', url);
+    console.warn('Failed to parse URL for structure logging:', url, e);
   }
 };
 
@@ -56,7 +37,7 @@ const logUrlStructure = (url: string) => {
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
-  canvas.height = 456; // Adjusted for 9:16 aspect ratio
+  canvas.height = 456; // Using 9:16 aspect ratio
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -68,24 +49,43 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   return texture;
 };
 
-// Helper function to create a fallback texture
-const createFallbackTexture = (): THREE.Texture => {
+// Helper function to create an error texture
+const createErrorTexture = (): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
-  canvas.height = 456; // Adjusted for 9:16 aspect ratio
+  canvas.height = 456; // Using 9:16 aspect ratio
   const ctx = canvas.getContext('2d')!;
   
-  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  gradient.addColorStop(0, '#550000');
-  gradient.addColorStop(1, '#330000');
+  // Background gradient
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, '#222222');
+  gradient.addColorStop(1, '#111111');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  ctx.fillStyle = 'white';
-  ctx.font = '24px Arial';
+  // Error icon (simple X)
+  ctx.strokeStyle = '#ff4444';
+  ctx.lineWidth = 6;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const iconSize = 40;
+  
+  ctx.beginPath();
+  ctx.moveTo(centerX - iconSize, centerY - iconSize);
+  ctx.lineTo(centerX + iconSize, centerY + iconSize);
+  ctx.stroke();
+  
+  ctx.beginPath();
+  ctx.moveTo(centerX + iconSize, centerY - iconSize);
+  ctx.lineTo(centerX - iconSize, centerY + iconSize);
+  ctx.stroke();
+  
+  // Error text
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '20px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Error', canvas.width / 2, canvas.height / 2);
+  ctx.fillText('Image Error', centerX, centerY + 70);
   
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -103,156 +103,174 @@ const addCacheBustToUrl = (url: string): string => {
     urlObj.searchParams.set('t', timestamp.toString());
     return urlObj.toString();
   } catch (e) {
-    console.warn('Failed to add cache bust to URL:', url);
-    // If URL parsing fails, append the cache-bust parameter directly
+    console.warn('Failed to add cache bust to URL:', url, e);
+    // Fallback: append the cache-bust parameter directly
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}t=${Date.now()}`;
   }
 };
 
-// Function to verify and fix Supabase URLs if needed
-const ensureCorrectSupabaseUrl = (url: string, collageId?: string): string => {
-  if (!url) return '';
-  
+// Check if URL is a Supabase storage URL
+const isSupabaseStorageUrl = (url: string): boolean => {
+  if (!url) return false;
   try {
     const urlObj = new URL(url);
-    
-    // Check if this is a Supabase storage URL
-    if (urlObj.pathname.includes('/storage/v1/object/public/photos/')) {
-      // Log the URL structure for debugging
-      logUrlStructure(url);
-      
-      // Path should be like: /storage/v1/object/public/photos/[collage-id]/[filename]
-      const pathParts = urlObj.pathname.split('/');
-      const bucketIndex = pathParts.indexOf('photos');
-      
-      if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
-        // The folder after "photos" should be the collage ID
-        const urlCollageId = pathParts[bucketIndex + 1];
-        
-        // If we have a collage ID and it doesn't match the URL, fix it
-        if (collageId && urlCollageId !== collageId) {
-          console.warn(`URL has incorrect collage ID: ${urlCollageId}, should be: ${collageId}`);
-          
-          // Replace the collage ID in the path
-          pathParts[bucketIndex + 1] = collageId;
-          urlObj.pathname = pathParts.join('/');
-          return urlObj.toString();
-        }
-      }
-    }
-    
-    // URL is fine, return as-is
-    return url;
+    return urlObj.pathname.includes('/storage/v1/object/public/');
   } catch (e) {
-    console.warn('Failed to process Supabase URL:', url);
-    return url;
+    return false;
   }
 };
 
-// Updated loadTexture function with improved error handling
+// Extract collage ID and file path from Supabase URL
+const extractSupabaseInfo = (url: string): { collageId: string | null; filePath: string | null } => {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    const publicIndex = pathParts.indexOf('public');
+    
+    if (publicIndex !== -1 && publicIndex + 2 < pathParts.length) {
+      const bucket = pathParts[publicIndex + 1];
+      const collageId = pathParts[publicIndex + 2];
+      const filePath = pathParts.slice(publicIndex + 2).join('/');
+      return { collageId, filePath };
+    }
+    
+    return { collageId: null, filePath: null };
+  } catch (e) {
+    console.warn('Failed to extract Supabase info from URL:', url);
+    return { collageId: null, filePath: null };
+  }
+};
+
+// Enhanced loadTexture function with better error handling and optimizations
 const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
-
-  // Ensure URL has the correct collage ID folder
-  const correctedUrl = ensureCorrectSupabaseUrl(url, collageId);
   
-  // Remove cache busting parameter for caching purposes
-  const cleanUrl = stripCacheBustingParams(correctedUrl);
+  // Handle Supabase URLs specifically
+  if (isSupabaseStorageUrl(url)) {
+    const info = extractSupabaseInfo(url);
+    
+    // If we have a collage ID but it doesn't match the URL's collage ID, regenerate the URL
+    if (collageId && info.collageId && collageId !== info.collageId) {
+      console.warn(`URL has incorrect collage ID: ${info.collageId}, should be: ${collageId}`);
+      
+      // Try to extract the file name
+      const pathParts = url.split('/');
+      const fileName = pathParts[pathParts.length - 1].split('?')[0];
+      
+      // Regenerate URL through Supabase's getFileUrl function
+      const bucket = 'photos';
+      const newPath = `${collageId}/${fileName}`;
+      url = getFileUrl(bucket, newPath);
+      console.log(`Regenerated URL: ${url}`);
+    }
+  }
   
-  // Check cache first
-  if (textureCache.has(cleanUrl)) {
-    const entry = textureCache.get(cleanUrl)!;
+  // Add cache busting for storage URLs
+  const loadUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(url) : url;
+  
+  // Use the URL without cache busting as the cache key
+  const cacheKey = url;
+  
+  // Check texture cache
+  if (textureCache.has(cacheKey)) {
+    const entry = textureCache.get(cacheKey)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
-
-  // Create initial placeholder texture
-  const placeholderTexture = createEmptySlotTexture(emptySlotColor);
   
-  // Add to cache immediately with placeholder
-  textureCache.set(cleanUrl, {
+  // Create placeholder texture and add it to cache immediately
+  const placeholderTexture = createEmptySlotTexture('#333333');
+  textureCache.set(cacheKey, {
     texture: placeholderTexture,
     lastUsed: Date.now()
   });
-
-  // Load the image with cache busting
-  const loadUrl = correctedUrl.includes('supabase.co/storage/v1/object/public') 
-    ? addCacheBustToUrl(cleanUrl)
-    : cleanUrl;
-
-  console.log(`Loading texture from: ${loadUrl}`);
-
-  // Create a temporary image to test loading
-  const tempImage = new Image();
-  tempImage.crossOrigin = 'anonymous';
   
-  let retryCount = 0;
-  const maxRetries = 3;
-  
-  const loadImage = () => {
-    tempImage.onload = () => {
-      console.log(`Successfully loaded image: ${loadUrl}`);
-      texture.image = tempImage;
-      texture.needsUpdate = true;
-      
-      // Update cache timestamp
-      const entry = textureCache.get(cleanUrl);
-      if (entry) {
-        entry.lastUsed = Date.now();
-      }
-    };
-    
-    tempImage.onerror = (error) => {
-      console.error(`Error loading image (attempt ${retryCount + 1}/${maxRetries}):`, loadUrl, error);
-      
-      if (retryCount < maxRetries) {
-        retryCount++;
-        console.warn(`Retrying image load (${retryCount}/${maxRetries}):`, loadUrl);
-        
-        // Add a small delay before retrying with a fresh cache-busting URL
-        setTimeout(() => {
-          const retryUrl = addCacheBustToUrl(cleanUrl);
-          console.log(`Retry #${retryCount} with URL: ${retryUrl}`);
-          tempImage.src = retryUrl;
-        }, 1000 * retryCount);
-      } else {
-        console.error(`Failed to load image after ${maxRetries} attempts:`, loadUrl);
-        const fallbackTexture = createFallbackTexture();
-        texture.image = fallbackTexture.image;
-        texture.needsUpdate = true;
-        
-        // Remove the failed image from the cache to allow future load attempts
-        textureCache.delete(cleanUrl);
-      }
-    };
-
-    tempImage.src = loadUrl;
-  };
-
-  // Create and configure the texture
+  // Create a texture object
   const texture = new THREE.Texture();
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
-  texture.anisotropy = 4;
-
-  // Start loading
-  loadImage();
-
-  // Clean up old textures from cache
+  
+  // Create a temporary Image for loading
+  const tempImage = new Image();
+  tempImage.crossOrigin = 'anonymous';
+  
+  // Handle successful image load
+  tempImage.onload = () => {
+    console.log(`Successfully loaded image: ${loadUrl}`);
+    texture.image = tempImage;
+    texture.needsUpdate = true;
+    
+    // Update the cached texture
+    if (textureCache.has(cacheKey)) {
+      const entry = textureCache.get(cacheKey)!;
+      entry.texture = texture;
+      entry.lastUsed = Date.now();
+    } else {
+      textureCache.set(cacheKey, {
+        texture: texture,
+        lastUsed: Date.now()
+      });
+    }
+    
+    // Update the placeholder texture to show the loaded image
+    placeholderTexture.image = tempImage;
+    placeholderTexture.needsUpdate = true;
+  };
+  
+  // Handle image load errors with retries
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  const attemptLoad = () => {
+    tempImage.onerror = (error) => {
+      console.error(`Error loading image (attempt ${retryCount + 1}/${maxRetries}):`, loadUrl, error);
+      
+      // Log additional diagnostics
+      logUrlStructure(loadUrl);
+      
+      if (retryCount < maxRetries - 1) {
+        retryCount++;
+        setTimeout(() => {
+          console.log(`Retrying load (${retryCount}/${maxRetries}) with new URL...`);
+          // Generate a fresh URL with cache busting
+          const retryUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(url) : url;
+          tempImage.src = retryUrl;
+        }, 1000 * retryCount); // Increase delay with each retry
+      } else {
+        console.error(`Failed to load image after ${maxRetries} attempts:`, loadUrl);
+        
+        // Replace with error texture
+        const errorTexture = createErrorTexture();
+        texture.image = errorTexture.image;
+        texture.needsUpdate = true;
+        
+        // Update placeholder
+        placeholderTexture.image = errorTexture.image;
+        placeholderTexture.needsUpdate = true;
+      }
+    };
+    
+    tempImage.src = loadUrl;
+  };
+  
+  // Start the loading process
+  attemptLoad();
+  
+  // Cleanup old textures from cache (ones not used for over 5 minutes)
   const now = Date.now();
   const maxAge = 5 * 60 * 1000; // 5 minutes
-  for (const [url, entry] of textureCache.entries()) {
-    if (now - entry.lastUsed > maxAge) {
+  Array.from(textureCache.entries())
+    .filter(([key, entry]) => now - entry.lastUsed > maxAge)
+    .forEach(([key, entry]) => {
       entry.texture.dispose();
-      textureCache.delete(url);
-    }
-  }
-
-  return texture;
+      textureCache.delete(key);
+    });
+  
+  return placeholderTexture;
 };
 
 // Photo frame component with 9:16 aspect ratio

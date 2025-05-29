@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import { supabase } from '../lib/supabase';
+import { supabase, getFileUrl } from '../lib/supabase';
 import { defaultSettings, type SceneSettings } from './sceneStore';
 
 type Collage = {
@@ -22,9 +22,17 @@ type Photo = {
 // Helper to add cache busting to photo URLs
 const addCacheBustToUrl = (url: string): string => {
   if (!url) return '';
-  const timestamp = Date.now();
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}t=${timestamp}`;
+  try {
+    const urlObj = new URL(url);
+    const timestamp = Date.now();
+    urlObj.searchParams.set('t', timestamp.toString());
+    return urlObj.toString();
+  } catch (e) {
+    console.warn('Failed to add cache bust to URL:', url, e);
+    // If URL parsing fails, append the cache-bust parameter directly
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
 };
 
 type CollageState = {
@@ -119,20 +127,33 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       if (fetchError) throw fetchError;
 
       // Extract storage path from URL
-      const url = new URL(photo.url);
-      const pathParts = url.pathname.split('/');
-      const storagePath = pathParts.slice(pathParts.indexOf('photos') + 1).join('/');
+      let filePath = '';
+      try {
+        const url = new URL(photo.url);
+        const pathParts = url.pathname.split('/');
+        const publicIndex = pathParts.indexOf('public');
+        
+        if (publicIndex !== -1 && publicIndex + 1 < pathParts.length) {
+          // The path should be everything after "public/bucket_name/"
+          filePath = pathParts.slice(publicIndex + 2).join('/');
+        }
+      } catch (err) {
+        console.warn('Failed to parse photo URL:', photo.url, err);
+        // If URL parsing fails, we'll try a direct delete from the database only
+      }
 
-      console.log(`Deleting photo from storage path: ${storagePath}`);
+      console.log(`Deleting photo from storage path: ${filePath}`);
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('photos')
-        .remove([storagePath]);
+      // Delete from storage if we have a valid path
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('photos')
+          .remove([filePath]);
 
-      if (storageError) {
-        console.warn('Failed to delete photo from storage:', storageError);
-        // Continue with database deletion even if storage deletion fails
+        if (storageError) {
+          console.warn('Failed to delete photo from storage:', storageError);
+          // Continue with database deletion even if storage deletion fails
+        }
       }
 
       // Delete from database
@@ -229,7 +250,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (!settingsResponse.data) {
         // Use upsert to create or update settings
-        // Removed ignoreDuplicates: false to fix the constraint violation
         const { data: settingsData, error: upsertError } = await supabase
           .from('collage_settings')
           .upsert(
@@ -379,7 +399,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         throw new Error('Invalid collage ID');
       }
 
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collageId}/${fileName}`;
 
@@ -401,22 +421,20 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log('Upload successful, getting public URL');
 
-      // Get public URL with cache busting
-      const timestamp = Date.now();
-      const { data: { publicUrl } } = supabase.storage
-        .from('photos')
-        .getPublicUrl(filePath);
-
-      // Add timestamp to URL to prevent caching issues
+      // Generate public URL using the new getFileUrl helper
+      const publicUrl = getFileUrl('photos', filePath);
+      console.log('Public URL:', publicUrl);
+      
+      // Add cache busting to URL for immediate display
       const cacheBustUrl = addCacheBustToUrl(publicUrl);
-      console.log('Public URL with cache busting:', cacheBustUrl);
+      console.log('URL with cache busting:', cacheBustUrl);
 
-      // Insert photo record
+      // Insert photo record with the clean URL (without cache busting)
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
           collage_id: collageId,
-          url: publicUrl // Store the clean URL without timestamp in the database
+          url: publicUrl
         }])
         .select()
         .single();
@@ -432,7 +450,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log('Successfully added photo to database:', photoData);
 
-      // Update local state with the cache-busted URL
+      // Update local state with the cache-busted URL for immediate display
       const newPhoto = {
         ...photoData,
         url: cacheBustUrl

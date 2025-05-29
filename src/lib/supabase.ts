@@ -41,6 +41,20 @@ export const supabase = createClient<Database>(
   }
 );
 
+// Helper function to get a storage file URL with configured options
+export const getFileUrl = (bucketName: string, filePath: string, options: { 
+  download?: boolean, 
+  transform?: { width?: number; height?: number; quality?: number; format?: 'origin' | 'webp' }
+} = {}) => {
+  try {
+    const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath, options);
+    return data.publicUrl;
+  } catch (error) {
+    console.error('Error generating public URL:', error);
+    return '';
+  }
+};
+
 export const checkSupabaseConnection = async () => {
   try {
     const { data, error } = await supabase.from('settings').select('id').limit(1);
@@ -89,4 +103,22 @@ export const withRetry = async <T>(
   }
   
   throw lastError;
+};
+
+// Function to check if a file exists in storage
+export const checkFileExists = async (bucket: string, path: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).list(path.split('/').slice(0, -1).join('/'));
+    
+    if (error) {
+      console.error('Error checking if file exists:', error);
+      return false;
+    }
+    
+    const fileName = path.split('/').pop();
+    return data?.some(file => file.name === fileName) || false;
+  } catch (error) {
+    console.error('Error checking if file exists:', error);
+    return false;
+  }
 };
