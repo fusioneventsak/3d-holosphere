@@ -79,6 +79,7 @@ const gradientShader = {
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 const loadTexture = (url: string): THREE.Texture => {
