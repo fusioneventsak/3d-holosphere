@@ -153,6 +153,9 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
         const fallbackTexture = createFallbackTexture();
         texture.image = fallbackTexture.image;
         texture.needsUpdate = true;
+        
+        // Remove the failed image from the cache to allow future load attempts
+        textureCache.delete(cleanUrl);
       }
     };
 
