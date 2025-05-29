@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CameraIcon, Database, Settings } from 'lucide-react';
+import { CameraIcon, Settings } from 'lucide-react';
 
 const AdminHeader: React.FC = () => {
   return (
@@ -22,14 +22,6 @@ const AdminHeader: React.FC = () => {
               className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors"
             >
               Dashboard
-            </Link>
-            
-            <Link
-              to="/admin/stock-photos"
-              className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
-            >
-              <Database className="h-4 w-4 mr-1" />
-              Stock Photos
             </Link>
             
             <Link
