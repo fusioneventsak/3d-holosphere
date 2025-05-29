@@ -391,14 +391,22 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Verify collage exists
       const { data: collage, error: collageError } = await supabase
         .from('collages')
-        .select('id')
+        .select('id, code')
         .eq('id', collageId)
         .single();
 
-      if (collageError || !collage) {
+      if (collageError) {
+        console.error('Collage verification error:', collageError);
+        throw new Error('Collage not found. Please try again or create a new collage.');
+      }
+
+      if (!collage) {
         throw new Error('Invalid collage ID');
       }
 
+      console.log(`Verified collage exists: ID=${collage.id}, code=${collage.code}`);
+
+      // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collageId}/${fileName}`;

@@ -59,6 +59,11 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
       try {
         setUploadingStatus(prev => ({ ...prev, [file.name]: 'uploading' }));
         
+        // Validate collage ID is still available
+        if (!collageId) {
+          throw new Error('Collage ID is missing or invalid');
+        }
+        
         // Upload to Supabase
         const result = await uploadPhoto(collageId, file);
         
@@ -71,7 +76,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
       } catch (err: any) {
         console.error('Upload error:', err);
         setUploadingStatus(prev => ({ ...prev, [file.name]: 'error' }));
-        setError('An error occurred during upload. Please try again.');
+        setError(err.message || 'An error occurred during upload. Please try again.');
       }
     }
     
