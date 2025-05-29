@@ -3,9 +3,31 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Share2, Upload, Edit } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { defaultSettings } from '../store/sceneStore';
+import { ErrorBoundary } from 'react-error-boundary';
 import Layout from '../components/layout/Layout';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
+
+// Error fallback component for 3D scene errors
+function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="bg-red-900/30 backdrop-blur-sm rounded-lg border border-red-500/50 p-6 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+      <h3 className="text-xl font-bold text-white mb-2">Something went wrong rendering the scene</h3>
+      <p className="text-red-200 mb-4 text-center max-w-md">
+        There was an error loading the 3D scene. This could be due to WebGL issues or resource limitations.
+      </p>
+      <pre className="bg-black/50 p-3 rounded text-red-300 text-xs max-w-full overflow-auto mb-4 max-h-32">
+        {error.message}
+      </pre>
+      <button
+        onClick={resetErrorBoundary}
+        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -125,10 +147,15 @@ const CollageViewerPage: React.FC = () => {
         </div>
       ) : (
         <div className="h-[calc(100vh-200px)] w-full">
-          <CollageScene
-            photos={photos}
-            settings={currentCollage.settings || defaultSettings}
-          />
+          <ErrorBoundary 
+            FallbackComponent={SceneErrorFallback}
+            onReset={() => fetchCollageByCode(code || '')}
+          >
+            <CollageScene
+              photos={photos}
+              settings={currentCollage.settings || defaultSettings}
+            />
+          </ErrorBoundary>
         </div>
       )}
     </Layout>
