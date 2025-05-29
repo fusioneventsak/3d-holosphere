@@ -217,7 +217,7 @@ const PhotoFrame: React.FC<{
   );
 };
 
-// Floor component
+// Floor component with its own grid
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -241,13 +241,14 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           fadeDistance={30}
           fadeStrength={1}
           infiniteGrid={false}
+          position={[0, 0.01, 0]} // Slightly above the floor to prevent z-fighting
         />
       )}
     </mesh>
   );
 };
 
-// PhotosContainer component
+// PhotosContainer component with its own grid
 const PhotosContainer: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
@@ -261,20 +262,37 @@ const PhotosContainer: React.FC<{
       const row = Math.floor(index / gridSize);
       const col = index % gridSize;
       const x = (col - gridSize / 2) * spacing;
-      const y = (row - gridSize / 2) * spacing + settings.wallHeight;
-      const z = 0;
+      const y = settings.wallHeight; // Base height for all photos
+      const z = (row - gridSize / 2) * spacing; // Use Z axis for depth
       
       return [x, y, z] as [number, number, number];
     });
   }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.wallHeight]);
 
   return (
-    <group>
+    <group position={[0, 0, 0]}>
+      {/* Grid for photo alignment */}
+      {settings.gridEnabled && (
+        <Grid
+          args={[settings.gridSize, settings.gridSize]}
+          cellSize={1}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={Math.ceil(settings.gridDivisions / 10)}
+          fadeDistance={30}
+          fadeStrength={1}
+          infiniteGrid={false}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, settings.wallHeight - 0.01, 0]} // Just below the photos
+        />
+      )}
+      
+      {/* Photos */}
       {positions.map((position, index) => (
         <PhotoFrame
           key={index}
           position={position}
-          rotation={[0, 0, 0]}
+          rotation={[-Math.PI / 2, 0, 0]} // Rotate to face upward
           url={photos[index]?.url || ''}
           scale={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
