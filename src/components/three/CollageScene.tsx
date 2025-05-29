@@ -1,4 +1,16 @@
-// Update the loadTexture function
+import React, { useRef, useMemo, useEffect, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { PerspectiveCamera, OrbitControls, Grid, Plane, Html, useProgress } from '@react-three/drei';
+import * as THREE from 'three';
+import { type SceneSettings } from '../../store/sceneStore';
+import { getStockPhotos } from '../../lib/stockPhotos';
+
+// Create a shared texture loader with memory management
+const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('anonymous');
+const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
+
+// Update the loadTexture function with improved error handling and retries
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
@@ -18,8 +30,6 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   let loadUrl = cleanUrl;
   if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
     loadUrl = addCacheBustToUrl(cleanUrl);
-    
-    // Add CORS headers for Supabase storage URLs
     textureLoader.setCrossOrigin('anonymous');
   }
   
@@ -70,4 +80,4 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   return placeholderTexture;
 };
 
-export default loadTexture
+export default CollageScene;
