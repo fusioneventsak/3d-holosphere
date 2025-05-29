@@ -505,5 +505,3 @@ const CollageScene: React.FC<{
 };
 
 export default CollageScene;
-
-export default CollageScene
