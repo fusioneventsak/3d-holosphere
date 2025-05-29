@@ -2,8 +2,8 @@ import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
-import { type SceneSettings } from '../../store/sceneStore'; 
-import { getFileUrl, addCacheBustToUrl, isSupabaseStorageUrl, extractSupabaseInfo, normalizeFileExtension } from '../../lib/supabase';
+import { type SceneSettings } from '../../store/sceneStore';
+import { getFileUrl } from '../../lib/supabase';
 
 type Photo = {
   id: string;
@@ -92,6 +92,88 @@ const createErrorTexture = (): THREE.Texture => {
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
   return texture;
+};
+
+// Helper function to add cache busting to URLs
+const addCacheBustToUrl = (url: string): string => {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    // Remove any existing cache-busting parameter
+    urlObj.searchParams.delete('t');
+    // Add new cache-busting parameter
+    urlObj.searchParams.set('t', Date.now().toString());
+    return urlObj.toString();
+  } catch (e) {
+    console.warn('Failed to add cache bust to URL:', url, e);
+    // If URL parsing fails, append the cache-bust parameter directly
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
+};
+
+// Check if URL is a Supabase storage URL
+const isSupabaseStorageUrl = (url: string): boolean => {
+  if (!url) return false;
+  try {
+    const urlObj = new URL(url);
+    return urlObj.pathname.includes('/storage/v1/object/public/');
+  } catch (e) {
+    return false;
+  }
+};
+
+// Extract collage ID and file path from Supabase URL
+const extractSupabaseInfo = (url: string): { collageId: string | null; filePath: string | null } => {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    const publicIndex = pathParts.indexOf('public');
+    
+    if (publicIndex !== -1 && publicIndex + 2 < pathParts.length) {
+      const bucket = pathParts[publicIndex + 1];
+      const collageId = pathParts[publicIndex + 2];
+      const filePath = pathParts.slice(publicIndex + 2).join('/');
+      return { collageId, filePath };
+    }
+    
+    return { collageId: null, filePath: null };
+  } catch (e) {
+    console.warn('Failed to extract Supabase info from URL:', url);
+    return { collageId: null, filePath: null };
+  }
+};
+
+// Helper function to normalize file extensions in URLs
+const normalizeFileExtension = (url: string): string => {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    
+    // Check if this is a path that might have an extension
+    const pathname = urlObj.pathname;
+    const lastDotIndex = pathname.lastIndexOf('.');
+    
+    if (lastDotIndex !== -1) {
+      // Extract the extension
+      const extension = pathname.substring(lastDotIndex);
+      // Create a lowercase version
+      const lowercaseExt = extension.toLowerCase();
+      
+      // If the extension is not already lowercase, replace it
+      if (extension !== lowercaseExt) {
+        const newPathname = pathname.substring(0, lastDotIndex) + lowercaseExt;
+        urlObj.pathname = newPathname;
+        console.log(`Normalized file extension: ${extension} -> ${lowercaseExt}`);
+        return urlObj.toString();
+      }
+    }
+    
+    return url;
+  } catch (e) {
+    console.warn('Failed to normalize file extension:', url, e);
+    return url;
+  }
 };
 
 // Enhanced loadTexture function with better error handling and optimizations
@@ -423,3 +505,5 @@ const CollageScene: React.FC<{
 };
 
 export default CollageScene;
+
+export default CollageScene
