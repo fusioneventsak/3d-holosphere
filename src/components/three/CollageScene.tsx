@@ -1,9 +1,27 @@
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, OrbitControls, Grid, Plane, Html, useProgress } from '@react-three/drei';
+import { PerspectiveCamera, OrbitControls, Grid, Plane, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { getStockPhotos } from '../../lib/stockPhotos';
+
+// Function to strip cache-busting parameters from URLs
+const stripCacheBustingParams = (url: string): string => {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    const params = new URLSearchParams(urlObj.search);
+    const cleanParams = new URLSearchParams();
+    Array.from(params.entries()).forEach(([key, value]) => {
+      if (key !== 't') cleanParams.append(key, value);
+    });
+    urlObj.search = cleanParams.toString();
+    return urlObj.toString();
+  } catch (e) {
+    console.warn('Failed to parse URL:', url, e);
+    return url;
+  }
+};
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
@@ -33,14 +51,12 @@ const createFallbackTexture = (): THREE.Texture => {
   canvas.height = 256;
   const ctx = canvas.getContext('2d')!;
   
-  // Create a gradient background
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
   gradient.addColorStop(0, '#ff0000');
   gradient.addColorStop(1, '#550000');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  // Add error text
   ctx.fillStyle = 'white';
   ctx.font = '24px Arial';
   ctx.textAlign = 'center';
@@ -52,17 +68,6 @@ const createFallbackTexture = (): THREE.Texture => {
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
   return texture;
-};
-
-// Helper function to strip cache busting parameters from URLs
-const stripCacheBustingParams = (url: string): string => {
-  try {
-    const urlObj = new URL(url);
-    urlObj.searchParams.delete('t');
-    return urlObj.toString();
-  } catch (e) {
-    return url;
-  }
 };
 
 // Helper function to add cache busting to URLs
@@ -96,7 +101,6 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     textureLoader.setCrossOrigin('anonymous');
   }
   
-  // Create a retry function
   const loadWithRetry = (attempts = 3) => {
     textureLoader.load(
       loadUrl,
@@ -127,7 +131,6 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     );
   };
   
-  // Start loading with retries
   loadWithRetry();
   
   placeholderTexture.minFilter = THREE.LinearFilter;
@@ -141,18 +144,6 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   });
   
   return placeholderTexture;
-};
-
-// Loading indicator component
-const LoadingIndicator = () => {
-  const { progress } = useProgress();
-  return (
-    <Html center>
-      <div className="text-white text-lg">
-        Loading... {progress.toFixed(0)}%
-      </div>
-    </Html>
-  );
 };
 
 // Photo frame component
@@ -186,167 +177,54 @@ const PhotoFrame: React.FC<{
   );
 };
 
-// Scene content component that uses R3F hooks
-const SceneContent: React.FC<{
-  photos: Array<{ url: string; id: string }>;
+// Scene components that use R3F hooks
+const Scene: React.FC<{
+  photos: Photo[];
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
-  const controlsRef = useRef<any>();
-  const frameCount = useRef(0);
+  const { camera } = useThree();
 
-  // Calculate grid positions
-  const positions = useMemo(() => {
-    const pos: [number, number, number][] = [];
-    const cols = Math.ceil(Math.sqrt(settings.photoCount) * settings.gridAspectRatio);
-    const rows = Math.ceil(settings.photoCount / cols);
-    const spacing = settings.photoSize + settings.photoSpacing;
-    
-    for (let i = 0; i < settings.photoCount; i++) {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = (col - (cols - 1) / 2) * spacing;
-      const z = (row - (rows - 1) / 2) * spacing;
-      const y = settings.wallHeight;
-      pos.push([x, y, z]);
+  useEffect(() => {
+    if (camera) {
+      camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
+      camera.updateProjectionMatrix();
     }
-    
-    return pos;
-  }, [settings]);
-
-  // Camera animation
-  useFrame((state) => {
-    if (settings.cameraEnabled && controlsRef.current) {
-      if (settings.animationEnabled) {
-        frameCount.current += settings.animationSpeed;
-        
-        switch (settings.animationPattern) {
-          case 'orbit':
-            controlsRef.current.setAzimuthalAngle(
-              frameCount.current * 0.01 * settings.cameraRotationSpeed
-            );
-            break;
-          case 'wave':
-            controlsRef.current.setAzimuthalAngle(
-              Math.sin(frameCount.current * 0.01) * settings.cameraRotationSpeed
-            );
-            break;
-          default:
-            controlsRef.current.setAzimuthalAngle(
-              Math.sin(frameCount.current * 0.005) * settings.cameraRotationSpeed
-            );
-        }
-      }
-    }
-  });
+  }, [camera, settings.cameraHeight, settings.cameraDistance]);
 
   return (
     <>
-      <LoadingIndicator />
-      
-      <OrbitControls
-        ref={controlsRef}
-        enableDamping
-        dampingFactor={0.05}
-        minDistance={5}
-        maxDistance={50}
-        minPolarAngle={0}
-        maxPolarAngle={Math.PI / 2}
-      />
-      
       <ambientLight intensity={settings.ambientLightIntensity} />
-      
-      {Array.from({ length: settings.spotlightCount }).map((_, i) => {
-        const angle = (i / settings.spotlightCount) * Math.PI * 2;
-        const x = Math.cos(angle) * settings.spotlightDistance;
-        const z = Math.sin(angle) * settings.spotlightDistance;
-        
-        return (
-          <spotLight
-            key={i}
-            position={[x, settings.spotlightHeight, z]}
-            angle={settings.spotlightAngle}
-            penumbra={settings.spotlightPenumbra}
-            intensity={settings.spotlightIntensity}
-            color={settings.spotlightColor}
-            distance={settings.spotlightDistance * 2}
-          />
-        );
-      })}
-      
-      {settings.floorEnabled && (
-        <Plane
-          args={[settings.floorSize, settings.floorSize]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0, 0]}
-        >
-          <meshStandardMaterial
-            color={settings.floorColor}
-            transparent
-            opacity={settings.floorOpacity}
-            metalness={settings.floorMetalness}
-            roughness={settings.floorRoughness}
-          />
-        </Plane>
-      )}
-      
-      {settings.gridEnabled && (
-        <Grid
-          args={[settings.gridSize, settings.gridSize, settings.gridDivisions, settings.gridDivisions]}
-          position={[0, 0.01, 0]}
-          cellColor={settings.gridColor}
-          sectionColor={settings.gridColor}
-          fadeDistance={settings.cameraDistance * 2}
-          fadeStrength={1}
-          transparent
-          opacity={settings.gridOpacity}
-        />
-      )}
-      
-      {positions.map((position, index) => {
-        const photo = photos[index];
-        const rotation: [number, number, number] = [0, 0, 0];
-        
-        if (settings.animationEnabled) {
-          switch (settings.animationPattern) {
-            case 'wave':
-              rotation[0] = Math.sin(frameCount.current * 0.02 + index * 0.1) * 0.1;
-              break;
-            case 'spiral':
-              rotation[1] = (index / positions.length) * Math.PI * 2;
-              break;
-          }
-        }
-        
-        return (
-          <PhotoFrame
-            key={index}
-            position={position}
-            rotation={rotation}
-            url={photo?.url || ''}
-            scale={settings.photoSize}
-            emptySlotColor={settings.emptySlotColor}
-          />
-        );
-      })}
+      <PhotosContainer photos={photos} settings={settings} />
+      <Floor settings={settings} />
     </>
   );
 };
 
-// Main CollageScene component
-interface CollageSceneProps {
-  photos: Array<{ url: string; id: string }>;
+// Main CollageScene component that provides the Canvas
+const CollageScene: React.FC<{
+  photos: Photo[];
   settings: SceneSettings;
-  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
-}
-
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+  onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
+}> = ({ photos, settings, onSettingsChange }) => {
   return (
-    <Canvas
-      style={{ background: settings.backgroundColor }}
-      camera={{ position: [0, settings.cameraHeight, settings.cameraDistance], fov: 75 }}
-    >
-      <SceneContent photos={photos} settings={settings} />
-    </Canvas>
+    <div className="w-full h-full">
+      <Canvas
+        camera={{
+          fov: 60,
+          near: 0.1,
+          far: 2000,
+          position: [0, settings.cameraHeight, settings.cameraDistance]
+        }}
+      >
+        <Scene photos={photos} settings={settings} />
+        <OrbitControls
+          enableZoom={true}
+          enablePan={true}
+          autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
+          autoRotateSpeed={settings.cameraRotationSpeed}
+        />
+      </Canvas>
+    </div>
   );
 };
 
