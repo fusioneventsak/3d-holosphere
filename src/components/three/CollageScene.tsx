@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
@@ -33,6 +33,24 @@ const stripCacheBustingParams = (url: string): string => {
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
+
+// Debug function to log URL structure
+const logUrlStructure = (url: string) => {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    console.log('URL structure:', {
+      fullUrl: url,
+      host: urlObj.host,
+      pathname: urlObj.pathname,
+      pathParts: pathParts,
+      collageId: pathParts.length >= 7 ? pathParts[6] : 'not-found',
+      fileName: pathParts.length >= 8 ? pathParts[7] : 'not-found'
+    });
+  } catch (e) {
+    console.warn('Failed to parse URL for structure logging:', url);
+  }
+};
 
 // Helper function to create an empty slot texture
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
@@ -92,13 +110,57 @@ const addCacheBustToUrl = (url: string): string => {
   }
 };
 
+// Function to verify and fix Supabase URLs if needed
+const ensureCorrectSupabaseUrl = (url: string, collageId?: string): string => {
+  if (!url) return '';
+  
+  try {
+    const urlObj = new URL(url);
+    
+    // Check if this is a Supabase storage URL
+    if (urlObj.pathname.includes('/storage/v1/object/public/photos/')) {
+      // Log the URL structure for debugging
+      logUrlStructure(url);
+      
+      // Path should be like: /storage/v1/object/public/photos/[collage-id]/[filename]
+      const pathParts = urlObj.pathname.split('/');
+      const bucketIndex = pathParts.indexOf('photos');
+      
+      if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+        // The folder after "photos" should be the collage ID
+        const urlCollageId = pathParts[bucketIndex + 1];
+        
+        // If we have a collage ID and it doesn't match the URL, fix it
+        if (collageId && urlCollageId !== collageId) {
+          console.warn(`URL has incorrect collage ID: ${urlCollageId}, should be: ${collageId}`);
+          
+          // Replace the collage ID in the path
+          pathParts[bucketIndex + 1] = collageId;
+          urlObj.pathname = pathParts.join('/');
+          return urlObj.toString();
+        }
+      }
+    }
+    
+    // URL is fine, return as-is
+    return url;
+  } catch (e) {
+    console.warn('Failed to process Supabase URL:', url);
+    return url;
+  }
+};
+
 // Updated loadTexture function with improved error handling
-const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
+const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
 
-  const cleanUrl = stripCacheBustingParams(url);
+  // Ensure URL has the correct collage ID folder
+  const correctedUrl = ensureCorrectSupabaseUrl(url, collageId);
+  
+  // Remove cache busting parameter for caching purposes
+  const cleanUrl = stripCacheBustingParams(correctedUrl);
   
   // Check cache first
   if (textureCache.has(cleanUrl)) {
@@ -116,10 +178,12 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     lastUsed: Date.now()
   });
 
-  // Load the image
-  const loadUrl = url.includes('supabase.co/storage/v1/object/public') 
+  // Load the image with cache busting
+  const loadUrl = correctedUrl.includes('supabase.co/storage/v1/object/public') 
     ? addCacheBustToUrl(cleanUrl)
     : cleanUrl;
+
+  console.log(`Loading texture from: ${loadUrl}`);
 
   // Create a temporary image to test loading
   const tempImage = new Image();
@@ -130,6 +194,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   
   const loadImage = () => {
     tempImage.onload = () => {
+      console.log(`Successfully loaded image: ${loadUrl}`);
       texture.image = tempImage;
       texture.needsUpdate = true;
       
@@ -140,13 +205,18 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
       }
     };
     
-    tempImage.onerror = () => {
+    tempImage.onerror = (error) => {
+      console.error(`Error loading image (attempt ${retryCount + 1}/${maxRetries}):`, loadUrl, error);
+      
       if (retryCount < maxRetries) {
         retryCount++;
         console.warn(`Retrying image load (${retryCount}/${maxRetries}):`, loadUrl);
-        // Add a small delay before retrying
+        
+        // Add a small delay before retrying with a fresh cache-busting URL
         setTimeout(() => {
-          tempImage.src = addCacheBustToUrl(cleanUrl);
+          const retryUrl = addCacheBustToUrl(cleanUrl);
+          console.log(`Retry #${retryCount} with URL: ${retryUrl}`);
+          tempImage.src = retryUrl;
         }, 1000 * retryCount);
       } else {
         console.error(`Failed to load image after ${maxRetries} attempts:`, loadUrl);
@@ -189,10 +259,11 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
 const PhotoFrame: React.FC<{
   position: [number, number, number];
   url: string;
+  collageId?: string;
   scale: number;
   emptySlotColor: string;
-}> = ({ position, url, scale, emptySlotColor }) => {
-  const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
+}> = ({ position, url, collageId, scale, emptySlotColor }) => {
+  const texture = useMemo(() => loadTexture(url, collageId, emptySlotColor), [url, collageId, emptySlotColor]);
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
 
   useEffect(() => {
@@ -279,17 +350,36 @@ const PhotoWall: React.FC<{
     });
   }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio]);
 
+  // Extract collage ID from the first photo
+  const collageId = photos.length > 0 ? photos[0].collage_id : undefined;
+  
+  // Log photo info for debugging
+  useEffect(() => {
+    if (photos.length > 0) {
+      console.log(`Displaying ${photos.length} photos for collage ID: ${collageId}`);
+      
+      // Log the first few photo URLs for debugging
+      photos.slice(0, 3).forEach((photo, index) => {
+        console.log(`Photo ${index} URL: ${photo.url}`);
+      });
+    }
+  }, [photos, collageId]);
+
   return (
     <group position={[0, settings.wallHeight, 0]}>
-      {positions.map((position, index) => (
-        <PhotoFrame
-          key={index}
-          position={position}
-          url={photos[index]?.url || ''}
-          scale={settings.photoSize}
-          emptySlotColor={settings.emptySlotColor}
-        />
-      ))}
+      {positions.map((position, index) => {
+        const photo = index < photos.length ? photos[index] : null;
+        return (
+          <PhotoFrame
+            key={index}
+            position={position}
+            url={photo?.url || ''}
+            collageId={collageId}
+            scale={settings.photoSize}
+            emptySlotColor={settings.emptySlotColor}
+          />
+        );
+      })}
     </group>
   );
 };
@@ -323,6 +413,16 @@ const CollageScene: React.FC<{
   settings: SceneSettings;
   onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 }> = ({ photos, settings, onSettingsChange }) => {
+  // Monitor photo loading status
+  const [loaded, setLoaded] = useState(false);
+  
+  useEffect(() => {
+    if (photos.length > 0 && !loaded) {
+      console.log(`CollageScene received ${photos.length} photos`);
+      setLoaded(true);
+    }
+  }, [photos, loaded]);
+
   return (
     <div className="w-full h-full">
       <Canvas
