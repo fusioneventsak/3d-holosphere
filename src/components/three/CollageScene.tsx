@@ -1,9 +1,8 @@
-import React, { useRef, useMemo, useEffect, useState } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { PerspectiveCamera, OrbitControls, Grid, Plane, Html } from '@react-three/drei';
+import { PerspectiveCamera, OrbitControls, Grid, Plane } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { getStockPhotos } from '../../lib/stockPhotos';
 
 type Photo = {
   id: string;
@@ -219,10 +218,11 @@ const PhotosContainer: React.FC<{
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
   const positions = useMemo(() => {
-    const gridSize = Math.ceil(Math.sqrt(photos.length));
+    const totalSlots = settings.photoCount;
+    const gridSize = Math.ceil(Math.sqrt(totalSlots));
     const spacing = settings.photoSize * (1 + settings.photoSpacing);
     
-    return photos.map((_, index) => {
+    return Array(totalSlots).fill(null).map((_, index) => {
       const row = Math.floor(index / gridSize);
       const col = index % gridSize;
       const x = (col - gridSize / 2) * spacing;
@@ -231,20 +231,23 @@ const PhotosContainer: React.FC<{
       
       return [x, y, z] as [number, number, number];
     });
-  }, [photos.length, settings.photoSize, settings.photoSpacing, settings.wallHeight]);
+  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.wallHeight]);
 
   return (
     <group>
-      {photos.map((photo, index) => (
-        <PhotoFrame
-          key={photo.id}
-          position={positions[index]}
-          rotation={[0, 0, 0]}
-          url={photo.url}
-          scale={settings.photoSize}
-          emptySlotColor={settings.emptySlotColor}
-        />
-      ))}
+      {positions.map((position, index) => {
+        const photo = photos[index];
+        return (
+          <PhotoFrame
+            key={index}
+            position={position}
+            rotation={[0, 0, 0]}
+            url={photo?.url || ''}
+            scale={settings.photoSize}
+            emptySlotColor={settings.emptySlotColor}
+          />
+        );
+      })}
     </group>
   );
 };

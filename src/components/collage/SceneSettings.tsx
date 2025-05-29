@@ -318,20 +318,6 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
           </h4>
           
           <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={settings.useStockPhotos}
-                onChange={(e) => onSettingsChange({ 
-                  useStockPhotos: e.target.checked 
-                })}
-                className="mr-2 bg-gray-800 border-gray-700"
-              />
-              <label className="text-sm text-gray-300">
-                Fill Empty Slots with Stock Photos
-              </label>
-            </div>
-
             <label className="block text-sm text-gray-300 mb-2">
               Number of Photos: {settings.photoCount}
             </label>
@@ -746,6 +732,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                     type="range"
                     min="0"
                     max="1"
+                
                     step="0.1"
                     value={settings.gridOpacity}
                     onChange={(e) => onSettingsChange({

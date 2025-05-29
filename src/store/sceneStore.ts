@@ -5,7 +5,6 @@ export type SceneSettings = {
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
   animationSpeed: number;
   animationEnabled: boolean;
-  useStockPhotos: boolean;
   photoCount: number;
   backgroundColor: string;
   backgroundGradient: boolean;
@@ -65,7 +64,6 @@ const defaultSettings: SceneSettings = {
   gridAspectRatioPreset: '16:9',
   animationSpeed: 0.2,
   animationEnabled: false,
-  useStockPhotos: true,
   photoCount: 50,
   backgroundColor: '#000000',
   backgroundGradient: false,
