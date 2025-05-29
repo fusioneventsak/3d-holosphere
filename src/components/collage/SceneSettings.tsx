@@ -4,7 +4,7 @@ import { Grid, Palette, CameraIcon, ImageIcon, Square } from 'lucide-react';
 
 type SceneSettingsProps = {
   settings: SceneSettings;
-  onSettingsChange: (settings: Partial<SceneSettings>) => void;
+  onSettingsChange: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
   onReset: () => void;
 };
 

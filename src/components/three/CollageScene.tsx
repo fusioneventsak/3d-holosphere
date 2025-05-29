@@ -238,10 +238,13 @@ const LoadingFallback: React.FC = () => {
 // Component for individual photo planes
 const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, pattern, speed, animationEnabled, size, settings, photos, index, wall }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
+  
+  // Animation state with unique identifier to track pattern changes
   const animationState = useRef({
     time: 0,
     startDelay: Math.random() * Math.PI,
-    currentPattern: pattern,
+    pattern: pattern, // Keep track of current pattern
     transitionProgress: 0,
     initialPosition: {
       x: (Math.random() - 0.5) * settings.floorSize * 0.5,
@@ -249,25 +252,24 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       z: (Math.random() - 0.5) * settings.floorSize * 0.5
     }
   });
-  const { camera, scene } = useThree();
   
   // Reset animation when pattern changes
   useEffect(() => {
-    if (animationState.current.currentPattern !== pattern) {
+    if (animationState.current.pattern !== pattern) {
       // Reset animation state for new pattern
       animationState.current = {
         time: 0,
         startDelay: Math.random() * Math.PI,
-        currentPattern: pattern,
+        pattern: pattern,
         transitionProgress: 0,
         initialPosition: {
-        x: (Math.random() - 0.5) * settings.floorSize * 0.5,
-        y: Math.random() * settings.cameraHeight * 0.5,
-        z: (Math.random() - 0.5) * settings.floorSize * 0.5
+          x: (Math.random() - 0.5) * settings.floorSize * 0.5,
+          y: Math.random() * settings.cameraHeight * 0.5,
+          z: (Math.random() - 0.5) * settings.floorSize * 0.5
         }
-      }
+      };
     }
-  }, [pattern]);
+  }, [pattern, settings.floorSize, settings.cameraHeight]);
   
   const texture = useMemo(() => {
     if (!url) return null;
@@ -281,13 +283,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   }, [url]);
   
   useFrame((state, delta) => {
-    if (!meshRef.current || !animationEnabled || !camera) return;
+    if (!meshRef.current || !animationEnabled) return;
     
     const baseHeight = 4; // Minimum height above floor
     
     // Use consistent time steps for animations
     const timeStep = delta * speed;
-    animationState.current.time = Math.fround(animationState.current.time + timeStep);
+    animationState.current.time += timeStep;
     
     // Update transition progress
     if (animationState.current.transitionProgress < 1) {
@@ -296,16 +298,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     const mesh = meshRef.current;
     const phase = animationState.current.time + animationState.current.startDelay;
-
-    const totalPhotos = settings.photoCount;
+    const totalPhotos = photos.length;
+    
     const { x: baseX, y: baseY, z: baseZ } = animationState.current.initialPosition;
 
     switch (pattern) {
       case 'grid': {
-        // Grid case scope
-        // Calculate grid dimensions
+        // Grid pattern logic
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
+        
         if (baseAspectRatio >= 1) {
           gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
           gridHeight = Math.ceil(totalPhotos / gridWidth);
@@ -322,11 +324,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
         const yOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
-        const baseHeight = 2; // Minimum height above floor
         
         mesh.position.set(
-          Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT)),
+          xOffset + (col * horizontalSpacing),
+          baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT),
           wall === 'back' ? -2 : 2 // Position photos on front or back wall
         );
         
@@ -335,11 +336,14 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'float': {
+        // Float pattern logic
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
+        
+        // Add smooth oscillation for floating effect
         const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange * animationState.current.transitionProgress;
         
-        // Calculate drift motion using baseX and baseZ from initialPosition
+        // Calculate drift motion
         const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
         const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
         
@@ -349,14 +353,17 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           driftZ
         );
         
-        // Look at camera but maintain vertical orientation
-        mesh.lookAt(camera.position);
-        mesh.rotation.x = 0;
-        mesh.rotation.z = 0;
+        // Face the camera
+        if (camera) {
+          mesh.lookAt(camera.position);
+          mesh.rotation.x = 0;
+          mesh.rotation.z = 0;
+        }
         break;
       }
 
       case 'wave': {
+        // Wave pattern logic
         const waveAmplitude = settings.cameraHeight * 0.3;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const gridSpacing = Math.min(settings.floorSize / gridSize, settings.photoSize * 3);
@@ -366,8 +373,8 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
         const row = Math.floor(index / gridSize);
         
         // Center the grid
-        const xPos = Math.fround((col - gridSize / 2) * gridSpacing + baseX * 0.2);
-        const zPos = Math.fround((row - gridSize / 2) * gridSpacing + baseZ * 0.2);
+        const xPos = (col - gridSize / 2) * gridSpacing + baseX * 0.2;
+        const zPos = (row - gridSize / 2) * gridSpacing + baseZ * 0.2;
         
         // Calculate wave motion
         const distance = Math.sqrt(xPos * xPos + zPos * zPos);
@@ -384,39 +391,44 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           zPos + circleZ
         );
         
-        // Look at camera but maintain vertical orientation
-        mesh.lookAt(camera.position);
-        mesh.rotation.x = 0;
-        mesh.rotation.z = 0;
+        // Face the camera
+        if (camera) {
+          mesh.lookAt(camera.position);
+          mesh.rotation.x = 0;
+          mesh.rotation.z = 0;
+        }
         break;
       }
 
       case 'spiral': {
+        // Spiral pattern logic
         const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * settings.photoSize * 0.5);
         const maxHeight = settings.cameraHeight;
         const angleStep = (Math.PI * 2) / totalPhotos;
         const heightStep = maxHeight / totalPhotos;
         
-        const angle = (index * angleStep) + (phase * settings.animationSpeed * animationState.current.transitionProgress);
-        const height = (maxHeight - (index * heightStep));
+        const angle = (index * angleStep) + (phase * speed * animationState.current.transitionProgress);
         const radius = maxRadius * (1 - (index / totalPhotos));
+        const height = (index * heightStep);
         
-        let spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1);
-        const spiralZ = Math.fround(Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1);
+        const spiralX = Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1;
+        const spiralZ = Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1;
         
         // Add vertical oscillation
         const oscillation = Math.sin(phase * 2 + index * 0.1) * 2 * animationState.current.transitionProgress;
         
         mesh.position.set(
           spiralX,
-          Math.max(baseHeight, height + baseHeight + oscillation),
+          Math.max(baseHeight, maxHeight - height + baseHeight + oscillation),
           spiralZ
         );
         
-        // Look at camera but maintain vertical orientation
-        mesh.lookAt(camera.position);
-        mesh.rotation.x = 0;
-        mesh.rotation.z = 0;
+        // Face the camera
+        if (camera) {
+          mesh.lookAt(camera.position);
+          mesh.rotation.x = 0;
+          mesh.rotation.z = 0;
+        }
         break;
       }
     }
