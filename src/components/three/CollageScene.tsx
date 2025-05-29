@@ -142,6 +142,38 @@ const extractSupabaseInfo = (url: string): { collageId: string | null; filePath:
   }
 };
 
+// Helper function to normalize file extensions in URLs
+const normalizeFileExtension = (url: string): string => {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    
+    // Check if this is a path that might have an extension
+    const pathname = urlObj.pathname;
+    const lastDotIndex = pathname.lastIndexOf('.');
+    
+    if (lastDotIndex !== -1) {
+      // Extract the extension
+      const extension = pathname.substring(lastDotIndex);
+      // Create a lowercase version
+      const lowercaseExt = extension.toLowerCase();
+      
+      // If the extension is not already lowercase, replace it
+      if (extension !== lowercaseExt) {
+        const newPathname = pathname.substring(0, lastDotIndex) + lowercaseExt;
+        urlObj.pathname = newPathname;
+        console.log(`Normalized file extension: ${extension} -> ${lowercaseExt}`);
+        return urlObj.toString();
+      }
+    }
+    
+    return url;
+  } catch (e) {
+    console.warn('Failed to normalize file extension:', url, e);
+    return url;
+  }
+};
+
 // Enhanced loadTexture function with better error handling and optimizations
 const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
@@ -150,6 +182,9 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
   
   // Handle Supabase URLs specifically
   if (isSupabaseStorageUrl(url)) {
+    // Normalize file extensions to lowercase to prevent case sensitivity issues
+    url = normalizeFileExtension(url);
+    
     const info = extractSupabaseInfo(url);
     
     // If we have a collage ID but it doesn't match the URL's collage ID, regenerate the URL
@@ -164,6 +199,10 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
       const bucket = 'photos';
       const newPath = `${collageId}/${fileName}`;
       url = getFileUrl(bucket, newPath);
+      
+      // Also normalize this URL's file extension
+      url = normalizeFileExtension(url);
+      
       console.log(`Regenerated URL: ${url}`);
     }
   }
@@ -237,7 +276,7 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
         setTimeout(() => {
           console.log(`Retrying load (${retryCount}/${maxRetries}) with new URL...`);
           // Generate a fresh URL with cache busting
-          const retryUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(url) : url;
+          const retryUrl = isSupabaseStorageUrl(url) ? addCacheBustToUrl(normalizeFileExtension(url)) : url;
           tempImage.src = retryUrl;
         }, 1000 * retryCount); // Increase delay with each retry
       } else {
