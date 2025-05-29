@@ -139,38 +139,68 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.CanvasTexture 
   return new THREE.CanvasTexture(canvas);
 };
 
+// Function to remove cache-busting parameters from URLs to prevent duplicates
+const stripCacheBustingParams = (url: string): string => {
+  if (!url) return '';
+  
+  try {
+    const urlObj = new URL(url);
+    
+    // Create a new URLSearchParams object from the original search params
+    const params = new URLSearchParams(urlObj.search);
+    
+    // Remove all 't' parameters (cache busting timestamps)
+    const paramEntries = Array.from(params.entries());
+    const cleanParams = new URLSearchParams();
+    
+    paramEntries.forEach(([key, value]) => {
+      if (key !== 't') {
+        cleanParams.append(key, value);
+      }
+    });
+    
+    // Rebuild URL without the 't' parameters
+    urlObj.search = cleanParams.toString();
+    return urlObj.toString();
+  } catch (e) {
+    // If URL parsing fails, return the original URL
+    console.warn('Failed to parse URL:', url, e);
+    return url;
+  }
+};
+
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
   
-  // Use the URL directly without additional cache-busting
-  const cleanedUrl = url;
+  // Clean the URL to remove multiple cache-busting parameters
+  const cleanUrl = stripCacheBustingParams(url);
   
   // Check if texture is already cached
-  if (textureCache.has(url)) {
-    const entry = textureCache.get(url)!;
+  if (textureCache.has(cleanUrl)) {
+    const entry = textureCache.get(cleanUrl)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
   
   // Create new texture
-  console.log(`Loading new texture: ${cleanedUrl}`);
+  console.log(`Loading new texture: ${cleanUrl}`);
   
-  // Create a fallback texture that will be shown on error
+  // Create a fallback texture
   const fallbackTexture = createFallbackTexture();
   
   // Load the actual texture
   const texture = textureLoader.load(
-    cleanedUrl,
+    cleanUrl,
     (loadedTexture) => {
-      console.log(`Successfully loaded texture: ${url}`);
+      console.log(`Successfully loaded texture: ${cleanUrl}`);
       loadedTexture.needsUpdate = true;
     },
     undefined,
     (error) => {
-      console.error(`Error loading texture: ${url}`, error);
+      console.error(`Error loading texture: ${cleanUrl}`, error);
       
       // Apply the fallback's image to the failed texture
       if (texture) {
@@ -185,7 +215,7 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   texture.generateMipmaps = false;
   texture.anisotropy = 1;
   
-  textureCache.set(url, {
+  textureCache.set(cleanUrl, {
     texture,
     lastUsed: Date.now()
   });
@@ -194,10 +224,11 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
 };
 
 const cleanupTexture = (url: string) => {
-  if (textureCache.has(url)) {
-    const entry = textureCache.get(url)!;
+  const cleanUrl = stripCacheBustingParams(url);
+  if (textureCache.has(cleanUrl)) {
+    const entry = textureCache.get(cleanUrl)!;
     entry.texture.dispose();
-    textureCache.delete(url);
+    textureCache.delete(cleanUrl);
   }
 };
 
@@ -761,10 +792,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
       console.log('Available user photos:', photos.length > 0 ? photos : 'None');
       
-      // Process user photos without adding additional cache-busting parameters
+      // Process user photos - don't add any additional cache-busting parameters
       const processedUserPhotos = photos.map(photo => ({
         ...photo,
-        url: photo.url // Use the URL directly without modification
+        url: stripCacheBustingParams(photo.url) // Clean URL before using
       }));
       
       // If stock photos are enabled but none were found, automatically disable the option
