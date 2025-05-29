@@ -12,7 +12,7 @@ const FALLBACK_STOCK_PHOTOS = [
   'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
   'https://images.pexels.com/photos/3812207/pexels-photo-3812207.jpeg',
   'https://images.pexels.com/photos/6321143/pexels-photo-6321143.jpeg', // Replaced broken URL
-  'https://images.pexels.com/photos/7108133/pexels-photo-7108133.jpeg',
+  'https://images.pexels.com/photos/1040881/pexels-photo-1040881.jpeg', // Replaced broken URL
   'https://images.pexels.com/photos/789822/pexels-photo-789822.jpeg',
   'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
   'https://images.pexels.com/photos/1987301/pexels-photo-1987301.jpeg'
