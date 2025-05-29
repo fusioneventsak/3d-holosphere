@@ -139,24 +139,14 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.CanvasTexture 
   return new THREE.CanvasTexture(canvas);
 };
 
-// Function to clean URL for better compatibility
-const cleanPhotoUrl = (url: string): string => {
-  if (!url) return '';
-  
-  // Add timestamp to URL to prevent caching issues
-  const timestamp = Date.now();
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}t=${timestamp}`;
-};
-
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
   
-  // Clean URL to prevent caching issues
-  const cleanedUrl = cleanPhotoUrl(url);
+  // Use the URL directly without additional cache-busting
+  const cleanedUrl = url;
   
   // Check if texture is already cached
   if (textureCache.has(url)) {
@@ -771,10 +761,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
       console.log('Available user photos:', photos.length > 0 ? photos : 'None');
       
-      // Process user photos to ensure they have cache-busting parameters
+      // Process user photos without adding additional cache-busting parameters
       const processedUserPhotos = photos.map(photo => ({
         ...photo,
-        url: cleanPhotoUrl(photo.url)
+        url: photo.url // Use the URL directly without modification
       }));
       
       // If stock photos are enabled but none were found, automatically disable the option
