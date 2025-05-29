@@ -240,11 +240,11 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   
-  // Animation state with unique identifier to track pattern changes
+  // Animation state with pattern tracking for transitions
   const animationState = useRef({
     time: 0,
     startDelay: Math.random() * Math.PI,
-    pattern: pattern, // Keep track of current pattern
+    pattern: pattern, // Track current pattern
     transitionProgress: 0,
     initialPosition: {
       x: (Math.random() - 0.5) * settings.floorSize * 0.5,
@@ -298,13 +298,13 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
     
     const mesh = meshRef.current;
     const phase = animationState.current.time + animationState.current.startDelay;
-    const totalPhotos = photos.length;
+    const totalPhotos = photos.length || settings.photoCount;
     
     const { x: baseX, y: baseY, z: baseZ } = animationState.current.initialPosition;
 
     switch (pattern) {
       case 'grid': {
-        // Grid pattern logic
+        // Grid pattern - creates a wall of photos
         const baseAspectRatio = settings.gridAspectRatio || 1;
         let gridWidth, gridHeight;
         
@@ -336,16 +336,16 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'float': {
-        // Float pattern logic
+        // Float pattern - photos float upward in a cloud formation
         const maxSpread = settings.floorSize * 0.4;
         const verticalRange = settings.cameraHeight * 0.4;
         
-        // Add smooth oscillation for floating effect
+        // Calculate vertical float motion
         const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange * animationState.current.transitionProgress;
         
-        // Calculate drift motion
-        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
-        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
+        // Calculate horizontal drift motion
+        const driftX = baseX + Math.sin(phase * 0.3) * (maxSpread * 0.2) * animationState.current.transitionProgress;
+        const driftZ = baseZ + Math.cos(phase * 0.3) * (maxSpread * 0.2) * animationState.current.transitionProgress;
         
         mesh.position.set(
           driftX,
@@ -353,7 +353,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           driftZ
         );
         
-        // Face the camera
+        // Make photos face the camera
         if (camera) {
           mesh.lookAt(camera.position);
           mesh.rotation.x = 0;
@@ -363,7 +363,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'wave': {
-        // Wave pattern logic
+        // Wave pattern - photos move in a wave formation
         const waveAmplitude = settings.cameraHeight * 0.3;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const gridSpacing = Math.min(settings.floorSize / gridSize, settings.photoSize * 3);
@@ -391,7 +391,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
           zPos + circleZ
         );
         
-        // Face the camera
+        // Make photos face the camera
         if (camera) {
           mesh.lookAt(camera.position);
           mesh.rotation.x = 0;
@@ -401,29 +401,34 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({ url, position, rotation, patter
       }
 
       case 'spiral': {
-        // Spiral pattern logic
-        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * settings.photoSize * 0.5);
-        const maxHeight = settings.cameraHeight;
-        const angleStep = (Math.PI * 2) / totalPhotos;
-        const heightStep = maxHeight / totalPhotos;
+        // Spiral pattern - tornado/funnel cloud formation
+        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * 0.2);
+        const maxHeight = settings.cameraHeight * 1.5;
+        const angleStep = (Math.PI * 2) / Math.max(10, Math.floor(totalPhotos / 8));
         
-        const angle = (index * angleStep) + (phase * speed * animationState.current.transitionProgress);
-        const radius = maxRadius * (1 - (index / totalPhotos));
-        const height = (index * heightStep);
+        // Calculate spiral position
+        // More photos at the bottom of the tornado, fewer at the top
+        const spiralProgress = index / totalPhotos;
+        const radiusFactor = 1 - Math.pow(spiralProgress, 0.8); // Wider at bottom, narrower at top
+        const height = baseHeight + spiralProgress * maxHeight;
+        const radius = maxRadius * radiusFactor;
         
-        const spiralX = Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1;
-        const spiralZ = Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1;
+        // Calculate angle with speed factor
+        const angle = (index * angleStep) + (phase * 0.3 * animationState.current.transitionProgress);
         
-        // Add vertical oscillation
-        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2 * animationState.current.transitionProgress;
+        const spiralX = Math.cos(angle) * radius;
+        const spiralZ = Math.sin(angle) * radius;
+        
+        // Add vertical oscillation for more dynamic movement
+        const oscillation = Math.sin(phase + index * 0.2) * 0.5 * animationState.current.transitionProgress;
         
         mesh.position.set(
           spiralX,
-          Math.max(baseHeight, maxHeight - height + baseHeight + oscillation),
+          height + oscillation,
           spiralZ
         );
         
-        // Face the camera
+        // Make photos face the camera
         if (camera) {
           mesh.lookAt(camera.position);
           mesh.rotation.x = 0;
