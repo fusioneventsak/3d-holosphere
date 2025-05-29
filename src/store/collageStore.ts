@@ -385,12 +385,13 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log(`Uploading file to ${filePath}`);
 
-      // Upload file to storage
+      // Upload file to storage with the correct content type
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true // Changed to true to avoid conflicts
+          upsert: true,
+          contentType: file.type // Add the correct content type from the file
         });
 
       if (uploadError) {
