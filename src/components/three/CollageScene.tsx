@@ -138,7 +138,7 @@ const loadTexture = (url: string): THREE.Texture => {
     },
     undefined,
     (error) => {
-      console.error(`Error loading texture: ${url}`, error);
+      // Removed console.error line to prevent error messages in console
       
       // Create a fallback texture and apply it to the failed texture
       const fallbackTexture = createFallbackTexture();
