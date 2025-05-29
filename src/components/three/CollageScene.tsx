@@ -108,18 +108,41 @@ const createFallbackTexture = (color: string = '#ff4444'): THREE.CanvasTexture =
   return new THREE.CanvasTexture(canvas);
 };
 
-const loadTexture = (url: string): THREE.Texture => {
+// Create an empty slot texture
+const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.CanvasTexture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 384;
+  const context = canvas.getContext('2d');
+  if (context) {
+    // Fill with background color
+    context.fillStyle = color;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add a placeholder icon
+    context.strokeStyle = '#ffffff33';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.rect(30, 30, canvas.width - 60, canvas.height - 60);
+    context.stroke();
+    
+    // Add placeholder camera icon
+    context.beginPath();
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    context.arc(centerX, centerY, 40, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(centerX, centerY, 20, 0, Math.PI * 2);
+    context.stroke();
+  }
+  return new THREE.CanvasTexture(canvas);
+};
+
+const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext('2d');
-    if (context) {
-      context.fillStyle = '#1A1A1A';
-      context.fillRect(0, 0, 1, 1);
-    }
-    return new THREE.CanvasTexture(canvas);
+    return createEmptySlotTexture(emptySlotColor);
   }
   
   // Check if texture is already cached
@@ -131,14 +154,23 @@ const loadTexture = (url: string): THREE.Texture => {
   
   // Create new texture
   console.log(`Loading new texture: ${url}`);
+  
+  // Add timestamp to URL to bypass cache for Supabase Storage URLs
+  let loadUrl = url;
+  if (url.includes('supabase.co/storage/v1/object/public')) {
+    const separator = url.includes('?') ? '&' : '?';
+    loadUrl = `${url}${separator}t=${Date.now()}`;
+  }
+  
   const texture = textureLoader.load(
-    url,
+    loadUrl,
     (loadedTexture) => {
       console.log(`Successfully loaded texture: ${url}`);
+      loadedTexture.needsUpdate = true;
     },
     undefined,
     (error) => {
-      // Removed console.error line to prevent error messages in console
+      console.warn(`Error loading texture: ${url}`, error);
       
       // Create a fallback texture and apply it to the failed texture
       const fallbackTexture = createFallbackTexture();
@@ -351,10 +383,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
     }
   }, [pattern, settings.floorSize, settings.cameraHeight]);
   
-  // Load texture for this photo
+  // Load texture for this photo - pass emptySlotColor from settings
   const texture = useMemo(() => {
-    return loadTexture(url);
-  }, [url]);
+    return loadTexture(url, settings.emptySlotColor);
+  }, [url, settings.emptySlotColor]);
   
   // Cleanup texture when component unmounts or URL changes
   useEffect(() => {
@@ -522,35 +554,20 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
   return (
     <mesh ref={meshRef} position={position} rotation={rotation}>
       <planeGeometry args={[size, size * 1.5]} />
-      {!url ? (
-        <meshStandardMaterial 
-          color={new THREE.Color(settings.emptySlotColor)}
-          metalness={0.2}
-          roughness={0.8}
-          side={THREE.DoubleSide}
-          transparent={false}
-          opacity={1}
-          depthWrite={true}
-          castShadow
-          receiveShadow
-          renderOrder={1}
-        />
-      ) : (
-        <meshStandardMaterial 
-          map={texture}
-          side={THREE.DoubleSide}
-          transparent={false}
-          opacity={1}
-          toneMapped={true}
-          depthWrite={false}
-          depthTest={true}
-          metalness={0.1}
-          roughness={0.9}
-          castShadow
-          receiveShadow
-          renderOrder={2}
-        />
-      )}
+      <meshStandardMaterial 
+        map={texture}
+        side={THREE.DoubleSide}
+        transparent={false}
+        opacity={1}
+        toneMapped={true}
+        depthWrite={!url ? true : false}
+        depthTest={true}
+        metalness={0.1}
+        roughness={0.9}
+        castShadow
+        receiveShadow
+        renderOrder={url ? 2 : 1}
+      />
     </mesh>
   );
 };
@@ -745,6 +762,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     try {
       console.log('Regenerating displayed photos list...');
       console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
+      console.log('Available user photos:', photos.length > 0 ? photos : 'None');
       
       // If stock photos are enabled but none were found, automatically disable the option
       if (settings.useStockPhotos && stockPhotos.length === 0) {
@@ -810,6 +828,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         </div>
       </div>
     );
+  }
+
+  // Log user photos for debugging
+  console.log('User photos available for display:', photos.length);
+  if (photos.length > 0) {
+    console.log('Sample photo URLs:', photos.slice(0, 3).map(p => p.url));
   }
 
   return (

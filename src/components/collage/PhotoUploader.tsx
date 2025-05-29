@@ -11,6 +11,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingStatus, setUploadingStatus] = useState<{ [key: string]: 'pending' | 'uploading' | 'success' | 'error' }>({});
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   const { uploadPhoto } = useCollageStore();
 
@@ -49,7 +50,9 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFiles.length) return;
+    if (!selectedFiles.length || uploading) return;
+    
+    setUploading(true);
     
     // Begin upload for each file
     for (const file of selectedFiles) {
@@ -61,15 +64,18 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
         
         if (result) {
           setUploadingStatus(prev => ({ ...prev, [file.name]: 'success' }));
+          console.log(`Successfully uploaded photo: ${file.name}`);
         } else {
           throw new Error('Failed to upload photo');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Upload error:', err);
         setUploadingStatus(prev => ({ ...prev, [file.name]: 'error' }));
-        setError('An error occurred during upload');
+        setError('An error occurred during upload. Please try again.');
       }
     }
+    
+    setUploading(false);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -167,10 +173,23 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
             <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
             <button
               onClick={handleUpload}
-              className="inline-flex items-center px-3 py-1 text-xs bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded hover:from-purple-700 hover:to-blue-600 transition-colors"
+              disabled={uploading}
+              className={`inline-flex items-center px-3 py-1 text-xs bg-gradient-to-r from-purple-600 to-blue-500 text-white rounded hover:from-purple-700 hover:to-blue-600 transition-colors ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              <Upload className="h-3 w-3 mr-1" />
-              Upload All
+              {uploading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Uploading...
+                </span>
+              ) : (
+                <>
+                  <Upload className="h-3 w-3 mr-1" />
+                  Upload All
+                </>
+              )}
             </button>
           </div>
           
@@ -189,6 +208,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
                 <button
                   onClick={() => handleRemoveFile(file.name)}
                   className="text-gray-400 hover:text-red-400 transition-colors ml-2"
+                  disabled={uploadingStatus[file.name] === 'uploading'}
                 >
                   <X className="h-4 w-4" />
                 </button>

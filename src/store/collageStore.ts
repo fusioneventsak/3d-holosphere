@@ -7,7 +7,7 @@ type Collage = {
   id: string;
   code: string;
   name: string;
-  user_id: string;
+  user_id?: string;
   created_at: string;
   settings?: SceneSettings;
 };
@@ -358,38 +358,55 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collageId}/${fileName}`;
 
+      console.log(`Uploading file to ${filePath}`);
+
       // Upload file to storage
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true // Changed to true to avoid conflicts
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw uploadError;
+      }
 
-      // Get public URL
+      console.log('Upload successful, getting public URL');
+
+      // Get public URL with cache busting
+      const timestamp = Date.now();
       const { data: { publicUrl } } = supabase.storage
         .from('photos')
-        .getPublicUrl(filePath);
+        .getPublicUrl(filePath, {
+          download: false
+        });
+
+      // Add timestamp to URL to prevent caching issues
+      const cacheBustUrl = `${publicUrl}?t=${timestamp}`;
+      console.log('Public URL:', cacheBustUrl);
 
       // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
           collage_id: collageId,
-          url: publicUrl
+          url: cacheBustUrl
         }])
         .select()
         .single();
 
       if (insertError) {
         // If insert fails, clean up the uploaded file
+        console.error('Database insert error:', insertError);
         await supabase.storage
           .from('photos')
           .remove([filePath]);
         throw insertError;
       }
+
+      console.log('Successfully added photo to database:', photoData);
 
       // Update local state
       const newPhoto = photoData as Photo;
@@ -413,15 +430,22 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   fetchPhotosByCollageId: async (collageId: string) => {
     set({ loading: true, error: null });
     try {
+      console.log(`Fetching photos for collage: ${collageId}`);
       const { data, error } = await supabase
         .from('photos')
         .select('*')
         .eq('collage_id', collageId)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching photos:', error);
+        throw error;
+      }
+      
+      console.log(`Found ${data?.length || 0} photos`);
       set({ photos: data as Photo[], loading: false });
     } catch (error: any) {
+      console.error('Error in fetchPhotosByCollageId:', error);
       set({ error: error.message, loading: false });
     }
   },
