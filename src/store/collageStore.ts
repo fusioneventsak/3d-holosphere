@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import { supabase, getFileUrl } from '../lib/supabase';
+import { supabase, getFileUrl, addCacheBustToUrl, normalizeFileExtension } from '../lib/supabase';
 import { defaultSettings, type SceneSettings } from './sceneStore';
 
 type Collage = {
@@ -74,10 +74,15 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             .select('*')
             .eq('collage_id', collageId)
             .order('created_at', { ascending: true });
+            // Add cache busting to URLs
+            const photosWithTimestamp = data.map(photo => ({
+              ...photo,
+              url: addCacheBustToUrl(normalizeFileExtension(photo.url))
+            }));
             
           if (!error && data) {
             console.log(`Updated photos list received: ${data.length} photos`);
-            set({ photos: data as Photo[] });
+            set({ photos: photosWithTimestamp as Photo[] });
           } else {
             console.error('Error fetching updated photos:', error);
           }
@@ -407,7 +412,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       console.log('Upload successful, getting public URL');
 
       // Generate public URL using the helper
-      const publicUrl = getFileUrl('photos', filePath);
+      const publicUrl = getFileUrl('photos', filePath, { cacheBust: true });
       console.log('Public URL:', publicUrl);
 
       // Insert photo record
@@ -468,8 +473,13 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       
       console.log(`Found ${data?.length || 0} photos`);
       
-      // Store clean URLs without cache busting
-      set({ photos: data as Photo[], loading: false });
+      // Add cache busting to URLs
+      const photosWithTimestamp = data?.map(photo => ({
+        ...photo,
+        url: addCacheBustToUrl(normalizeFileExtension(photo.url))
+      })) || [];
+      
+      set({ photos: photosWithTimestamp as Photo[], loading: false });
     } catch (error: any) {
       console.error('Error in fetchPhotosByCollageId:', error);
       set({ error: error.message, loading: false });
