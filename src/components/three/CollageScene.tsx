@@ -169,6 +169,24 @@ const stripCacheBustingParams = (url: string): string => {
   }
 };
 
+// Function to add a cache-busting parameter to a URL
+const addCacheBustToUrl = (url: string): string => {
+  if (!url) return '';
+  try {
+    // First clean the URL of any existing cache-busting params
+    const cleanUrl = stripCacheBustingParams(url);
+    const urlObj = new URL(cleanUrl);
+    const timestamp = Date.now();
+    urlObj.searchParams.append('t', timestamp.toString());
+    return urlObj.toString();
+  } catch (e) {
+    // If URL parsing fails, add the parameter manually
+    console.warn('Failed to parse URL for cache busting:', url, e);
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
+};
+
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
@@ -188,39 +206,52 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   // Create new texture
   console.log(`Loading new texture: ${cleanUrl}`);
   
-  // Create a fallback texture
+  // Create a fallback texture that will be used if loading fails
   const fallbackTexture = createFallbackTexture();
+  
+  // Create a placeholder texture to return immediately while loading happens
+  const placeholderTexture = createEmptySlotTexture('#333333');
+  
+  // Add cache-busting parameter for Supabase storage URLs
+  let loadUrl = cleanUrl;
+  if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
+    loadUrl = addCacheBustToUrl(cleanUrl);
+    console.log(`Using cache-busted URL: ${loadUrl}`);
+  }
   
   // Load the actual texture
   const texture = textureLoader.load(
-    cleanUrl,
+    loadUrl,
     (loadedTexture) => {
       console.log(`Successfully loaded texture: ${cleanUrl}`);
       loadedTexture.needsUpdate = true;
+      // Update placeholder with loaded texture
+      placeholderTexture.image = loadedTexture.image;
+      placeholderTexture.needsUpdate = true;
     },
     undefined,
     (error) => {
       console.error(`Error loading texture: ${cleanUrl}`, error);
       
       // Apply the fallback's image to the failed texture
-      if (texture) {
-        texture.image = fallbackTexture.image;
-        texture.needsUpdate = true;
-      }
+      placeholderTexture.image = fallbackTexture.image;
+      placeholderTexture.needsUpdate = true;
     }
   );
   
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-  texture.anisotropy = 1;
+  // Configure texture settings
+  placeholderTexture.minFilter = THREE.LinearFilter;
+  placeholderTexture.magFilter = THREE.LinearFilter;
+  placeholderTexture.generateMipmaps = false;
+  placeholderTexture.anisotropy = 1;
   
+  // Cache the placeholder texture
   textureCache.set(cleanUrl, {
-    texture,
+    texture: placeholderTexture,
     lastUsed: Date.now()
   });
   
-  return texture;
+  return placeholderTexture;
 };
 
 const cleanupTexture = (url: string) => {
@@ -792,12 +823,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
       console.log('Available user photos:', photos.length > 0 ? photos : 'None');
       
-      // Process user photos - don't add any additional cache-busting parameters
-      const processedUserPhotos = photos.map(photo => ({
-        ...photo,
-        url: stripCacheBustingParams(photo.url) // Clean URL before using
-      }));
-      
       // If stock photos are enabled but none were found, automatically disable the option
       if (settings.useStockPhotos && stockPhotos.length === 0) {
         console.warn('Stock photos enabled but none available - using empty slots instead');
@@ -807,6 +832,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           onSettingsChange({ useStockPhotos: false });
         }
       }
+      
+      // Process user photos - don't add any additional cache-busting parameters
+      const processedUserPhotos = photos.map(photo => ({
+        ...photo,
+        url: stripCacheBustingParams(photo.url) // Clean URL before using
+      }));
       
       // Create photo list with user photos and stock photos or empty slots
       const userPhotos = Array.isArray(processedUserPhotos) ? processedUserPhotos : [];

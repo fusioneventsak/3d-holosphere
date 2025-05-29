@@ -19,6 +19,14 @@ type Photo = {
   created_at: string;
 };
 
+// Helper to add cache busting to photo URLs
+const addCacheBustToUrl = (url: string): string => {
+  if (!url) return '';
+  const timestamp = Date.now();
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${timestamp}`;
+};
+
 type CollageState = {
   collages: Collage[];
   currentCollage: Collage | null;
@@ -35,14 +43,6 @@ type CollageState = {
   updateCollageSettings: (collageId: string, settings: Partial<SceneSettings>) => Promise<any>;
   uploadPhoto: (collageId: string, file: File) => Promise<Photo | null>;
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
-};
-
-// Helper to add cache busting to photo URLs
-const addCacheBustToUrl = (url: string): string => {
-  if (!url) return '';
-  const timestamp = Date.now();
-  const separator = url.includes('?') ? '&' : '?';
-  return `${url}${separator}t=${timestamp}`;
 };
 
 export const useCollageStore = create<CollageState>((set, get) => ({
