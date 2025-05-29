@@ -16,6 +16,7 @@ const CollageEditorPage: React.FC = () => {
   const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
   const { settings, updateSettings: updateSceneSettings, resetSettings } = useSceneStore();
   const [activeTab, setActiveTab] = React.useState<Tab>('settings');
+  const [updateError, setUpdateError] = React.useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,16 +33,26 @@ const CollageEditorPage: React.FC = () => {
   }, [currentCollage?.settings, updateSceneSettings]);
 
   // Handle settings updates
-  const handleSettingsChange = async (newSettings: Partial<SceneSettings>) => {
+  const handleSettingsChange = async (newSettings: Partial<typeof settings>, debounce: boolean = false) => {
     // Update local scene state
-    updateSceneSettings(newSettings);
+    updateSceneSettings(newSettings, debounce);
     
-    // Persist to database
-    if (currentCollage) {
-      await useCollageStore.getState().updateCollageSettings(
-        currentCollage.id,
-        { ...settings, ...newSettings }
-      );
+    // Clear previous errors
+    setUpdateError(null);
+    
+    if (!debounce) {
+      // Persist to database
+      if (currentCollage && id) {
+        try {
+          // Merge with current settings
+          const mergedSettings = { ...settings, ...newSettings };
+          
+          await useCollageStore.getState().updateCollageSettings(id, mergedSettings);
+        } catch (err: any) {
+          console.error('Settings update error:', err);
+          setUpdateError(err.message || 'Failed to update settings');
+        }
+      }
     }
   };
 
@@ -97,6 +108,12 @@ const CollageEditorPage: React.FC = () => {
             </h1>
           </div>
         </div>
+
+        {updateError && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
+            Error updating settings: {updateError}
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex space-x-4 mb-6">
