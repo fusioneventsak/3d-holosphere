@@ -69,3 +69,5 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   
   return placeholderTexture;
 };
+
+export default loadTexture
