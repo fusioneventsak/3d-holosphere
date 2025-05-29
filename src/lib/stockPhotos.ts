@@ -6,16 +6,16 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Fallback stock photos in case database call fails
 const FALLBACK_STOCK_PHOTOS = [
-  'https://images.pexels.com/photos/1266810/pexels-photo-1266810.jpeg',
-  'https://images.pexels.com/photos/1366630/pexels-photo-1366630.jpeg',
-  'https://images.pexels.com/photos/1366957/pexels-photo-1366957.jpeg',
-  'https://images.pexels.com/photos/1386604/pexels-photo-1386604.jpeg',
-  'https://images.pexels.com/photos/1327354/pexels-photo-1327354.jpeg',
-  'https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg',
-  'https://images.pexels.com/photos/572897/pexels-photo-572897.jpeg',
-  'https://images.pexels.com/photos/1485894/pexels-photo-1485894.jpeg',
-  'https://images.pexels.com/photos/1770809/pexels-photo-1770809.jpeg',
-  'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg'
+  'https://images.pexels.com/photos/1839564/pexels-photo-1839564.jpeg',
+  'https://images.pexels.com/photos/2896853/pexels-photo-2896853.jpeg',
+  'https://images.pexels.com/photos/3876394/pexels-photo-3876394.jpeg',
+  'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
+  'https://images.pexels.com/photos/3812207/pexels-photo-3812207.jpeg',
+  'https://images.pexels.com/photos/3393570/pexels-photo-3393570.jpeg',
+  'https://images.pexels.com/photos/7108133/pexels-photo-7108133.jpeg',
+  'https://images.pexels.com/photos/789822/pexels-photo-789822.jpeg',
+  'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg',
+  'https://images.pexels.com/photos/1987301/pexels-photo-1987301.jpeg'
 ];
 
 export const getStockPhotos = async (): Promise<string[]> => {
@@ -29,7 +29,9 @@ export const getStockPhotos = async (): Promise<string[]> => {
     console.log('Fetching stock photos from database');
     const { data, error } = await supabase
       .from('stock_photos')
-      .select('url');
+      .select('url')
+      .eq('category', 'people')
+      .limit(20);
 
     if (error) {
       console.error('Error fetching stock photos:', error);
