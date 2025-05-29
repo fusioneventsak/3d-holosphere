@@ -10,6 +10,70 @@ const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
+// Helper function to create an empty slot texture
+const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Helper function to create a fallback texture
+const createFallbackTexture = (): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  
+  // Create a gradient background
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, '#ff6b6b');
+  gradient.addColorStop(1, '#cc5555');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add error text
+  ctx.fillStyle = 'white';
+  ctx.font = '24px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Error loading', canvas.width / 2, canvas.height / 2 - 15);
+  ctx.fillText('image', canvas.width / 2, canvas.height / 2 + 15);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Helper function to strip cache busting parameters from URLs
+const stripCacheBustingParams = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    urlObj.searchParams.delete('t');
+    return urlObj.toString();
+  } catch (e) {
+    return url;
+  }
+};
+
+// Helper function to add cache busting to URLs
+const addCacheBustToUrl = (url: string): string => {
+  if (!url) return '';
+  const timestamp = Date.now();
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${timestamp}`;
+};
+
 // Update the loadTexture function with improved error handling and retries
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
