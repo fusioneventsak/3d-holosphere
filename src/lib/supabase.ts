@@ -85,18 +85,23 @@ export const extractSupabaseInfo = (url: string): { collageId: string | null; fi
     return { collageId: null, filePath: null };
   } catch (e) {
     console.error('Failed to extract Supabase info from URL:', url, e);
-      return { collageId, filePath };
-    }
+    return { collageId: null, filePath: null };
+  }
 };
 
 // Get file URL with optional cache busting
 export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: boolean } = {}): string => {
-  // Ensure the path is properly formatted for collage photos
-  if (bucket === 'photos' && !path.startsWith('collages/')) {
-    path = `collages/${path}`;
+  if (!path) {
+    console.warn('No path provided to getFileUrl');
+    return '';
   }
+
+  // Ensure the path is properly formatted for collage photos
+  const formattedPath = bucket === 'photos' && !path.startsWith('collages/') 
+    ? `collages/${path}`
+    : path;
   
-  let url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
+  let url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${formattedPath}`;
   url = normalizeFileExtension(url);
   if (options.cacheBust) {
     url = addCacheBustToUrl(url);

@@ -198,8 +198,18 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
         retryCount++;
         setTimeout(() => {
           console.log(`Retrying load (${retryCount}/${maxRetries}) with new URL...`);
+          
           // Generate a fresh URL with cache busting
-          const retryUrl = isSupabaseStorageUrl(url) ? getFileUrl('photos', extractSupabaseInfo(url).filePath!, { cacheBust: true }) : url;
+          let retryUrl = loadUrl;
+          if (isSupabaseStorageUrl(url)) {
+            const info = extractSupabaseInfo(url);
+            if (info.filePath) {
+              retryUrl = getFileUrl('photos', info.filePath, { cacheBust: true });
+            } else {
+              retryUrl = addCacheBustToUrl(url);
+            }
+          }
+          
           tempImage.src = retryUrl;
         }, 1000 * retryCount); // Increase delay with each retry
       } else {
