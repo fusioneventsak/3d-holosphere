@@ -10,7 +10,6 @@ import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
 import JoinCollage from './pages/JoinCollage';
-import StockPhotoManager from './pages/StockPhotoManager';
 
 function App() {
   return (
@@ -25,7 +24,6 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
         <Route path="/moderation/:id" element={<CollageModerationPage />} />
-        <Route path="/admin/stock-photos" element={<StockPhotoManager />} />
       </Routes>
     </Router>
   );
