@@ -308,8 +308,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
   useFrame((state, delta) => {
     if (!meshRef.current || !animationEnabled || !camera) return;
     
-    const baseHeight = 4; // Minimum height above floor
-    
     // Use consistent time steps for animations
     const timeStep = delta * speed;
     animationState.current.time = Math.fround(animationState.current.time + timeStep);
@@ -324,6 +322,10 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
 
     const totalPhotos = settings.photoCount;
     const { x: baseX, y: baseY, z: baseZ } = animationState.current.initialPosition;
+
+    // Calculate a minimum height for all patterns to ensure they're above the floor
+    // FLOOR_HEIGHT is -2, so adding a minimum of 3 units will position everything at least 1 unit above the floor
+    const minHeightAboveFloor = 3;
 
     switch (pattern) {
       case 'grid': {
@@ -347,30 +349,36 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
         
         const xOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
         const yOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
-        const baseHeight = 2; // Minimum height above floor
+        
+        // Position photos above the floor by minHeightAboveFloor + settings.wallHeight
+        const heightAboveFloor = minHeightAboveFloor + settings.wallHeight;
         
         mesh.position.set(
           Math.fround(xOffset + (col * horizontalSpacing)),
-          Math.fround(baseHeight + yOffset + (row * verticalSpacing) + settings.wallHeight + Math.abs(FLOOR_HEIGHT)),
-          wall === 'back' ? -2 : 2 // Position photos on front or back wall
+          Math.fround(FLOOR_HEIGHT + heightAboveFloor + yOffset + (row * verticalSpacing)),
+          0 // Center over the floor
         );
         
-        mesh.rotation.set(0, wall === 'back' ? Math.PI : 0, 0);
+        // Keep rotation facing forward
+        mesh.rotation.set(0, 0, 0);
         break;
       }
 
       case 'float': {
-        const maxSpread = settings.floorSize * 0.4;
-        const verticalRange = settings.cameraHeight * 0.4;
-        const floatY = baseHeight + baseY + Math.sin(phase * 0.5) * verticalRange * animationState.current.transitionProgress;
+        const maxSpread = settings.floorSize * 0.4; // Constrain to floor size
+        const verticalRange = settings.cameraHeight * 0.3;
         
-        // Calculate drift motion using baseX and baseZ from initialPosition
-        const driftX = baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
-        const driftZ = baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress;
+        // Calculate height above floor with animation
+        const heightAboveFloor = minHeightAboveFloor + Math.sin(phase * 0.5) * verticalRange * animationState.current.transitionProgress;
+        
+        // Calculate drift motion using baseX and baseZ, constrained to floor bounds
+        const maxPosition = settings.floorSize * 0.4;
+        const driftX = Math.max(-maxPosition, Math.min(maxPosition, baseX + Math.sin(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress));
+        const driftZ = Math.max(-maxPosition, Math.min(maxPosition, baseZ + Math.cos(phase * 0.5) * (maxSpread * 0.2) * animationState.current.transitionProgress));
         
         mesh.position.set(
           driftX,
-          Math.max(baseHeight, floatY),
+          FLOOR_HEIGHT + heightAboveFloor,
           driftZ
         );
         
@@ -382,22 +390,27 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
       }
 
       case 'wave': {
-        const waveAmplitude = settings.cameraHeight * 0.3;
+        const waveAmplitude = settings.cameraHeight * 0.2;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const gridSpacing = Math.min(settings.floorSize / gridSize, settings.photoSize * 3);
         
-        // Calculate grid position
+        // Calculate grid position to distribute over floor
         const col = index % gridSize;
         const row = Math.floor(index / gridSize);
         
-        // Center the grid
-        const xPos = Math.fround((col - gridSize / 2) * gridSpacing + baseX * 0.2);
-        const zPos = Math.fround((row - gridSize / 2) * gridSpacing + baseZ * 0.2);
+        // Center the grid on the floor
+        const maxPosition = settings.floorSize * 0.4;
+        const xPos = Math.max(-maxPosition, Math.min(maxPosition, 
+          Math.fround((col - gridSize / 2) * gridSpacing + baseX * 0.2)
+        ));
+        const zPos = Math.max(-maxPosition, Math.min(maxPosition, 
+          Math.fround((row - gridSize / 2) * gridSpacing + baseZ * 0.2)
+        ));
         
-        // Calculate wave motion
+        // Calculate wave motion above the floor
         const distance = Math.sqrt(xPos * xPos + zPos * zPos);
         const wavePhase = phase * 0.8 + distance * 0.1;
-        const waveY = baseHeight + Math.sin(wavePhase) * waveAmplitude * animationState.current.transitionProgress + baseY * 0.3;
+        const waveY = minHeightAboveFloor + Math.sin(wavePhase) * waveAmplitude * animationState.current.transitionProgress;
         
         // Add slight circular motion
         const circleX = Math.sin(phase * 0.2) * gridSpacing * 0.1 * animationState.current.transitionProgress;
@@ -405,7 +418,7 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
         
         mesh.position.set(
           xPos + circleX,
-          Math.max(baseHeight, waveY),
+          FLOOR_HEIGHT + waveY,
           zPos + circleZ
         );
         
@@ -417,24 +430,25 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
       }
 
       case 'spiral': {
-        const maxRadius = Math.min(settings.floorSize * 0.25, totalPhotos * settings.photoSize * 0.5);
-        const maxHeight = settings.cameraHeight;
+        // Constrain spiral to floor size
+        const maxRadius = Math.min(settings.floorSize * 0.4, totalPhotos * settings.photoSize * 0.3);
+        const maxHeight = settings.cameraHeight * 0.7;
         const angleStep = (Math.PI * 2) / totalPhotos;
         const heightStep = maxHeight / totalPhotos;
         
         const angle = (index * angleStep) + (phase * settings.animationSpeed * animationState.current.transitionProgress);
-        const height = (maxHeight - (index * heightStep));
-        const radius = maxRadius * (1 - (index / totalPhotos));
+        const height = (maxHeight * 0.5) - (index * heightStep); // Centered height
+        const radius = maxRadius * (1 - (index / totalPhotos)) * 0.8;
         
-        let spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress + baseX * 0.1);
-        const spiralZ = Math.fround(Math.sin(angle) * radius * animationState.current.transitionProgress + baseZ * 0.1);
+        const spiralX = Math.fround(Math.cos(angle) * radius * animationState.current.transitionProgress);
+        const spiralZ = Math.fround(Math.sin(angle) * radius * animationState.current.transitionProgress);
         
-        // Add vertical oscillation
-        const oscillation = Math.sin(phase * 2 + index * 0.1) * 2 * animationState.current.transitionProgress;
+        // Add vertical oscillation, always staying above floor
+        const oscillation = Math.sin(phase * 2 + index * 0.1) * 1.5 * animationState.current.transitionProgress;
         
         mesh.position.set(
           spiralX,
-          Math.max(baseHeight, height + baseHeight + oscillation),
+          FLOOR_HEIGHT + minHeightAboveFloor + height + oscillation,
           spiralZ
         );
         
@@ -506,21 +520,23 @@ const PhotosContainer: React.FC<{ photos: Photo[], settings: SceneSettings }> = 
     const verticalSpacing = photoHeight * (1 + settings.photoSpacing);
     const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
     
+    // Initial positions above the floor for the grid pattern
+    // These will be overridden by animation logic but provide reasonable starting points
+    const minHeightAboveFloor = 3; // At least 3 units above floor
+    
     return photos.map((photo, index) => {
       const col = index % gridWidth;
       const row = Math.floor(index / gridWidth);
       
       // Center the grid horizontally and vertically
       const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-      const gridYOffset = settings.wallHeight + ((gridHeight - 1) * verticalSpacing) * -0.5;
+      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
       const x = gridXOffset + (col * horizontalSpacing);
-      const y = gridYOffset + (row * verticalSpacing);
+      const y = FLOOR_HEIGHT + minHeightAboveFloor + gridYOffset + (row * verticalSpacing);
       
-      // Position photos on front or back wall
-      const z = photo.wall === 'back' ? -2 : 2;
-      
-      const position: [number, number, number] = [x, y, z];
-      const rotation: [number, number, number] = [0, photo.wall === 'back' ? Math.PI : 0, 0];
+      // Initial position centered over floor
+      const position: [number, number, number] = [x, y, 0];
+      const rotation: [number, number, number] = [0, 0, 0];
       
       return {
         key: photo.id,
