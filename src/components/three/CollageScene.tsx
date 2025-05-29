@@ -186,100 +186,53 @@ const PhotoFrame: React.FC<{
   );
 };
 
-interface CollageSceneProps {
+// Scene content component that uses R3F hooks
+const SceneContent: React.FC<{
   photos: Array<{ url: string; id: string }>;
   settings: SceneSettings;
-  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
-}
-
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
-  const {
-    gridSize = 200,
-    floorSize = 200,
-    gridColor = '#444444',
-    photoSize = 0.8,
-    floorColor = '#1A1A1A',
-    photoCount = 50,
-    wallHeight = 0,
-    gridEnabled = true,
-    gridOpacity = 1.0,
-    cameraHeight = 10,
-    floorEnabled = true,
-    floorOpacity = 0.8,
-    photoSpacing = 0,
-    cameraEnabled = true,
-    gridDivisions = 30,
-    animationSpeed = 0.5,
-    cameraDistance = 25,
-    emptySlotColor = '#1A1A1A',
-    floorMetalness = 0.4,
-    floorRoughness = 0.5,
-    spotlightAngle = Math.PI / 4,
-    spotlightColor = '#ffffff',
-    spotlightCount = 2,
-    spotlightWidth = 0.8,
-    useStockPhotos = true,
-    backgroundColor = '#000000',
-    gridAspectRatio = 1.5,
-    spotlightHeight = 15,
-    animationEnabled = false,
-    animationPattern = 'grid',
-    floorReflectivity = 0.6,
-    spotlightDistance = 30,
-    spotlightPenumbra = 0.8,
-    backgroundGradient = false,
-    spotlightIntensity = 100.0,
-    cameraRotationSpeed = 0.2,
-    ambientLightIntensity = 0.5
-  } = settings;
-
-  // Camera controls setup
+}> = ({ photos, settings }) => {
   const controlsRef = useRef<any>();
-  
-  // Animation frame counter
   const frameCount = useRef(0);
 
   // Calculate grid positions
   const positions = useMemo(() => {
     const pos: [number, number, number][] = [];
-    const cols = Math.ceil(Math.sqrt(photoCount) * gridAspectRatio);
-    const rows = Math.ceil(photoCount / cols);
-    const spacing = photoSize + photoSpacing;
+    const cols = Math.ceil(Math.sqrt(settings.photoCount) * settings.gridAspectRatio);
+    const rows = Math.ceil(settings.photoCount / cols);
+    const spacing = settings.photoSize + settings.photoSpacing;
     
-    for (let i = 0; i < photoCount; i++) {
+    for (let i = 0; i < settings.photoCount; i++) {
       const col = i % cols;
       const row = Math.floor(i / cols);
       const x = (col - (cols - 1) / 2) * spacing;
       const z = (row - (rows - 1) / 2) * spacing;
-      const y = wallHeight;
+      const y = settings.wallHeight;
       pos.push([x, y, z]);
     }
     
     return pos;
-  }, [photoCount, photoSize, photoSpacing, wallHeight, gridAspectRatio]);
+  }, [settings]);
 
   // Camera animation
   useFrame((state) => {
-    if (cameraEnabled && controlsRef.current) {
-      if (animationEnabled) {
-        frameCount.current += animationSpeed;
+    if (settings.cameraEnabled && controlsRef.current) {
+      if (settings.animationEnabled) {
+        frameCount.current += settings.animationSpeed;
         
-        // Different animation patterns
-        switch (animationPattern) {
+        switch (settings.animationPattern) {
           case 'orbit':
             controlsRef.current.setAzimuthalAngle(
-              frameCount.current * 0.01 * cameraRotationSpeed
+              frameCount.current * 0.01 * settings.cameraRotationSpeed
             );
             break;
           case 'wave':
             controlsRef.current.setAzimuthalAngle(
-              Math.sin(frameCount.current * 0.01) * cameraRotationSpeed
+              Math.sin(frameCount.current * 0.01) * settings.cameraRotationSpeed
             );
             break;
           default:
-            // Default grid pattern
             controlsRef.current.setAzimuthalAngle(
-              Math.sin(frameCount.current * 0.005) * cameraRotationSpeed
+              Math.sin(frameCount.current * 0.005) * settings.cameraRotationSpeed
             );
         }
       }
@@ -287,13 +240,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   });
 
   return (
-    <Canvas
-      style={{ background: backgroundColor }}
-      camera={{ position: [0, cameraHeight, cameraDistance], fov: 75 }}
-    >
+    <>
       <LoadingIndicator />
       
-      {/* Camera Controls */}
       <OrbitControls
         ref={controlsRef}
         enableDamping
@@ -304,65 +253,61 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         maxPolarAngle={Math.PI / 2}
       />
       
-      {/* Lighting */}
-      <ambientLight intensity={ambientLightIntensity} />
+      <ambientLight intensity={settings.ambientLightIntensity} />
       
-      {Array.from({ length: spotlightCount }).map((_, i) => {
-        const angle = (i / spotlightCount) * Math.PI * 2;
-        const x = Math.cos(angle) * spotlightDistance;
-        const z = Math.sin(angle) * spotlightDistance;
+      {Array.from({ length: settings.spotlightCount }).map((_, i) => {
+        const angle = (i / settings.spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * settings.spotlightDistance;
+        const z = Math.sin(angle) * settings.spotlightDistance;
         
         return (
           <spotLight
             key={i}
-            position={[x, spotlightHeight, z]}
-            angle={spotlightAngle}
-            penumbra={spotlightPenumbra}
-            intensity={spotlightIntensity}
-            color={spotlightColor}
-            distance={spotlightDistance * 2}
+            position={[x, settings.spotlightHeight, z]}
+            angle={settings.spotlightAngle}
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity}
+            color={settings.spotlightColor}
+            distance={settings.spotlightDistance * 2}
           />
         );
       })}
       
-      {/* Floor */}
-      {floorEnabled && (
+      {settings.floorEnabled && (
         <Plane
-          args={[floorSize, floorSize]}
+          args={[settings.floorSize, settings.floorSize]}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
         >
           <meshStandardMaterial
-            color={floorColor}
+            color={settings.floorColor}
             transparent
-            opacity={floorOpacity}
-            metalness={floorMetalness}
-            roughness={floorRoughness}
+            opacity={settings.floorOpacity}
+            metalness={settings.floorMetalness}
+            roughness={settings.floorRoughness}
           />
         </Plane>
       )}
       
-      {/* Grid */}
-      {gridEnabled && (
+      {settings.gridEnabled && (
         <Grid
-          args={[gridSize, gridSize, gridDivisions, gridDivisions]}
+          args={[settings.gridSize, settings.gridSize, settings.gridDivisions, settings.gridDivisions]}
           position={[0, 0.01, 0]}
-          cellColor={gridColor}
-          sectionColor={gridColor}
-          fadeDistance={cameraDistance * 2}
+          cellColor={settings.gridColor}
+          sectionColor={settings.gridColor}
+          fadeDistance={settings.cameraDistance * 2}
           fadeStrength={1}
           transparent
-          opacity={gridOpacity}
+          opacity={settings.gridOpacity}
         />
       )}
       
-      {/* Photos */}
       {positions.map((position, index) => {
         const photo = photos[index];
         const rotation: [number, number, number] = [0, 0, 0];
         
-        if (animationEnabled) {
-          switch (animationPattern) {
+        if (settings.animationEnabled) {
+          switch (settings.animationPattern) {
             case 'wave':
               rotation[0] = Math.sin(frameCount.current * 0.02 + index * 0.1) * 0.1;
               break;
@@ -378,11 +323,29 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
             position={position}
             rotation={rotation}
             url={photo?.url || ''}
-            scale={photoSize}
-            emptySlotColor={emptySlotColor}
+            scale={settings.photoSize}
+            emptySlotColor={settings.emptySlotColor}
           />
         );
       })}
+    </>
+  );
+};
+
+// Main CollageScene component
+interface CollageSceneProps {
+  photos: Array<{ url: string; id: string }>;
+  settings: SceneSettings;
+  onSettingsChange?: (settings: Partial<SceneSettings>) => void;
+}
+
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+  return (
+    <Canvas
+      style={{ background: settings.backgroundColor }}
+      camera={{ position: [0, settings.cameraHeight, settings.cameraDistance], fov: 75 }}
+    >
+      <SceneContent photos={photos} settings={settings} />
     </Canvas>
   );
 };
