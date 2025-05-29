@@ -222,7 +222,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <group position={[0, -2, 0]}>
-      {/* Floor mesh */}
+      {/* Floor material */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -234,9 +234,9 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         />
       </mesh>
       
-      {/* Grid overlay */}
+      {/* Grid overlay - positioned slightly above the floor to prevent z-fighting */}
       {settings.gridEnabled && (
-        <group position={[0, 0.01, 0]}>
+        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <Grid
             args={[settings.floorSize, settings.floorSize]}
             cellSize={1}
@@ -246,9 +246,8 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             fadeDistance={30}
             fadeStrength={1}
             infiniteGrid={false}
-            rotation={[-Math.PI / 2, 0, 0]}
           />
-        </group>
+        </mesh>
       )}
     </group>
   );
