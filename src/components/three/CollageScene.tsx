@@ -111,6 +111,7 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
     url = normalizeFileExtension(url);
     
     const info = extractSupabaseInfo(url);
+    console.log('Extracted Supabase info:', info);
     
     // If we have a collage ID but it doesn't match the URL's collage ID, regenerate the URL
     if (collageId && info.collageId && collageId !== info.collageId) {
@@ -122,7 +123,7 @@ const loadTexture = (url: string, collageId?: string, emptySlotColor: string = '
       
       // Regenerate URL through Supabase's getFileUrl function
       const bucket = 'photos';
-      const newPath = `${collageId}/${fileName}`;
+      const newPath = `collages/${collageId}/${fileName}`;
       url = getFileUrl(bucket, newPath, { cacheBust: true });
       
       console.log(`Regenerated URL: ${url}`);

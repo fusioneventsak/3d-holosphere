@@ -421,7 +421,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
       // Store photos in collage-specific folders
-      const filePath = `collages/${collageId}/${fileName}`;
+      const filePath = `${collageId}/${fileName}`;
 
       console.log(`Uploading file to ${filePath} with content type ${contentType}`);
 

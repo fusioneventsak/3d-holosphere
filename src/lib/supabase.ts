@@ -66,28 +66,41 @@ export const extractSupabaseInfo = (url: string): { collageId: string | null; fi
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/');
-    const publicIndex = pathParts.indexOf('public');
+    // Find the index after 'photos' in the path
+    const photosIndex = pathParts.indexOf('photos');
     
-    if (publicIndex !== -1 && publicIndex + 2 < pathParts.length) {
-      const bucket = pathParts[publicIndex + 1];
-      const collageId = pathParts[publicIndex + 2];
-      const filePath = pathParts.slice(publicIndex + 2).join('/');
-      return { collageId, filePath };
+    if (photosIndex !== -1 && photosIndex + 2 < pathParts.length) {
+      // The collage ID should be in the 'collages' folder
+      const collagesIndex = pathParts.indexOf('collages', photosIndex);
+      if (collagesIndex !== -1 && collagesIndex + 1 < pathParts.length) {
+        const collageId = pathParts[collagesIndex + 1];
+        // Get everything after 'photos'
+        const filePath = pathParts.slice(photosIndex + 1).join('/');
+        console.log('Extracted info:', { collageId, filePath });
+        return { collageId, filePath };
+      }
     }
     
+    console.warn('Could not extract info from URL:', url);
     return { collageId: null, filePath: null };
   } catch (e) {
-    console.warn('Failed to extract Supabase info from URL:', url);
-    return { collageId: null, filePath: null };
-  }
+    console.error('Failed to extract Supabase info from URL:', url, e);
+      return { collageId, filePath };
+    }
 };
 
 // Get file URL with optional cache busting
 export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: boolean } = {}): string => {
+  // Ensure the path is properly formatted for collage photos
+  if (bucket === 'photos' && !path.startsWith('collages/')) {
+    path = `collages/${path}`;
+  }
+  
   let url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
   url = normalizeFileExtension(url);
   if (options.cacheBust) {
     url = addCacheBustToUrl(url);
   }
+  console.log('Generated URL:', url);
   return url;
 };
