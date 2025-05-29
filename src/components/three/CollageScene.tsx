@@ -11,72 +11,6 @@ type Photo = {
   wall?: 'front' | 'back';
 };
 
-const generatePhotoList = (userPhotos: Photo[], maxCount: number, useStockPhotos: boolean, stockPhotos: string[]): Photo[] => {
-  console.log(`Generating photo list with ${userPhotos.length} user photos, ${stockPhotos.length} stock photos available`);
-  console.log(`useStockPhotos setting: ${useStockPhotos}, photoCount: ${maxCount}`);
-  
-  // Create a new array with all available user photos (up to maxCount)
-  const result = [...userPhotos.slice(0, maxCount)];
-  
-  // Calculate how many more photos we need
-  const photosNeeded = maxCount - result.length;
-  console.log(`Need ${photosNeeded} more photos to reach requested count of ${maxCount}`);
-  
-  // Add stock photos or empty slots based on settings
-  if (photosNeeded > 0) {
-    if (useStockPhotos && stockPhotos.length > 0) {
-      console.log(`Adding ${photosNeeded} stock photos`);
-      
-      for (let i = 0; i < photosNeeded; i++) {
-        const stockIndex = Math.floor(Math.random() * stockPhotos.length);
-        const stockUrl = stockPhotos[stockIndex];
-        
-        result.push({
-          id: `stock-${Date.now()}-${i}-${stockIndex}`, // Ensure truly unique IDs
-          url: stockUrl
-        });
-      }
-    } else {
-      console.log(`Adding ${photosNeeded} empty slots (stock photos disabled or unavailable)`);
-      
-      for (let i = 0; i < photosNeeded; i++) {
-        result.push({
-          id: `empty-${Date.now()}-${i}`,
-          url: ''
-        });
-      }
-    }
-  }
-  
-  console.log(`Final photo list contains ${result.length} items`);
-  return result;
-};
-
-// Create gradient background shader
-const gradientShader = {
-  uniforms: {
-    colorA: { value: new THREE.Color() },
-    colorB: { value: new THREE.Color() },
-    gradientAngle: { value: 0 }
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform vec3 colorA;
-    uniform vec3 colorB;
-    varying vec2 vUv;
-    
-    void main() {
-      gl_FragColor = vec4(mix(colorA, colorB, 1.0 - vUv.y), 1.0);
-    }
-  `
-};
-
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
@@ -145,25 +79,11 @@ const stripCacheBustingParams = (url: string): string => {
   
   try {
     const urlObj = new URL(url);
-    
-    // Create a new URLSearchParams object from the original search params
     const params = new URLSearchParams(urlObj.search);
-    
-    // Remove all 't' parameters (cache busting timestamps)
-    const paramEntries = Array.from(params.entries());
-    const cleanParams = new URLSearchParams();
-    
-    paramEntries.forEach(([key, value]) => {
-      if (key !== 't') {
-        cleanParams.append(key, value);
-      }
-    });
-    
-    // Rebuild URL without the 't' parameters
-    urlObj.search = cleanParams.toString();
+    params.delete('t'); // Remove cache-busting parameter
+    urlObj.search = params.toString();
     return urlObj.toString();
   } catch (e) {
-    // If URL parsing fails, return the original URL
     console.warn('Failed to parse URL:', url, e);
     return url;
   }
@@ -173,14 +93,11 @@ const stripCacheBustingParams = (url: string): string => {
 const addCacheBustToUrl = (url: string): string => {
   if (!url) return '';
   try {
-    // First clean the URL of any existing cache-busting params
     const cleanUrl = stripCacheBustingParams(url);
     const urlObj = new URL(cleanUrl);
-    const timestamp = Date.now();
-    urlObj.searchParams.append('t', timestamp.toString());
+    urlObj.searchParams.append('t', Date.now().toString());
     return urlObj.toString();
   } catch (e) {
-    // If URL parsing fails, add the parameter manually
     console.warn('Failed to parse URL for cache busting:', url, e);
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}t=${Date.now()}`;
@@ -203,9 +120,6 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     return entry.texture;
   }
   
-  // Create new texture
-  console.log(`Loading new texture: ${cleanUrl}`);
-  
   // Create a fallback texture that will be used if loading fails
   const fallbackTexture = createFallbackTexture();
   
@@ -216,15 +130,18 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   let loadUrl = cleanUrl;
   if (cleanUrl.includes('supabase.co/storage/v1/object/public')) {
     loadUrl = addCacheBustToUrl(cleanUrl);
-    console.log(`Using cache-busted URL: ${loadUrl}`);
   }
   
   // Load the actual texture
-  const texture = textureLoader.load(
+  textureLoader.load(
     loadUrl,
     (loadedTexture) => {
-      console.log(`Successfully loaded texture: ${cleanUrl}`);
-      loadedTexture.needsUpdate = true;
+      // Configure texture settings
+      loadedTexture.minFilter = THREE.LinearFilter;
+      loadedTexture.magFilter = THREE.LinearFilter;
+      loadedTexture.generateMipmaps = false;
+      loadedTexture.anisotropy = 1;
+      
       // Update placeholder with loaded texture
       placeholderTexture.image = loadedTexture.image;
       placeholderTexture.needsUpdate = true;
@@ -232,14 +149,13 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     undefined,
     (error) => {
       console.error(`Error loading texture: ${cleanUrl}`, error);
-      
-      // Apply the fallback's image to the failed texture
+      // Apply fallback texture on error
       placeholderTexture.image = fallbackTexture.image;
       placeholderTexture.needsUpdate = true;
     }
   );
   
-  // Configure texture settings
+  // Configure placeholder texture settings
   placeholderTexture.minFilter = THREE.LinearFilter;
   placeholderTexture.magFilter = THREE.LinearFilter;
   placeholderTexture.generateMipmaps = false;
@@ -334,8 +250,22 @@ const SceneSetup: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         colorA: { value: new THREE.Color(settings.backgroundGradientStart) },
         colorB: { value: new THREE.Color(settings.backgroundGradientEnd) }
       },
-      vertexShader: gradientShader.vertexShader,
-      fragmentShader: gradientShader.fragmentShader,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 colorA;
+        uniform vec3 colorB;
+        varying vec2 vUv;
+        
+        void main() {
+          gl_FragColor = vec4(mix(colorA, colorB, 1.0 - vUv.y), 1.0);
+        }
+      `,
       depthWrite: false
     });
   }, [settings]);
@@ -628,76 +558,6 @@ const PhotoPlane: React.FC<PhotoPlaneProps> = ({
         renderOrder={url ? 2 : 1}
       />
     </mesh>
-  );
-};
-
-// Photos container component
-const PhotosContainer: React.FC<{ photos: Photo[], settings: SceneSettings }> = ({ photos, settings }) => {
-  const photoProps = useMemo(() => {
-    const totalPhotos = photos.length;
-    const baseAspectRatio = settings.gridAspectRatio || 1;
-    
-    // Calculate grid dimensions based on aspect ratio
-    let gridWidth, gridHeight;
-    if (baseAspectRatio >= 1) {
-      // Wider grid
-      gridWidth = Math.ceil(Math.sqrt(totalPhotos * baseAspectRatio));
-      gridHeight = Math.ceil(totalPhotos / gridWidth);
-    } else {
-      // Taller grid
-      gridHeight = Math.ceil(Math.sqrt(totalPhotos / baseAspectRatio));
-      gridWidth = Math.ceil(totalPhotos / gridHeight);
-    }
-    
-    // Calculate spacing
-    const photoHeight = settings.photoSize * 1.5;
-    const verticalSpacing = photoHeight * (1 + settings.photoSpacing);
-    const horizontalSpacing = settings.photoSize * (1 + settings.photoSpacing);
-    
-    // Initial positions above the floor for the grid pattern
-    // These will be overridden by animation logic but provide reasonable starting points
-    const minHeightAboveFloor = 3; // At least 3 units above floor
-    
-    return photos.map((photo, index) => {
-      const col = index % gridWidth;
-      const row = Math.floor(index / gridWidth);
-      
-      // Center the grid horizontally and vertically
-      const gridXOffset = ((gridWidth - 1) * horizontalSpacing) * -0.5;
-      const gridYOffset = ((gridHeight - 1) * verticalSpacing) * -0.5;
-      const x = gridXOffset + (col * horizontalSpacing);
-      const y = FLOOR_HEIGHT + minHeightAboveFloor + gridYOffset + (row * verticalSpacing);
-      
-      // Initial position centered over floor
-      const position: [number, number, number] = [x, y, 0];
-      const rotation: [number, number, number] = [0, 0, 0];
-      
-      return {
-        key: photo.id,
-        url: photo.url,
-        position,
-        rotation,
-        pattern: settings.animationPattern,
-        speed: settings.animationSpeed,
-        animationEnabled: settings.animationEnabled,
-        settings: settings,
-        size: settings.photoSize,
-        photos: photos,
-        index: index,
-        wall: photo.wall
-      };
-    });
-  }, [photos, settings]);
-
-  return (
-    <>
-      {photoProps.map((props) => (
-        <PhotoPlane 
-          key={props.key} 
-          {...props} 
-        />
-      ))}
-    </>
   );
 };
 
