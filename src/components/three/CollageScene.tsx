@@ -99,12 +99,14 @@ const addCacheBustToUrl = (url: string): string => {
   if (!url) return '';
   try {
     const urlObj = new URL(url);
-    const timestamp = Date.now();
-    urlObj.searchParams.set('t', timestamp.toString());
+    // Remove any existing cache-busting parameter
+    urlObj.searchParams.delete('t');
+    // Add new cache-busting parameter
+    urlObj.searchParams.set('t', Date.now().toString());
     return urlObj.toString();
   } catch (e) {
     console.warn('Failed to add cache bust to URL:', url, e);
-    // Fallback: append the cache-bust parameter directly
+    // If URL parsing fails, append the cache-bust parameter directly
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}t=${Date.now()}`;
   }

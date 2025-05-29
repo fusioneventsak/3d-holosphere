@@ -19,22 +19,6 @@ type Photo = {
   created_at: string;
 };
 
-// Helper to add cache busting to photo URLs
-const addCacheBustToUrl = (url: string): string => {
-  if (!url) return '';
-  try {
-    const urlObj = new URL(url);
-    const timestamp = Date.now();
-    urlObj.searchParams.set('t', timestamp.toString());
-    return urlObj.toString();
-  } catch (e) {
-    console.warn('Failed to add cache bust to URL:', url, e);
-    // If URL parsing fails, append the cache-bust parameter directly
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}t=${Date.now()}`;
-  }
-};
-
 type CollageState = {
   collages: Collage[];
   currentCollage: Collage | null;
@@ -93,14 +77,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             
           if (!error && data) {
             console.log(`Updated photos list received: ${data.length} photos`);
-            
-            // Add timestamp to URLs to avoid caching issues
-            const photosWithTimestamp = data.map(photo => ({
-              ...photo,
-              url: addCacheBustToUrl(photo.url)
-            }));
-            
-            set({ photos: photosWithTimestamp as Photo[] });
+            set({ photos: data as Photo[] });
           } else {
             console.error('Error fetching updated photos:', error);
           }
@@ -419,7 +396,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
-          contentType: file.type // Add the correct content type from the file
+          contentType: file.type
         });
 
       if (uploadError) {
@@ -429,15 +406,11 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log('Upload successful, getting public URL');
 
-      // Generate public URL using the new getFileUrl helper
+      // Generate public URL using the helper
       const publicUrl = getFileUrl('photos', filePath);
       console.log('Public URL:', publicUrl);
-      
-      // Add cache busting to URL for immediate display
-      const cacheBustUrl = addCacheBustToUrl(publicUrl);
-      console.log('URL with cache busting:', cacheBustUrl);
 
-      // Insert photo record with the clean URL (without cache busting)
+      // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -458,11 +431,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log('Successfully added photo to database:', photoData);
 
-      // Update local state with the cache-busted URL for immediate display
-      const newPhoto = {
-        ...photoData,
-        url: cacheBustUrl
-      } as Photo;
+      // Update local state with the clean URL
+      const newPhoto = photoData as Photo;
       
       set(state => ({ 
         photos: [...state.photos, newPhoto],
@@ -498,13 +468,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       
       console.log(`Found ${data?.length || 0} photos`);
       
-      // Add timestamp to URLs to prevent caching issues
-      const photosWithTimestamp = data?.map(photo => ({
-        ...photo,
-        url: addCacheBustToUrl(photo.url)
-      })) || [];
-      
-      set({ photos: photosWithTimestamp as Photo[], loading: false });
+      // Store clean URLs without cache busting
+      set({ photos: data as Photo[], loading: false });
     } catch (error: any) {
       console.error('Error in fetchPhotosByCollageId:', error);
       set({ error: error.message, loading: false });
