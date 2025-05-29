@@ -37,6 +37,14 @@ type CollageState = {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
 };
 
+// Helper to add cache busting to photo URLs
+const addCacheBustToUrl = (url: string): string => {
+  if (!url) return '';
+  const timestamp = Date.now();
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${timestamp}`;
+};
+
 export const useCollageStore = create<CollageState>((set, get) => ({
   collages: [],
   currentCollage: null,
@@ -45,6 +53,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   error: null,
   
   subscribeToPhotos: (collageId: string) => {
+    console.log(`Setting up real-time subscription for collage ${collageId}`);
+    
     const subscription = supabase
       .channel(`photos:${collageId}`)
       .on(
@@ -74,14 +84,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             .order('created_at', { ascending: true });
             
           if (!error && data) {
-            console.log('Updated photos list:', data);
+            console.log(`Updated photos list received: ${data.length} photos`);
             
             // Add timestamp to URLs to avoid caching issues
             const photosWithTimestamp = data.map(photo => ({
               ...photo,
-              url: photo.url.includes('?') 
-                ? `${photo.url}&t=${Date.now()}` 
-                : `${photo.url}?t=${Date.now()}`
+              url: addCacheBustToUrl(photo.url)
             }));
             
             set({ photos: photosWithTimestamp as Photo[] });
@@ -93,6 +101,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       .subscribe();
 
     return () => {
+      console.log(`Unsubscribing from photos for collage ${collageId}`);
       subscription.unsubscribe();
     };
   },
@@ -111,14 +120,20 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       // Extract storage path from URL
       const url = new URL(photo.url);
-      const storagePath = url.pathname.split('/').slice(-2).join('/');
+      const pathParts = url.pathname.split('/');
+      const storagePath = pathParts.slice(pathParts.indexOf('photos') + 1).join('/');
+
+      console.log(`Deleting photo from storage path: ${storagePath}`);
 
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('photos')
         .remove([storagePath]);
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.warn('Failed to delete photo from storage:', storageError);
+        // Continue with database deletion even if storage deletion fails
+      }
 
       // Delete from database
       const { error: deleteError } = await supabase
@@ -135,6 +150,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         error: null
       }));
     } catch (error: any) {
+      console.error('Delete photo error:', error);
       set({ 
         error: error.message || 'Failed to delete photo',
         loading: false
@@ -388,20 +404,18 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       const timestamp = Date.now();
       const { data: { publicUrl } } = supabase.storage
         .from('photos')
-        .getPublicUrl(filePath, {
-          download: false
-        });
+        .getPublicUrl(filePath);
 
       // Add timestamp to URL to prevent caching issues
-      const cacheBustUrl = `${publicUrl}?t=${timestamp}`;
-      console.log('Public URL:', cacheBustUrl);
+      const cacheBustUrl = addCacheBustToUrl(publicUrl);
+      console.log('Public URL with cache busting:', cacheBustUrl);
 
       // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
           collage_id: collageId,
-          url: cacheBustUrl
+          url: publicUrl // Store the clean URL without timestamp in the database
         }])
         .select()
         .single();
@@ -417,8 +431,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       console.log('Successfully added photo to database:', photoData);
 
-      // Update local state
-      const newPhoto = photoData as Photo;
+      // Update local state with the cache-busted URL
+      const newPhoto = {
+        ...photoData,
+        url: cacheBustUrl
+      } as Photo;
+      
       set(state => ({ 
         photos: [...state.photos, newPhoto],
         loading: false,
@@ -456,9 +474,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Add timestamp to URLs to prevent caching issues
       const photosWithTimestamp = data?.map(photo => ({
         ...photo,
-        url: photo.url.includes('?') 
-          ? `${photo.url}&t=${Date.now()}` 
-          : `${photo.url}?t=${Date.now()}`
+        url: addCacheBustToUrl(photo.url)
       })) || [];
       
       set({ photos: photosWithTimestamp as Photo[], loading: false });

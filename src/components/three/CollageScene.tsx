@@ -139,11 +139,24 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.CanvasTexture 
   return new THREE.CanvasTexture(canvas);
 };
 
+// Function to clean URL for better compatibility
+const cleanPhotoUrl = (url: string): string => {
+  if (!url) return '';
+  
+  // Add timestamp to URL to prevent caching issues
+  const timestamp = Date.now();
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}t=${timestamp}`;
+};
+
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   // For empty slots, create a simple colored texture
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
   }
+  
+  // Clean URL to prevent caching issues
+  const cleanedUrl = cleanPhotoUrl(url);
   
   // Check if texture is already cached
   if (textureCache.has(url)) {
@@ -153,30 +166,24 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
   }
   
   // Create new texture
-  console.log(`Loading new texture: ${url}`);
+  console.log(`Loading new texture: ${cleanedUrl}`);
   
-  // Add timestamp to URL to bypass cache for Supabase Storage URLs
-  let loadUrl = url;
-  if (url.includes('supabase.co/storage/v1/object/public')) {
-    const separator = url.includes('?') ? '&' : '?';
-    loadUrl = `${url}${separator}t=${Date.now()}`;
-  }
+  // Create a fallback texture that will be shown on error
+  const fallbackTexture = createFallbackTexture();
   
+  // Load the actual texture
   const texture = textureLoader.load(
-    loadUrl,
+    cleanedUrl,
     (loadedTexture) => {
       console.log(`Successfully loaded texture: ${url}`);
       loadedTexture.needsUpdate = true;
     },
     undefined,
     (error) => {
-      console.warn(`Error loading texture: ${url}`, error);
-      
-      // Create a fallback texture and apply it to the failed texture
-      const fallbackTexture = createFallbackTexture();
+      console.error(`Error loading texture: ${url}`, error);
       
       // Apply the fallback's image to the failed texture
-      if (texture && fallbackTexture) {
+      if (texture) {
         texture.image = fallbackTexture.image;
         texture.needsUpdate = true;
       }
@@ -764,6 +771,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       console.log(`Current settings - useStockPhotos: ${settings.useStockPhotos}, photoCount: ${settings.photoCount}`);
       console.log('Available user photos:', photos.length > 0 ? photos : 'None');
       
+      // Process user photos to ensure they have cache-busting parameters
+      const processedUserPhotos = photos.map(photo => ({
+        ...photo,
+        url: cleanPhotoUrl(photo.url)
+      }));
+      
       // If stock photos are enabled but none were found, automatically disable the option
       if (settings.useStockPhotos && stockPhotos.length === 0) {
         console.warn('Stock photos enabled but none available - using empty slots instead');
@@ -775,7 +788,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       }
       
       // Create photo list with user photos and stock photos or empty slots
-      const userPhotos = Array.isArray(photos) ? photos : [];
+      const userPhotos = Array.isArray(processedUserPhotos) ? processedUserPhotos : [];
       const generatedPhotos = generatePhotoList(
         userPhotos, 
         settings.photoCount, 

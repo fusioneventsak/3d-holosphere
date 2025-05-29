@@ -59,6 +59,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
 
   // Helper to create a cache-busting URL
   const createCacheBustUrl = (url: string): string => {
+    if (!url) return '';
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}t=${Date.now()}`;
   };
