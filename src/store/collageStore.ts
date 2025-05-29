@@ -204,6 +204,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (!settingsResponse.data) {
         // Use upsert to create or update settings
+        // Removed ignoreDuplicates: false to fix the constraint violation
         const { data: settingsData, error: upsertError } = await supabase
           .from('collage_settings')
           .upsert(
@@ -212,8 +213,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
               settings: defaultSettings 
             },
             {
-              onConflict: 'collage_id',
-              ignoreDuplicates: false
+              onConflict: 'collage_id'
             }
           )
           .select('settings')
