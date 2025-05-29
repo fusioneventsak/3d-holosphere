@@ -35,8 +35,8 @@ const createFallbackTexture = (): THREE.Texture => {
   
   // Create a gradient background
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  gradient.addColorStop(0, '#ff6b6b');
-  gradient.addColorStop(1, '#cc5555');
+  gradient.addColorStop(0, '#ff0000');
+  gradient.addColorStop(1, '#550000');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
@@ -45,8 +45,7 @@ const createFallbackTexture = (): THREE.Texture => {
   ctx.font = '24px Arial';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Error loading', canvas.width / 2, canvas.height / 2 - 15);
-  ctx.fillText('image', canvas.width / 2, canvas.height / 2 + 15);
+  ctx.fillText('Error', canvas.width / 2, canvas.height / 2);
   
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
