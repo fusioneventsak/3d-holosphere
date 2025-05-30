@@ -92,6 +92,8 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const patternSettings = settings.patterns.float;
       const spacing = baseSpacing * (1 + patternSettings.spacing);
       const { spread, density, yOffset } = patternSettings;
+      const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+      const cellSize = spacing * spread;
       
       for (let i = 0; i < totalPhotos; i++) {
         const col = i % gridSize;
@@ -187,8 +189,6 @@ const PhotoWall: React.FC<{
   const positions = generatePhotoPositions(settings);
 
   // Create springs for each photo position
-  const springs = positions.map((position, index) => {
-  // Use pattern-specific animations
   const animatedProps = positions.map((position, index) => {
     if (settings.animationPattern === 'float') {
       return useFloatingAnimation(position, settings, index);
