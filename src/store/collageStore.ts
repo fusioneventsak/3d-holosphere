@@ -420,7 +420,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
-      const filePath = `${collageId}/${fileName}`;
+      const filePath = `${collage.code}/${fileName}`;
 
       console.log(`Uploading file to ${filePath} with content type ${contentType}`);
 

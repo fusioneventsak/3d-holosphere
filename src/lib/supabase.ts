@@ -66,12 +66,12 @@ export const extractSupabaseInfo = (url: string): { collageId: string | null; fi
   try {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/');
-    const collagesIndex = pathParts.indexOf('collages');
+    const photosIndex = pathParts.indexOf('photos');
     
-    if (collagesIndex !== -1 && collagesIndex + 1 < pathParts.length) {
-      // Path format should be: /storage/v1/object/public/photos/collages/[collageId]/[filename]
-      const collageId = pathParts[collagesIndex + 1];
-      const filePath = pathParts.slice(collagesIndex).join('/');
+    if (photosIndex !== -1 && photosIndex + 1 < pathParts.length) {
+      // Path format should be: /storage/v1/object/public/photos/[folderId]/[filename]
+      const collageId = pathParts[photosIndex + 1];
+      const filePath = pathParts.slice(photosIndex).join('/');
       console.log('Extracted info:', { collageId, filePath });
       return { collageId, filePath };
     }
@@ -89,13 +89,8 @@ export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: 
   if (!path) {
     console.warn('No path provided to getFileUrl');
     return '';
-  }
-
-  let formattedPath;
-  // Always ensure collage photos are in the correct folder
-  if (bucket === 'photos') {
-    formattedPath = path.startsWith('collages/') ? path : `collages/${path}`;
-  }
+  // Use the path as-is since it already contains the correct folder structure
+  const formattedPath = path;
   
   let url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${formattedPath}`;
   url = normalizeFileExtension(url);
