@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight, Text } from '@react-three/drei';
+import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
@@ -11,28 +12,28 @@ type Photo = {
 };
 
 // Photo frame component with 9:16 aspect ratio
-const PhotoFrame: React.FC<{
+const PhotoFrame = animated(({ 
   position: [number, number, number];
   rotation?: [number, number, number];
   url?: string;
   scale: number;
   emptySlotColor: string;
-}> = ({ position, rotation = [0, 0, 0], url, scale, emptySlotColor }) => {
+}) => {
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
 
   return (
-    <mesh position={position} rotation={rotation}>
+    <animated.mesh position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial 
         color={url ? undefined : emptySlotColor} 
         transparent={!!url}
         opacity={1}
       /> 
-    </mesh>
+    </animated.mesh>
   );
-};
+});
 
 // Generate positions for different animation patterns
 const generatePhotoPositions = (settings: SceneSettings): [number, number, number][] => {
@@ -122,28 +123,36 @@ const PhotoWall: React.FC<{
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
   const positions = generatePhotoPositions(settings);
+
+  // Create springs for each photo position
+  const springs = positions.map((position, index) => {
+    let rotation: [number, number, number] = [0, 0, 0];
+    
+    // Handle rotations based on pattern
+    if (settings.animationPattern === 'spiral') {
+      const angle = Math.atan2(position[2], position[0]);
+      rotation = [0, -angle + Math.PI / 2, 0];
+    } else if (settings.animationPattern !== 'grid') {
+      const angle = Math.atan2(position[2], position[0]);
+      rotation = [0, -angle + Math.PI / 2, 0];
+    }
+
+    return useSpring({
+      position,
+      rotation,
+      config: { mass: 1, tension: 120, friction: 14 },
+    });
+  });
   
   return (
     <group>
-      {positions.map((position, index) => {
+      {springs.map((spring, index) => {
         const photo = photos[index];
-        let rotation: [number, number, number] = [0, 0, 0];
-        
-        // Handle rotations based on pattern
-        if (settings.animationPattern === 'spiral') {
-          const angle = Math.atan2(position[2], position[0]);
-          rotation = [0, -angle + Math.PI / 2, 0];
-        } else if (settings.animationPattern !== 'grid') {
-          // For non-grid patterns, make frames face the camera
-          const angle = Math.atan2(position[2], position[0]);
-          rotation = [0, -angle + Math.PI / 2, 0];
-        }
         
         return (
           <PhotoFrame
             key={index}
-            position={position}
-            rotation={rotation}
+            {...spring}
             url={photo?.url}
             scale={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
@@ -238,7 +247,7 @@ const Scene: React.FC<{
   const { camera } = useThree();
 
   useEffect(() => {
-    if (camera) {
+    if (camera && !settings.cameraEnabled) {
       camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
       camera.updateProjectionMatrix();
     }
@@ -246,7 +255,7 @@ const Scene: React.FC<{
 
   return (
     <>
-      <ambientLight intensity={settings.ambientLightIntensity} />
+      <animated.ambientLight intensity={settings.ambientLightIntensity} />
       <Spotlights settings={settings} />
       <PhotoWall photos={photos} settings={settings} />
       <Floor settings={settings} />
