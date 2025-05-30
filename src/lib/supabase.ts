@@ -91,7 +91,9 @@ export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: 
     return '';
   }
 
+  let formattedPath;
   // Always ensure collage photos are in the correct folder
+  if (bucket === 'photos') {
     formattedPath = path.startsWith('collages/') ? path : `collages/${path}`;
   }
   
