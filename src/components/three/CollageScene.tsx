@@ -168,13 +168,13 @@ const PhotoFrame = React.memo(({
 const generatePhotoPositions = (settings: SceneSettings): [number, number, number][] => {
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
-  const baseSpacing = settings.photoSize * (1 + settings.photoSpacing);
+  const baseSpacing = settings.photoSize * (1 + settings.photoSpacing); 
+  const baseHeight = -settings.floorSize * 0.25; // Base height for animations
 
   switch (settings.animationPattern) {
     case 'grid': {
       const patternSettings = settings.patterns.grid;
       const spacing = baseSpacing * (1 + patternSettings.spacing);
-      // Calculate grid dimensions based on aspect ratio
       const aspectRatio = patternSettings.aspectRatio;
       const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
       const rows = Math.ceil(totalPhotos / columns);
@@ -183,7 +183,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const y = baseHeight + patternSettings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+        const y = settings.wallHeight + (rows / 2 - row) * spacing * (16/9);
         const z = 0;
         positions.push([x, y, z]);
       }
@@ -195,13 +195,13 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const spacing = baseSpacing * (1 + patternSettings.spacing);
       const radius = patternSettings.radius;
       const heightStep = patternSettings.heightStep;
-      const angleStep = (Math.PI * 2) / (totalPhotos / 3);
+      const angleStep = (Math.PI * 2) / Math.max(1, totalPhotos / 3);
       
       for (let i = 0; i < totalPhotos; i++) {
         const angle = i * angleStep;
         const spiralRadius = radius * (1 - i / totalPhotos);
         const x = Math.cos(angle) * spiralRadius;
-        const y = baseHeight + (i * heightStep);
+        const y = settings.wallHeight + (i * heightStep);
         const z = Math.sin(angle) * spiralRadius;
         positions.push([x, y, z]);
       }
@@ -213,13 +213,12 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const maxRadius = settings.floorSize * 0.4; // 80% of floor size for better visibility
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Fibonacci spiral distribution for even spacing
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const angle = i * goldenRatio * Math.PI * 2;
         const r = maxRadius * Math.sqrt(i / totalPhotos);
         const x = Math.cos(angle) * r;
         const z = Math.sin(angle) * r;
-        const y = -settings.floorSize * 0.25; // Start below floor
+        const y = baseHeight + Math.random() * settings.floorSize * 0.5; // Random height variation
         positions.push([x, y, z]);
       }
       break;
@@ -230,14 +229,16 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const spacing = baseSpacing * (1 + patternSettings.spacing);
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
+      const frequency = 0.1; // Wave frequency
+      const amplitude = settings.floorSize * 0.1; // Wave amplitude
       
       for (let i = 0; i < totalPhotos; i++) {
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
         const z = (row - rows / 2) * spacing;
-        const angle = x * patternSettings.frequency;
-        const y = baseHeight + Math.sin(angle) * patternSettings.amplitude;
+        const angle = (x + z) * frequency;
+        const y = settings.wallHeight + Math.sin(angle) * amplitude;
         positions.push([x, y, z]);
       }
       break;
@@ -251,7 +252,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
 const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
-}> = ({ photos, settings }) => {
+}> = React.memo(({ photos, settings }) => {
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
     return basePositions.slice(0, settings.photoCount);
@@ -260,17 +261,20 @@ const PhotoWall: React.FC<{
     settings.photoSize,
     settings.animationPattern,
     settings.patterns
+    settings.patterns,
+    settings.wallHeight,
+    settings.floorSize
   ]);
   
   return (
     <group>
       {positions.slice(0, settings.photoCount).map((position, index) => {
-        const photo = photos[index % Math.max(1, photos.length)];
+        const photo = index < photos.length ? photos[index] : null;
         return (
           <PhotoFrame
             key={`photo-${index}`}
             position={position}
-            url={photo?.url}
+            url={photo?.url || ''}
             scale={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
           />
@@ -278,7 +282,7 @@ const PhotoWall: React.FC<{
       })}
     </group>
   );
-};
+});
 
 // Create background color CSS based on settings
 const getBackgroundStyle = (settings: SceneSettings): string => {
