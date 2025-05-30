@@ -228,57 +228,33 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   fetchCollageById: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // Fetch collage and settings in parallel
-      const [collageResponse, settingsResponse] = await Promise.all([
-        supabase
-          .from('collages')
-          .select('*')
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('collage_settings')
-          .select('settings')
-          .eq('collage_id', id)
-          .single()
-      ]);
+      // Fetch collage
+      const { data: collage, error: collageError } = await supabase
+        .from('collages')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      if (collageResponse.error) throw collageResponse.error;
-      const collage = collageResponse.data;
+      if (collageError) throw collageError;
 
-      // If settings don't exist or there was an error fetching them
-      if (settingsResponse.error || !settingsResponse.data) {
+      // Fetch settings
+      const { data: settings, error: settingsError } = await supabase
+        .from('collage_settings')
+        .select('settings')
+        .eq('collage_id', id)
+        .single();
+
+      // If settings don't exist or there was an error, use updateCollageSettings to create/update them
+      if (settingsError || !settings) {
         try {
-          // First try to update in case the record exists but wasn't found
-          const { data: updateData, error: updateError } = await supabase
-            .from('collage_settings')
-            .update({ settings: defaultSettings })
-            .eq('collage_id', collage.id)
-            .select('settings')
-            .single();
-
-          if (!updateError && updateData) {
-            collage.settings = updateData.settings;
-          } else {
-            // If update fails (likely because record doesn't exist), try insert
-            const { data: insertData, error: insertError } = await supabase
-              .from('collage_settings')
-              .insert([{ 
-                collage_id: collage.id, 
-                settings: defaultSettings 
-              }])
-              .select('settings')
-              .single();
-
-            if (insertError) throw insertError;
-            collage.settings = insertData.settings;
-          }
-        } catch (error: any) {
-          console.error('Error handling settings:', error);
-          // If all operations fail, use default settings but don't fail the whole request
+          const updatedSettings = await get().updateCollageSettings(collage.id, defaultSettings);
+          collage.settings = updatedSettings?.settings || defaultSettings;
+        } catch (error) {
+          console.error('Error updating collage settings:', error);
           collage.settings = defaultSettings;
         }
       } else {
-        collage.settings = settingsResponse.data.settings;
+        collage.settings = settings.settings;
       }
 
       set({ currentCollage: collage as Collage, loading: false });
