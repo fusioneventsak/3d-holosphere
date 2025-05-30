@@ -501,5 +501,3 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     }
   }
 }));
-
-export { useCollageStore }
