@@ -133,15 +133,6 @@ const PhotoFrame = React.memo(({
 }: PhotoFrameProps & { emptySlotColor: string }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0, z: 0 });
-  const springs = useSpring({
-    position,
-    config: { 
-      mass: 1,
-      tension: 280,
-      friction: 60,
-      precision: 0.001
-    }
-  });
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useEffect(() => {
@@ -176,7 +167,7 @@ const PhotoFrame = React.memo(({
         map: texture,
         transparent: true,
         side: THREE.DoubleSide
-      }), [])} ref={materialRef} />
+      }), [])} />
     </animated.mesh>
   );
 }, (prev, next) => {
