@@ -27,12 +27,25 @@ const PhotoFrame = animated(({
   scale,
   emptySlotColor
 }: PhotoFrameProps) => {
+  const { camera } = useThree();
+
+  // Only apply billboarding if no rotation is provided (for non-float patterns)
+  useFrame(() => {
+    if (!rotation && ref.current) {
+      const dx = camera.position.x - ref.current.position.x;
+      const dz = camera.position.z - ref.current.position.z;
+      ref.current.rotation.y = Math.atan2(dx, dz);
+    }
+  });
+
+  const ref = useRef<THREE.Mesh>(null);
+
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
 
   return (
-    <animated.mesh position={position} rotation={rotation}>
+    <animated.mesh ref={ref} position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial 
         color={url ? undefined : emptySlotColor} 
@@ -132,7 +145,8 @@ const AnimatedPhoto: React.FC<{
   photo?: Photo;
   settings: SceneSettings;
   index: number;
-}> = React.memo(({ position, photo, settings, index }) => {
+}> = React.memo(({ position, photo, settings }) => {
+  const { camera } = useThree();
   const startY = React.useRef({
     y: position[1],
     offset: Math.random() * 20 // Smaller random offset for smoother distribution
@@ -140,6 +154,7 @@ const AnimatedPhoto: React.FC<{
 
   const [spring, api] = useSpring(() => ({
     position,
+    rotation: [0, 0, 0],
     config: { mass: 1, tension: 120, friction: 14 } // Smoother animation
   }));
 
@@ -155,9 +170,15 @@ const AnimatedPhoto: React.FC<{
     // Calculate position with wrapping
     const y = ((t * speed + startY.offset) % height) - height * 0.5;
     
+    // Calculate rotation to face camera
+    const dx = camera.position.x - position[0];
+    const dz = camera.position.z - position[2];
+    const angle = Math.atan2(dx, dz);
+    
     // Update position with straight vertical movement only
     api.start({
-      position: [position[0], y, position[2]]
+      position: [position[0], y, position[2]],
+      rotation: [0, angle, 0]
     });
   });
 
