@@ -271,7 +271,7 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const baseSpeed = currentSettings.animationSpeed * 2;
+        const baseSpeed = currentSettings.animationSpeed * 5;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
