@@ -1,28 +1,117 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
-import { animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
-// Create a shared texture loader
+// Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
-const textureCache = new Map<string, THREE.Texture>();
+textureLoader.setCrossOrigin('anonymous');
+const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
-// Cleanup old textures periodically
+// Cleanup unused textures periodically
 setInterval(() => {
-  for (const [key, texture] of textureCache.entries()) {
-    if (!texture.source.data) {
-      texture.dispose();
+  const now = Date.now();
+  const maxAge = 5 * 60 * 1000; // 5 minutes
+  
+  for (const [key, entry] of textureCache.entries()) {
+    if (now - entry.lastUsed > maxAge) {
+      entry.texture.dispose();
       textureCache.delete(key);
     }
   }
-}, 60000); // Clean up every minute
+}, 30000); // Check every 30 seconds
 
 type Photo = {
   id: string;
   url: string;
   collage_id?: string;
+};
+
+// Helper function to create an empty slot texture
+const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 456; // Using 9:16 aspect ratio
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Helper function to create an error texture
+const createErrorTexture = (): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 456;
+  const ctx = canvas.getContext('2d')!;
+  
+  ctx.fillStyle = '#222222';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = '#ff4444';
+  ctx.font = '20px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Error Loading Image', canvas.width/2, canvas.height/2);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Enhanced loadTexture function with better error handling
+const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
+  if (!url) {
+    return createEmptySlotTexture(emptySlotColor);
+  }
+  
+  // Check texture cache
+  if (textureCache.has(url)) {
+    const entry = textureCache.get(url)!;
+    entry.lastUsed = Date.now();
+    return entry.texture;
+  }
+  
+  // Create placeholder texture
+  const placeholderTexture = createEmptySlotTexture(emptySlotColor);
+  textureCache.set(url, {
+    texture: placeholderTexture,
+    lastUsed: Date.now()
+  });
+  
+  // Load actual texture
+  textureLoader.load(
+    url,
+    (loadedTexture) => {
+      loadedTexture.minFilter = THREE.LinearFilter;
+      loadedTexture.magFilter = THREE.LinearFilter;
+      loadedTexture.generateMipmaps = false;
+      
+      if (textureCache.has(url)) {
+        const entry = textureCache.get(url)!;
+        entry.texture = loadedTexture;
+        entry.lastUsed = Date.now();
+      }
+      
+      placeholderTexture.image = loadedTexture.image;
+      placeholderTexture.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      const errorTexture = createErrorTexture();
+      placeholderTexture.image = errorTexture.image;
+      placeholderTexture.needsUpdate = true;
+    }
+  );
+  
+  return placeholderTexture;
 };
 
 interface PhotoFrameProps {
@@ -34,76 +123,44 @@ interface PhotoFrameProps {
 }
 
 // Photo frame component with 9:16 aspect ratio
-const PhotoFrame = animated(({ 
+const PhotoFrame = React.memo(({
   position,
   rotation,
   url,
   scale = 1,
-  baseScale,
   emptySlotColor
-}: PhotoFrameProps) => {
+}: PhotoFrameProps & { emptySlotColor: string }) => {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useEffect(() => {
-    if (url) {
-      // Check cache first
-      if (textureCache.has(url)) {
-        const texture = textureCache.get(url)!;
-        if (materialRef.current) {
-          materialRef.current.map = texture;
-          materialRef.current.needsUpdate = true;
-          setIsLoaded(true);
-        }
-        return;
-      }
-
-      // Load new texture
-      try {
-        const texture = textureLoader.load(
-          url,
-          (loadedTexture) => {
-            loadedTexture.minFilter = THREE.LinearFilter;
-            loadedTexture.magFilter = THREE.LinearFilter;
-            if (materialRef.current) {
-              materialRef.current.map = loadedTexture;
-              materialRef.current.needsUpdate = true;
-              setIsLoaded(true);
-            }
-            textureCache.set(url, loadedTexture);
-          },
-          undefined,
-          (error) => {
-            console.error('Error loading texture:', url, error);
-            setIsLoaded(false);
-          }
-        );
-      } catch (error) {
-        console.error('Failed to load texture:', url, error);
-        setIsLoaded(false);
-      }
+    if (materialRef.current) {
+      materialRef.current.map = texture;
+      materialRef.current.needsUpdate = true;
     }
-  }, [url]);
+  }, [texture]);
 
   // Use 9:16 aspect ratio for the photo frame
-  const width = baseScale;
-  const height = baseScale * (16/9);
-
-  // Optimize material updates
-  const material = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: url ? undefined : emptySlotColor,
-      transparent: !!url,
-      side: THREE.DoubleSide,
-    });
-  }, [url, emptySlotColor]);
+  const width = scale;
+  const height = scale * (16/9);
 
   return (
     <mesh position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
-      <primitive object={material} ref={materialRef} />
+      <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+      }), [])} ref={materialRef} />
     </mesh>
   );
+}, (prev, next) => {
+  return prev.url === next.url && 
+         prev.scale === next.scale && 
+         prev.emptySlotColor === next.emptySlotColor &&
+         prev.position[0] === next.position[0] &&
+         prev.position[1] === next.position[1] &&
+         prev.position[2] === next.position[2];
 });
 
 // Generate positions for different animation patterns
@@ -189,98 +246,13 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
   return positions;
 };
 
-// Individual animated photo component
-const AnimatedPhoto: React.FC<{
-  position: [number, number, number];
-  photo?: Photo;
-  settings: SceneSettings;
-  index: number;
-  duplicate?: boolean;
-}> = React.memo(({ position: initialPosition, photo, settings, index, duplicate }) => {
-  const { camera } = useThree();
-  const resetHeight = -settings.floorSize * 0.4; // Lower starting point
-  const maxHeight = settings.floorSize * 0.6; // Higher maximum
-  const totalDistance = maxHeight - resetHeight;
-  const startOffset = React.useRef(
-    duplicate ? totalDistance * 0.5 : Math.random() * (totalDistance * 0.5)
-  ).current;
-
-  // Keep original X and Z positions
-  const basePosition = React.useRef([initialPosition[0], resetHeight, initialPosition[2]]).current;
-
-  const [spring, api] = useSpring(() => ({
-    position: basePosition,
-    rotation: [0, 0, 0],
-    scale: 1,
-    config: { 
-      mass: 1,
-      tension: 170,
-      friction: 26,
-      clamp: false
-    }
-  }));
-
-  useFrame((state) => {
-    if (settings.animationPattern !== 'float') return;
-    
-    const speed = settings.animationSpeed;
-    const time = state.clock.getElapsedTime() * speed;
-    
-    // Calculate position in the loop
-    const cyclePosition = (time + startOffset) % totalDistance;
-    const y = cyclePosition + resetHeight;
-    
-    // Calculate angle to camera but limit rotation
-    const dx = camera.position.x - initialPosition[0];
-    const dz = camera.position.z - initialPosition[2];
-    let angle = Math.atan2(dx, dz);
-    
-    // Normalize angle to -π to π range
-    while (angle > Math.PI) angle -= 2 * Math.PI;
-    while (angle < -Math.PI) angle += 2 * Math.PI;
-    
-    // Limit rotation to ±90 degrees (π/2)
-    angle = Math.max(Math.min(angle, Math.PI / 2), -Math.PI / 2);
-    
-    api.start({
-      position: [basePosition[0], y, basePosition[2]],
-      rotation: [0, angle, 0],
-      scale: 1,
-      config: { 
-        tension: 170,
-        friction: 26,
-        clamp: false
-      }
-    });
-  });
-
-  return (
-    <PhotoFrame
-      {...spring}
-      scale={spring.scale}
-      url={photo?.url}
-      baseScale={settings.photoSize}
-      emptySlotColor={settings.emptySlotColor}
-    />
-  );
-});
-
 // Photo wall component
 const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
-}> = React.memo(({ photos, settings }) => {
+}> = ({ photos, settings }) => {
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
-    // For float pattern, create duplicate set with offset positions
-    if (settings.animationPattern === 'float') {
-      const duplicatePositions = basePositions.map(([x, y, z]) => [
-        x * 0.8 + (Math.random() - 0.5) * 5,
-        y,
-        z * 0.8 + (Math.random() - 0.5) * 5
-      ] as [number, number, number]);
-      return [...basePositions, ...duplicatePositions];
-    }
     return basePositions.slice(0, settings.photoCount);
   }, [
     settings.photoCount,
@@ -297,15 +269,15 @@ const PhotoWall: React.FC<{
           <PhotoFrame
             key={`photo-${index}`}
             position={position}
-            photo={photo}
-            settings={settings}
-            index={index}
+            url={photo?.url}
+            scale={settings.photoSize}
+            emptySlotColor={settings.emptySlotColor}
           />
         );
       })}
     </group>
   );
-});
+};
 
 // Create background color CSS based on settings
 const getBackgroundStyle = (settings: SceneSettings): string => {
@@ -391,7 +363,7 @@ const Scene: React.FC<{
   const { camera } = useThree();
 
   useEffect(() => {
-    if (camera && !settings.cameraEnabled) {
+    if (camera) {
       camera.position.set(0, settings.cameraHeight, settings.cameraDistance);
       camera.updateProjectionMatrix();
     }
