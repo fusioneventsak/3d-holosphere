@@ -4,6 +4,7 @@ import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
+import { useFrame } from '@react-three/fiber';
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
@@ -131,7 +132,8 @@ const PhotoFrame = React.memo(({
   scale = 1,
   emptySlotColor
 }: PhotoFrameProps & { emptySlotColor: string }) => {
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0, z: 0 });
   const springs = useSpring({
     position,
     config: { 
@@ -144,18 +146,32 @@ const PhotoFrame = React.memo(({
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useEffect(() => {
-    if (materialRef.current) {
-      materialRef.current.map = texture;
-      materialRef.current.needsUpdate = true;
+    if (meshRef.current?.material instanceof THREE.MeshStandardMaterial) {
+      meshRef.current.material.map = texture;
+      meshRef.current.material.needsUpdate = true;
     }
   }, [texture]);
 
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
+  
+  const springs = useSpring({
+    position: [position[0] + offset.x, position[1] + offset.y, position[2] + offset.z],
+    config: { 
+      mass: 1,
+      tension: 280,
+      friction: 60,
+      precision: 0.001
+    }
+  });
 
   return (
-    <animated.mesh position={springs.position} rotation={rotation}>
+    <animated.mesh 
+      ref={meshRef}
+      position={springs.position}
+      rotation={[0, 0, 0]}
+    >
       <planeGeometry args={[width, height]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
         map: texture,
@@ -280,22 +296,54 @@ const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = React.memo(({ photos, settings }) => {
-  const positions = React.useMemo(() => {
-    const basePositions = generatePhotoPositions(settings);
-    return basePositions.slice(0, settings.photoCount);
-  }, [settings]);
+  const [positions, setPositions] = useState<[number, number, number][]>([]);
+  const timeRef = useRef(0);
+  
+  // Initialize base positions
+  useEffect(() => {
+    setPositions(generatePhotoPositions(settings));
+  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio, settings.animationPattern]);
 
-  // Force re-render on animation frame when animations are enabled
-  useFrame(() => {
+  useFrame((state) => {
     if (settings.animationEnabled) {
-      const newPositions = generatePhotoPositions(settings);
-      positions.forEach((pos, i) => {
-        if (i < newPositions.length) {
-          pos[0] = newPositions[i][0];
-          pos[1] = newPositions[i][1];
-          pos[2] = newPositions[i][2];
+      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      
+      const newPositions = positions.map((basePos, index) => {
+        const time = timeRef.current;
+        let x = basePos[0], y = basePos[1], z = basePos[2];
+        
+        switch (settings.animationPattern) {
+          case 'float': {
+            const phase = index * 0.1 + time;
+            y += Math.sin(phase) * 2;
+            x += Math.cos(phase * 0.5) * 0.5;
+            z += Math.sin(phase * 0.7) * 0.5;
+            break;
+          }
+          case 'wave': {
+            const dist = Math.sqrt(x * x + z * z);
+            y += Math.sin(dist * 0.2 - time * 2) * 3;
+            break;
+          }
+          case 'spiral': {
+            const angle = index * 0.1 + time;
+            const radius = 10 * (1 - index / settings.photoCount);
+            x = Math.cos(angle) * radius;
+            z = Math.sin(angle) * radius;
+            y += index * 0.5;
+            break;
+          }
+          case 'grid': {
+            const phase = index * 0.1 + time;
+            y += Math.sin(phase) * 0.2;
+            break;
+          }
         }
+        
+        return [x, y, z] as [number, number, number];
       });
+      
+      setPositions(newPositions);
     }
   });
   
@@ -308,12 +356,11 @@ const PhotoWall: React.FC<{
             key={`photo-${index}`}
             position={position}
             url={photo?.url || ''}
-            scale={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
           />
         );
       })}
-    </group>
+    </animated.mesh>
   );
 });
 
@@ -434,6 +481,7 @@ const CollageScene: React.FC<{
   return (
     <div className="w-full h-full">
       <Canvas
+        frameloop={settings.animationEnabled ? 'always' : 'demand'}
         style={{ background: getBackgroundStyle(settings) }}
         camera={{
           fov: 60,
