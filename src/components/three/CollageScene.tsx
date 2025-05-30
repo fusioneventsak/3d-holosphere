@@ -149,9 +149,10 @@ const AnimatedPhoto: React.FC<{
   index: number;
 }> = React.memo(({ position: initialPosition, photo, settings, index }) => {
   const { camera } = useThree();
-  const startOffset = React.useRef(Math.random() * settings.floorSize * 0.5).current;
   const resetHeight = -settings.floorSize * 0.25; // Start below floor
   const maxHeight = settings.floorSize * 0.5; // Maximum height
+  const totalDistance = maxHeight - resetHeight;
+  const startOffset = React.useRef(Math.random() * totalDistance).current;
 
   // Keep original X and Z positions
   const basePosition = React.useRef([initialPosition[0], resetHeight, initialPosition[2]]).current;
@@ -173,7 +174,9 @@ const AnimatedPhoto: React.FC<{
     
     const speed = settings.patterns.float.animationSpeed * 2;
     const time = state.clock.getElapsedTime() * speed;
-    let y = ((time + startOffset) % (maxHeight - resetHeight)) + resetHeight;
+    
+    // Calculate position in the loop
+    let y = ((time + startOffset) % totalDistance) + resetHeight;
     
     // Always face camera
     const dx = camera.position.x - initialPosition[0];
