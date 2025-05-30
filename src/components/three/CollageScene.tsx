@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
-import { animated } from '@react-spring/three';
+import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
@@ -132,6 +132,10 @@ const PhotoFrame = React.memo(({
   emptySlotColor
 }: PhotoFrameProps & { emptySlotColor: string }) => {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const [spring, api] = useSpring(() => ({
+    position: position,
+    config: { mass: 1, tension: 280, friction: 60 }
+  }));
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useEffect(() => {
@@ -141,19 +145,23 @@ const PhotoFrame = React.memo(({
     }
   }, [texture]);
 
+  useEffect(() => {
+    api.start({ position });
+  }, [api, position]);
+
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
 
   return (
-    <mesh position={position} rotation={rotation}>
+    <animated.mesh position={spring.position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
         side: THREE.DoubleSide
       }), [])} ref={materialRef} />
-    </mesh>
+    </animated.mesh>
   );
 }, (prev, next) => {
   return prev.url === next.url && 
