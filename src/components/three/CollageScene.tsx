@@ -147,12 +147,13 @@ const AnimatedPhoto: React.FC<{
   photo?: Photo;
   settings: SceneSettings;
   index: number;
-}> = React.memo(({ position: initialPosition, photo, settings, index }) => {
+  duplicate?: boolean;
+}> = React.memo(({ position: initialPosition, photo, settings, index, duplicate }) => {
   const { camera } = useThree();
   const resetHeight = -settings.floorSize * 0.25; // Start below floor
   const maxHeight = settings.floorSize * 0.5; // Maximum height
   const totalDistance = maxHeight - resetHeight;
-  const startOffset = React.useRef(Math.random() * totalDistance).current;
+  const startOffset = React.useRef(duplicate ? 0 : Math.random() * totalDistance).current;
 
   // Keep original X and Z positions
   const basePosition = React.useRef([initialPosition[0], resetHeight, initialPosition[2]]).current;
@@ -211,7 +212,14 @@ const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = React.memo(({ photos, settings }) => {
-  const positions = React.useMemo(() => generatePhotoPositions(settings), [
+  const positions = React.useMemo(() => {
+    const basePositions = generatePhotoPositions(settings);
+    // For float pattern, create duplicate set
+    if (settings.animationPattern === 'float') {
+      return [...basePositions, ...basePositions];
+    }
+    return basePositions;
+  }, [
     settings.photoCount,
     settings.photoSize,
     settings.animationPattern,
@@ -220,15 +228,22 @@ const PhotoWall: React.FC<{
   
   return (
     <group>
-      {positions.map((position, index) => (
-        <AnimatedPhoto
-          key={index}
-          position={position}
-          photo={photos[index]}
-          settings={settings}
-          index={index}
-        />
-      ))}
+      {positions.map((position, index) => {
+        const isInDuplicateSet = index >= positions.length / 2;
+        const originalIndex = isInDuplicateSet ? index - positions.length / 2 : index;
+        const photo = photos[originalIndex % photos.length];
+        
+        return (
+          <AnimatedPhoto
+            key={`${index}-${isInDuplicateSet ? 'dup' : 'orig'}`}
+            position={position}
+            photo={photo}
+            settings={settings}
+            index={index}
+            duplicate={isInDuplicateSet}
+          />
+        );
+      })}
     </group>
   );
 });
