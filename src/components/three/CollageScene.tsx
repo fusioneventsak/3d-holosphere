@@ -147,15 +147,12 @@ const AnimatedPhoto: React.FC<{
   index: number;
 }> = React.memo(({ position, photo, settings, index }) => {
   const { camera } = useThree();
-  const startY = React.useRef({
-    y: position[1],
-    offset: (index / settings.photoCount) * Math.PI * 2 // Evenly distribute offsets
-  }).current;
+  const startOffset = React.useRef(Math.random() * settings.patterns.float.height).current;
 
   const [spring, api] = useSpring(() => ({
     position,
     rotation: [0, 0, 0],
-    config: { mass: 1, tension: 170, friction: 26 } // Adjusted for smoother motion
+    config: { mass: 1, tension: 170, friction: 26 }
   }));
 
   useFrame((state) => {
@@ -165,29 +162,21 @@ const AnimatedPhoto: React.FC<{
     const speed = settings.patterns.float.animationSpeed;
     const height = settings.patterns.float.height;
     
-    // Calculate vertical position with smooth wrapping
-    let y = ((t * speed + startY.offset) % height);
-    const normalizedY = y / height; // 0 to 1
+    // Calculate base position that only moves upward
+    let y = ((t * speed + startOffset) % height);
     
-    // Fade out near the top using a smooth curve
-    if (normalizedY > 0.8) {
-      const fadeProgress = (normalizedY - 0.8) / 0.2;
-      y = height * (1 - Math.pow(fadeProgress, 2));
-    }
-    
-    // Adjust final position
-    y = y - height * 0.5;
+    // Offset to center around origin
+    y = y - height / 2;
     
     // Calculate rotation to face camera smoothly
     const dx = camera.position.x - position[0];
     const dz = camera.position.z - position[2];
     const angle = Math.atan2(dx, dz);
     
-    // Apply smooth position and rotation updates
     api.start({
       position: [position[0], y, position[2]],
       rotation: [0, angle, 0]
-    }, { immediate: false });
+    });
   });
 
   return (
