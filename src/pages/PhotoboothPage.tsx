@@ -24,6 +24,54 @@ const PhotoboothPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto } = useCollageStore();
 
+  const startCamera = async (deviceId?: string) => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get video devices
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${device.deviceId}`
+        }));
+      
+      setDevices(videoDevices);
+
+      // If no deviceId provided, use first available or default
+      const constraints = {
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: false
+      };
+
+      // Get media stream
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+
+      setStream(mediaStream);
+
+      // If no device was previously selected, select the current one
+      if (!selectedDevice && videoDevices.length > 0) {
+        const currentDevice = videoDevices.find(d => d.deviceId === deviceId) || videoDevices[0];
+        setSelectedDevice(currentDevice.deviceId);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to access camera');
+      console.error('Camera access error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (code) {
       fetchCollageByCode(code);
@@ -202,12 +250,12 @@ const PhotoboothPage: React.FC = () => {
                     </button>
                   )}
                   <button
-                  onClick={takePhoto}
-                  className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <Camera className="w-5 h-5 mr-2" />
-                  Take Photo
-                </button>
+                    onClick={takePhoto}
+                    className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Take Photo
+                  </button>
                 </div>
               </div>
             </>
