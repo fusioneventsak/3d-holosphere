@@ -89,6 +89,7 @@ export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: 
   if (!path) {
     console.warn('No path provided to getFileUrl');
     return '';
+  }
   // Use the path as-is since it already contains the correct folder structure
   const formattedPath = path;
   
