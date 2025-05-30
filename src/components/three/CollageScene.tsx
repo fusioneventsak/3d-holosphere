@@ -271,7 +271,7 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const speed = currentSettings.animationSpeed;
+        const baseSpeed = currentSettings.animationSpeed * 2;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
@@ -279,7 +279,7 @@ const PhotoWall: React.FC<{
           const baseZ = param.z;
           
           // Calculate y position with continuous upward motion
-          let y = param.startY + (currentTime * speed * param.speed);
+          let y = param.startY + (currentTime * baseSpeed * param.speed);
           
           // Reset position when reaching max height
           if (y >= FLOAT_MAX_HEIGHT) {
@@ -469,7 +469,7 @@ const CollageScene: React.FC<{
   return (
     <div className="w-full h-full">
       <Canvas
-        frameloop="always"
+        frameloop="demand"
         style={{ background: getBackgroundStyle(settings) }}
         camera={{
           fov: 60,
