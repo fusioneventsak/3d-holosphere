@@ -139,12 +139,8 @@ const defaultSettings: SceneSettings = {
     float: {
       enabled: false,
       animationSpeed: 1.0,
-      spacing: 0.2,
-      height: 30,
-      spread: 40,
-      density: 0.5,
-      yOffset: -15,
-      loopDuration: 8000
+      height: 20,
+      spread: 15
     },
     wave: {
       enabled: false,

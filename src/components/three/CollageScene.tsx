@@ -47,8 +47,7 @@ const PhotoFrame = animated(({
 const generatePhotoPositions = (settings: SceneSettings): [number, number, number][] => {
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
-  const baseSpacing = settings.photoSize;
-  const baseHeight = 0; // Base height for all patterns
+  const baseSpacing = settings.photoSize * (1 + settings.photoSpacing);
 
   switch (settings.animationPattern) {
     case 'grid': {
@@ -90,23 +89,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * (1 + patternSettings.spacing);
-      const { spread, density, yOffset } = patternSettings;
-      const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-      const cellSize = spacing * spread;
+      const spread = patternSettings.spread;
+      const height = patternSettings.height;
       
       for (let i = 0; i < totalPhotos; i++) {
-        const col = i % gridSize;
-        const row = Math.floor(i / gridSize);
+        const angle = i * angleStep;
+        const r = radius * Math.sqrt(Math.random()); // Uniform distribution in circle
+        const x = Math.cos(angle) * r;
+        const z = Math.sin(angle) * r;
         
-        // Calculate base position in grid
-        const x = (col - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize;
-        const z = (row - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize;
+        // Random starting height within the animation range
+        const y = -height/2 + Math.random() * height;
         
-        // Start at different heights
-        const y = yOffset + Math.random() * patternSettings.height;
-        
-        positions.push([x, y, z]);
+        positions.push([x * baseSpacing, y, z * baseSpacing]);
       }
       break;
     }
@@ -140,43 +135,61 @@ const AnimatedPhoto: React.FC<{
   settings: SceneSettings;
   index: number;
 }> = React.memo(({ position, photo, settings, index }) => {
-  const offset = React.useRef({
-    phase: Math.random() * Math.PI * 2,
-    speed: 0.5 + Math.random() * 0.5
-  });
+  // Initialize animation parameters
+  const animParams = React.useRef({
+    startY: position[1],
+    phase: Math.random() * Math.PI * 2, // Random starting phase
+    speed: 0.8 + Math.random() * 0.4,   // Random speed variation
+    wobblePhase: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.2 + Math.random() * 0.3
+  }).current;
 
   const [spring, api] = useSpring(() => ({
     position,
     rotation: [0, 0, 0] as [number, number, number],
-    config: { mass: 1, tension: 50, friction: 20 }
+    config: { mass: 1, tension: 180, friction: 12 }
   }));
 
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
     const patternSettings = settings.patterns.float;
-    const time = state.clock.getElapsedTime();
+    const t = state.clock.getElapsedTime();
     
-    // Calculate vertical position with smooth looping
-    const height = patternSettings.height;
-    const loopProgress = ((time * patternSettings.animationSpeed + offset.current.phase) % patternSettings.loopDuration) / patternSettings.loopDuration;
-    const y = patternSettings.yOffset + height + (loopProgress * height * 2);
+    // Calculate vertical movement
+    const baseY = animParams.startY;
+    const floatHeight = patternSettings.height;
+    const speed = patternSettings.animationSpeed;
     
-    // Add subtle horizontal movement
-    const wobble = Math.sin(time * offset.current.speed + offset.current.phase) * 0.3;
+    // Continuous upward movement with wrapping
+    const moveY = ((t * speed + animParams.phase) % floatHeight);
+    const y = baseY + moveY;
+    
+    // Add gentle wobble
+    const wobbleX = Math.sin(t * animParams.wobbleSpeed + animParams.wobblePhase) * 0.3;
+    const wobbleZ = Math.cos(t * animParams.wobbleSpeed + animParams.wobblePhase) * 0.3;
     
     api.start({
       position: [
-        position[0] + wobble,
+        position[0] + wobbleX,
         y,
-        position[2] + wobble
+        position[2] + wobbleZ
       ],
       rotation: [
-        Math.sin(time * 0.5 + offset.current.phase) * 0.1,
-        time * 0.2 + offset.current.phase,
-        Math.cos(time * 0.5 + offset.current.phase) * 0.1
+        Math.sin(t * 0.3 + animParams.phase) * 0.1,
+        t * 0.1 + animParams.phase,
+        Math.cos(t * 0.3 + animParams.phase) * 0.1
       ]
     });
+    
+    // Wrap position when photo goes too high
+    if (y > floatHeight) {
+      animParams.phase = Math.random() * Math.PI * 2;
+      api.start({
+        position: [position[0], -floatHeight/2, position[2]],
+        immediate: true
+      });
+    }
   });
 
   return (
