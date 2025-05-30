@@ -468,6 +468,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       });
       return null;
     }
+  }
 
   fetchPhotosByCollageId: async (collageId: string) => {
     set({ loading: true, error: null });
