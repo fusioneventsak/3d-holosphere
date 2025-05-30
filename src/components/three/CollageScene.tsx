@@ -142,7 +142,7 @@ const PhotoFrame = React.memo(({
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useFrame(() => {
-    if (meshRef.current && settings.animationPattern === 'float') {
+    if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
       // Make the photo face the camera
       meshRef.current.lookAt(camera.position);
       // Add a slight tilt for better visibility

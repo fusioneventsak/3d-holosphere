@@ -273,11 +273,14 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Photo Size
+                <span className="ml-2 text-xs text-gray-400">
+                  {settings.photoSize.toFixed(1)}x
+                </span>
               </label>
               <input
                 type="range"
                 min="0.5"
-                max="5"
+                max="8"
                 step="0.1"
                 value={settings.photoSize}
                 onChange={(e) => onSettingsChange({ 
@@ -286,8 +289,22 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 className="w-full bg-gray-800"
               />
               <p className="mt-1 text-xs text-gray-400">
-                Adjust photo size from very small (0.5x) to very large (5x)
+                Adjust photo size from very small (0.5x) to extra large (8x)
               </p>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={settings.photoRotation}
+                onChange={(e) => onSettingsChange({ 
+                  photoRotation: e.target.checked 
+                })}
+                className="mr-2 bg-gray-800 border-gray-700"
+              />
+              <label className="text-sm text-gray-300">
+                Rotate Photos to Face Camera
+              </label>
             </div>
             
             <div>
