@@ -176,8 +176,8 @@ const AnimatedPhoto: React.FC<{
     let y = ((time + startOffset) % (maxHeight - resetHeight)) + resetHeight;
     
     // Always face camera
-    const dx = camera.position.x - position[0];
-    const dz = camera.position.z - position[2];
+    const dx = camera.position.x - initialPosition[0];
+    const dz = camera.position.z - initialPosition[2];
     const angle = Math.atan2(dx, dz);
     
     api.start({
