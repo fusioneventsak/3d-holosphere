@@ -27,58 +27,71 @@ const PhotoboothPage: React.FC = () => {
   const startCamera = async (deviceId?: string) => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      // Get video devices
-      const devices = await navigator.mediaDevices.enumerateDevices();
+      // Request permission first
+      await navigator.mediaDevices.getUserMedia({ video: true });
+      
+      // Then enumerate devices after permission is granted
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices
-        .filter(device => device.kind === 'videoinput')
+        .filter(device => device.kind === 'videoinput' && device.deviceId)
         .map(device => ({
           deviceId: device.deviceId,
           label: device.label || `Camera ${device.deviceId}`
         }));
       
       setDevices(videoDevices);
-
+      
+      // If we have no devices after getting permission, something is wrong
       if (videoDevices.length === 0) {
-        throw new Error('No cameras found. Please connect a camera and try again.');
+        throw new Error('No cameras detected. Please check your camera connection and refresh the page.');
       }
 
-      // If no deviceId provided, use first available or default
+      // Determine which device to use
+      let targetDeviceId = deviceId;
+      if (!targetDeviceId || !videoDevices.find(d => d.deviceId === targetDeviceId)) {
+        targetDeviceId = videoDevices[0].deviceId;
+      }
+
       const constraints = {
-        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        video: {
+          deviceId: { exact: targetDeviceId },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: "user"
+        },
         audio: false
       };
 
       // Get media stream with a timeout
       const mediaStreamPromise = navigator.mediaDevices.getUserMedia(constraints);
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('timeout')), 10000); // 10 second timeout
+        setTimeout(() => reject(new Error('Camera access timed out. Please try again.')), 10000);
       });
 
       const mediaStream = await Promise.race([mediaStreamPromise, timeoutPromise]);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Wait for the video to be ready
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           if (videoRef.current) {
             videoRef.current.onloadedmetadata = resolve;
+            videoRef.current.onerror = () => reject(new Error('Failed to initialize video stream'));
           }
         });
+        
+        // Start playing the video
+        await videoRef.current.play();
       }
 
       setStream(mediaStream as MediaStream);
-
-      // If no device was previously selected, select the current one
-      if (!selectedDevice && videoDevices.length > 0) {
-        const currentDevice = videoDevices.find(d => d.deviceId === deviceId) || videoDevices[0];
-        setSelectedDevice(currentDevice.deviceId);
-      }
+      setSelectedDevice(targetDeviceId);
     } catch (err: any) {
       let errorMessage = 'Failed to access camera';
       
@@ -86,15 +99,25 @@ const PhotoboothPage: React.FC = () => {
         errorMessage = 'Camera access denied. Please allow camera access in your browser settings and try again.';
       } else if (err.name === 'NotFoundError') {
         errorMessage = 'No camera found. Please connect a camera and try again.';
-      } else if (err.name === 'NotReadableError' || err.message === 'timeout') {
+      } else if (err.name === 'NotReadableError') {
         errorMessage = 'Camera is in use by another application or timed out. Please:\n' +
           '1. Close other apps using your camera\n' +
           '2. Refresh the page\n' +
           '3. Try selecting a different camera if available';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Could not find a camera matching the requested settings. Please try a different camera.';
+      } else if (err.message === 'Camera access timed out. Please try again.') {
+        errorMessage = err.message;
       }
       
       setError(errorMessage);
-      console.warn('Camera access warning:', err); // Changed from error to warn
+      console.warn('Camera access warning:', err);
+      
+      // Clean up any partial stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -109,9 +132,14 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     startCamera();
 
+    // Request permissions early
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .catch(err => console.warn('Initial permission request failed:', err));
+
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        setStream(null);
       }
     };
   }, []);
@@ -119,8 +147,10 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     if (selectedDevice) {
       startCamera(selectedDevice);
+    } else if (devices.length > 0) {
+      setSelectedDevice(devices[0].deviceId);
     }
-  }, [selectedDevice]);
+  }, [selectedDevice, devices.length]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
