@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
+import { animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
