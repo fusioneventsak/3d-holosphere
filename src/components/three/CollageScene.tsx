@@ -240,39 +240,36 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const baseHeight = settings.wallHeight;
       const maxHeight = 40; // Height before resetting
+      const floorSize = settings.floorSize;
       
-      // Calculate grid dimensions based on floor size
-      const gridSize = Math.floor(Math.sqrt(totalPhotos));
-      const spacing = (settings.floorSize * 0.8) / gridSize; // Distribute across 80% of floor
+      // Calculate area to distribute photos
+      const areaSize = floorSize * 0.8; // Use 80% of floor size
+      const halfArea = areaSize / 2;
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Calculate grid position
-        const col = i % gridSize;
-        const row = Math.floor(i / gridSize);
+        // Generate random positions within the floor area
+        const baseX = (Math.random() * areaSize - halfArea);
+        const baseZ = (Math.random() * areaSize - halfArea);
         
-        // Distribute evenly across floor
-        const baseX = (col - (gridSize - 1) / 2) * spacing;
-        const baseZ = (row - (gridSize - 1) / 2) * spacing;
+        // Offset start height based on index to create staggered effect
+        const heightOffset = (i / totalPhotos) * maxHeight;
         
-        // Calculate vertical position with continuous upward motion
-        const speed = settings.animationEnabled ? settings.animationSpeed * 2 : 0;
-        let y = baseHeight + ((time * speed + (i * maxHeight / totalPhotos)) % maxHeight);
+        // Calculate vertical position
+        let y = ((time * settings.animationSpeed * 5) + heightOffset) % maxHeight;
         
-        // Add gentle wave motion
-        const offsetX = Math.sin(time * 0.5 + y * 0.1) * spacing * 0.2;
-        const offsetZ = Math.cos(time * 0.5 + y * 0.1) * spacing * 0.2;
+        // Add subtle horizontal drift
+        const drift = Math.sin(time + i) * 0.5;
+        const driftX = Math.sin(time * 0.5 + i) * drift;
+        const driftZ = Math.cos(time * 0.5 + i) * drift;
         
-        // Create duplicate set below to maintain continuous stream
-        if (y > maxHeight / 2) {
-          y -= maxHeight;
-        }
+        // Reset position when reaching max height
+        if (y > maxHeight - 1) y = -1;
         
         positions.push([
-          baseX + offsetX,
+          baseX + driftX,
           y,
-          baseZ + offsetZ
+          baseZ + driftZ
         ]);
       }
       break;
