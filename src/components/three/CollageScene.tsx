@@ -35,7 +35,23 @@ const PhotoFrame = animated(({
     if (!rotation && ref.current) {
       const dx = camera.position.x - ref.current.position.x;
       const dz = camera.position.z - ref.current.position.z;
-      ref.current.rotation.y = Math.atan2(dx, dz);
+      const rawAngle = Math.atan2(dx, dz);
+      
+      // Calculate distance from camera to photo
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      
+      // Smoothly reduce rotation as distance increases
+      const maxDist = 50; // Distance at which rotation starts reducing
+      const distFactor = Math.min(dist / maxDist, 1);
+      const rotationLimit = (Math.PI / 3) * (1 - distFactor * 0.5); // Limit to ±60° with distance falloff
+      
+      // Apply smooth rotation limits
+      let angle = rawAngle;
+      if (Math.abs(angle) > rotationLimit) {
+        angle = Math.sign(angle) * rotationLimit;
+      }
+      
+      ref.current.rotation.y = angle;
     }
   });
 
