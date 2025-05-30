@@ -23,12 +23,43 @@ interface PhotoFrameProps {
 const PhotoFrame = animated(({ 
   position,
   rotation,
-  scale,
   url,
+  scale,
   baseScale,
   emptySlotColor
 }: PhotoFrameProps) => {
   const { camera } = useThree();
+  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const textureRef = useRef<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    if (url) {
+      const texture = new THREE.TextureLoader().load(url,
+        // Success callback
+        (loadedTexture) => {
+          loadedTexture.minFilter = THREE.LinearFilter;
+          loadedTexture.magFilter = THREE.LinearFilter;
+          if (materialRef.current) {
+            materialRef.current.map = loadedTexture;
+            materialRef.current.needsUpdate = true;
+          }
+        },
+        // Progress callback
+        undefined,
+        // Error callback
+        (error) => {
+          console.error('Error loading texture:', error);
+        }
+      );
+      textureRef.current = texture;
+    }
+
+    return () => {
+      if (textureRef.current) {
+        textureRef.current.dispose();
+      }
+    };
+  }, [url]);
 
   // Only apply billboarding if no rotation is provided (for non-float patterns)
   useFrame(() => {
@@ -70,11 +101,13 @@ const PhotoFrame = animated(({
   return (
     <animated.mesh ref={ref} position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
-      <meshStandardMaterial 
+      <meshStandardMaterial
+        ref={materialRef}
         scale={scale}
         color={url ? undefined : emptySlotColor} 
         transparent={!!url}
         opacity={1}
+        side={THREE.DoubleSide}
       /> 
     </animated.mesh>
   );
@@ -247,7 +280,7 @@ const PhotoWall: React.FC<{
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
     // For float pattern, create duplicate set with offset positions
-    if (settings.animationPattern === 'float') {
+    if (settings.animationPattern === 'float' && settings.animationEnabled) {
       const duplicatePositions = basePositions.map(([x, y, z]) => [
         x * 0.8 + (Math.random() - 0.5) * 5,
         y,
@@ -260,13 +293,14 @@ const PhotoWall: React.FC<{
     settings.photoCount,
     settings.photoSize,
     settings.animationPattern,
+    settings.animationEnabled,
     settings.patterns
   ]);
   
   return (
     <group>
       {positions.map((position, index) => {
-        const isInDuplicateSet = index >= positions.length / 2;
+        const isInDuplicateSet = settings.animationPattern === 'float' && settings.animationEnabled && index >= positions.length / 2;
         const originalIndex = isInDuplicateSet ? index - positions.length / 2 : index;
         const photo = photos[originalIndex % photos.length];
         
