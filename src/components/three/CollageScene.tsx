@@ -1,9 +1,23 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, SpotLight, Text } from '@react-three/drei';
-import { useSpring, animated } from '@react-spring/three';
+import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
+import { animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
+
+// Create a shared texture loader
+const textureLoader = new THREE.TextureLoader();
+const textureCache = new Map<string, THREE.Texture>();
+
+// Cleanup old textures periodically
+setInterval(() => {
+  for (const [key, texture] of textureCache.entries()) {
+    if (!texture.source.data) {
+      texture.dispose();
+      textureCache.delete(key);
+    }
+  }
+}, 60000); // Clean up every minute
 
 type Photo = {
   id: string;
@@ -24,92 +38,71 @@ const PhotoFrame = animated(({
   position,
   rotation,
   url,
-  scale,
+  scale = 1,
   baseScale,
   emptySlotColor
 }: PhotoFrameProps) => {
-  const { camera } = useThree();
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const textureRef = useRef<THREE.Texture | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     if (url) {
-      const texture = new THREE.TextureLoader().load(url,
-        // Success callback
-        (loadedTexture) => {
-          loadedTexture.minFilter = THREE.LinearFilter;
-          loadedTexture.magFilter = THREE.LinearFilter;
-          if (materialRef.current) {
-            materialRef.current.map = loadedTexture;
-            materialRef.current.needsUpdate = true;
-          }
-        },
-        // Progress callback
-        undefined,
-        // Error callback
-        (error) => {
-          console.error('Error loading texture:', error);
+      // Check cache first
+      if (textureCache.has(url)) {
+        const texture = textureCache.get(url)!;
+        if (materialRef.current) {
+          materialRef.current.map = texture;
+          materialRef.current.needsUpdate = true;
+          setIsLoaded(true);
         }
-      );
-      textureRef.current = texture;
-    }
-
-    return () => {
-      if (textureRef.current) {
-        textureRef.current.dispose();
+        return;
       }
-    };
-  }, [url]);
 
-  // Only apply billboarding if no rotation is provided (for non-float patterns)
-  useFrame(() => {
-    if (!rotation && ref.current) {
-      const dx = camera.position.x - ref.current.position.x;
-      const dz = camera.position.z - ref.current.position.z;
-      let rawAngle = Math.atan2(dx, dz);
-      
-      // Calculate distance from camera to photo
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      
-      // Enhanced distance-based rotation control
-      const maxDist = 40;
-      const minDist = 10;
-      const distFactor = Math.min(dist / maxDist, 1);
-      
-      // Calculate rotation limit based on distance
-      const maxRotation = Math.PI / 3; // 60 degrees
-      const minRotation = Math.PI / 6; // 30 degrees
-      const rotationLimit = maxRotation - (distFactor * (maxRotation - minRotation));
-      
-      // Smooth out rotation transitions
-      const smoothFactor = Math.max(0, Math.min(1, (dist - minDist) / (maxDist - minDist)));
-      
-      // Apply smooth rotation limits
-      rawAngle = Math.max(-rotationLimit, Math.min(rotationLimit, rawAngle));
-      const angle = rawAngle * (1 - smoothFactor * 0.5);
-      
-      ref.current.rotation.y = angle;
+      // Load new texture
+      try {
+        const texture = textureLoader.load(
+          url,
+          (loadedTexture) => {
+            loadedTexture.minFilter = THREE.LinearFilter;
+            loadedTexture.magFilter = THREE.LinearFilter;
+            if (materialRef.current) {
+              materialRef.current.map = loadedTexture;
+              materialRef.current.needsUpdate = true;
+              setIsLoaded(true);
+            }
+            textureCache.set(url, loadedTexture);
+          },
+          undefined,
+          (error) => {
+            console.error('Error loading texture:', url, error);
+            setIsLoaded(false);
+          }
+        );
+      } catch (error) {
+        console.error('Failed to load texture:', url, error);
+        setIsLoaded(false);
+      }
     }
-  });
-
-  const ref = useRef<THREE.Mesh>(null);
+  }, [url]);
 
   // Use 9:16 aspect ratio for the photo frame
   const width = baseScale;
   const height = baseScale * (16/9);
 
+  // Optimize material updates
+  const material = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: url ? undefined : emptySlotColor,
+      transparent: !!url,
+      side: THREE.DoubleSide,
+    });
+  }, [url, emptySlotColor]);
+
   return (
-    <animated.mesh ref={ref} position={position} rotation={rotation}>
+    <mesh position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
-      <meshStandardMaterial
-        ref={materialRef}
-        scale={scale}
-        color={url ? undefined : emptySlotColor} 
-        transparent={!!url}
-        opacity={1}
-        side={THREE.DoubleSide}
-      /> 
-    </animated.mesh>
+      <primitive object={material} ref={materialRef} />
+    </mesh>
   );
 });
 
@@ -280,7 +273,7 @@ const PhotoWall: React.FC<{
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
     // For float pattern, create duplicate set with offset positions
-    if (settings.animationPattern === 'float' && settings.animationEnabled) {
+    if (settings.animationPattern === 'float') {
       const duplicatePositions = basePositions.map(([x, y, z]) => [
         x * 0.8 + (Math.random() - 0.5) * 5,
         y,
@@ -288,30 +281,25 @@ const PhotoWall: React.FC<{
       ] as [number, number, number]);
       return [...basePositions, ...duplicatePositions];
     }
-    return basePositions;
+    return basePositions.slice(0, settings.photoCount);
   }, [
     settings.photoCount,
     settings.photoSize,
     settings.animationPattern,
-    settings.animationEnabled,
     settings.patterns
   ]);
   
   return (
     <group>
-      {positions.map((position, index) => {
-        const isInDuplicateSet = settings.animationPattern === 'float' && settings.animationEnabled && index >= positions.length / 2;
-        const originalIndex = isInDuplicateSet ? index - positions.length / 2 : index;
-        const photo = photos[originalIndex % photos.length];
-        
+      {positions.slice(0, settings.photoCount).map((position, index) => {
+        const photo = photos[index % Math.max(1, photos.length)];
         return (
-          <AnimatedPhoto
-            key={`${index}-${isInDuplicateSet ? 'dup' : 'orig'}`}
+          <PhotoFrame
+            key={`photo-${index}`}
             position={position}
             photo={photo}
             settings={settings}
             index={index}
-            duplicate={isInDuplicateSet}
           />
         );
       })}
