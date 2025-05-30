@@ -44,20 +44,35 @@ const PhotoboothPage: React.FC = () => {
       
       setDevices(videoDevices);
 
+      if (videoDevices.length === 0) {
+        throw new Error('No cameras found. Please connect a camera and try again.');
+      }
+
       // If no deviceId provided, use first available or default
       const constraints = {
         video: deviceId ? { deviceId: { exact: deviceId } } : true,
         audio: false
       };
 
-      // Get media stream
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Get media stream with a timeout
+      const mediaStreamPromise = navigator.mediaDevices.getUserMedia(constraints);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('timeout')), 10000); // 10 second timeout
+      });
+
+      const mediaStream = await Promise.race([mediaStreamPromise, timeoutPromise]);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Wait for the video to be ready
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = resolve;
+          }
+        });
       }
 
-      setStream(mediaStream);
+      setStream(mediaStream as MediaStream);
 
       // If no device was previously selected, select the current one
       if (!selectedDevice && videoDevices.length > 0) {
@@ -65,7 +80,20 @@ const PhotoboothPage: React.FC = () => {
         setSelectedDevice(currentDevice.deviceId);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to access camera');
+      let errorMessage = 'Failed to access camera';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Camera access denied. Please allow camera access in your browser settings and try again.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found. Please connect a camera and try again.';
+      } else if (err.name === 'NotReadableError' || err.message === 'timeout') {
+        errorMessage = 'Camera is in use by another application or timed out. Please:\n' +
+          '1. Close other apps using your camera\n' +
+          '2. Refresh the page\n' +
+          '3. Try selecting a different camera if available';
+      }
+      
+      setError(errorMessage);
       console.error('Camera access error:', err);
     } finally {
       setLoading(false);
@@ -194,7 +222,7 @@ const PhotoboothPage: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-sm text-red-200 whitespace-pre-line">
             {error}
           </div>
         )}
