@@ -239,32 +239,44 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           .from('collage_settings')
           .select('settings')
           .eq('collage_id', id)
-          .maybeSingle()
+          .single()
       ]);
 
       if (collageResponse.error) throw collageResponse.error;
       const collage = collageResponse.data;
 
-      if (!settingsResponse.data) {
-        // Use upsert to create or update settings
-        const { data: settingsData, error: upsertError } = await supabase
-          .from('collage_settings')
-          .upsert(
-            { 
-              collage_id: collage.id, 
-              settings: defaultSettings 
-            },
-            {
-              onConflict: 'collage_id'
-            }
-          )
-          .select('settings')
-          .single();
+      // If settings don't exist or there was an error fetching them
+      if (settingsResponse.error || !settingsResponse.data) {
+        try {
+          // First try to update in case the record exists but wasn't found
+          const { data: updateData, error: updateError } = await supabase
+            .from('collage_settings')
+            .update({ settings: defaultSettings })
+            .eq('collage_id', collage.id)
+            .select('settings')
+            .single();
 
-        if (upsertError) throw upsertError;
-        
-        // Use the returned settings or fall back to default
-        collage.settings = settingsData?.settings || defaultSettings;
+          if (!updateError && updateData) {
+            collage.settings = updateData.settings;
+          } else {
+            // If update fails (likely because record doesn't exist), try insert
+            const { data: insertData, error: insertError } = await supabase
+              .from('collage_settings')
+              .insert([{ 
+                collage_id: collage.id, 
+                settings: defaultSettings 
+              }])
+              .select('settings')
+              .single();
+
+            if (insertError) throw insertError;
+            collage.settings = insertData.settings;
+          }
+        } catch (error: any) {
+          console.error('Error handling settings:', error);
+          // If all operations fail, use default settings but don't fail the whole request
+          collage.settings = defaultSettings;
+        }
       } else {
         collage.settings = settingsResponse.data.settings;
       }
@@ -489,3 +501,5 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     }
   }
 }));
+
+export { useCollageStore }
