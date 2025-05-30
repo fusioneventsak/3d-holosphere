@@ -1,8 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, Download, Image, Send, X } from 'lucide-react';
+import { Camera, Download, Send, X, RefreshCw } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
+
+type VideoDevice = {
+  deviceId: string;
+  label: string;
+};
 
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -10,10 +15,13 @@ const PhotoboothPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [devices, setDevices] = useState<VideoDevice[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto } = useCollageStore();
 
   useEffect(() => {
@@ -23,21 +31,6 @@ const PhotoboothPage: React.FC = () => {
   }, [code, fetchCollageByCode]);
 
   useEffect(() => {
-    const startCamera = async () => {
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
-          audio: false
-        });
-        setStream(mediaStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      } catch (err: any) {
-        setError('Unable to access camera. Please ensure camera permissions are granted.');
-      }
-    };
-
     startCamera();
 
     return () => {
@@ -46,6 +39,12 @@ const PhotoboothPage: React.FC = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedDevice) {
+      startCamera(selectedDevice);
+    }
+  }, [selectedDevice]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -152,15 +151,38 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
+        {/* Camera device selector */}
+        {devices.length > 1 && (
+          <div className="mb-4">
+            <select
+              value={selectedDevice}
+              onChange={(e) => setSelectedDevice(e.target.value)}
+              className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded text-white"
+            >
+              {devices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative">
           {!photo ? (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                className="w-full h-full object-cover"
-              />
+              {loading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                </div>
+              ) : (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
                 <input
                   type="text"
@@ -169,13 +191,24 @@ const PhotoboothPage: React.FC = () => {
                   placeholder="Add text to your photo..."
                   className="w-full mb-4 px-4 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400"
                 />
-                <button
+                <div className="flex space-x-2">
+                  {devices.length > 0 && (
+                    <button
+                      onClick={() => startCamera(selectedDevice)}
+                      className="flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      title="Refresh camera"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
                   onClick={takePhoto}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <Camera className="w-5 h-5 mr-2" />
                   Take Photo
                 </button>
+                </div>
               </div>
             </>
           ) : (
