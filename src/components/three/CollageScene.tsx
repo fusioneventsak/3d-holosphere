@@ -146,6 +146,11 @@ const PhotoFrame = React.memo(({
   const width = scale;
   const height = scale * (16/9);
   
+  // Scale photos based on floor size and photo count
+  const dynamicScale = settings.animationPattern === 'float' 
+    ? Math.min(1, settings.floorSize / (Math.sqrt(settings.photoCount) * 20))
+    : 1;
+  
   const springs = useSpring({
     position: [position[0] + offset.x, position[1] + offset.y, position[2] + offset.z],
     config: { 
@@ -162,7 +167,7 @@ const PhotoFrame = React.memo(({
       position={springs.position}
       rotation={[0, 0, 0]}
     >
-      <planeGeometry args={[width, height]} />
+      <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -233,27 +238,29 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spread = 10; // Tight formation for upward stream
       const baseHeight = settings.wallHeight;
       const maxHeight = 40; // Height before resetting
-      const columns = 5; // Number of columns in the grid
-      const spacing = settings.photoSize * 2; // Space between photos
+      
+      // Calculate grid dimensions based on floor size
+      const gridSize = Math.floor(Math.sqrt(totalPhotos));
+      const spacing = (settings.floorSize * 0.8) / gridSize; // Distribute across 80% of floor
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Calculate base grid position
-        const col = i % columns;
-        const row = Math.floor(i / columns);
+        // Calculate grid position
+        const col = i % gridSize;
+        const row = Math.floor(i / gridSize);
         
         // Distribute evenly across floor
-        const baseX = (col - (columns - 1) / 2) * spacing;
-        const baseZ = 0; // All photos in same Z plane for cleaner look
+        const baseX = (col - (gridSize - 1) / 2) * spacing;
+        const baseZ = (row - (gridSize - 1) / 2) * spacing;
         
         // Calculate vertical position with continuous upward motion
         const speed = settings.animationEnabled ? settings.animationSpeed * 2 : 0;
         let y = baseHeight + ((time * speed + (i * maxHeight / totalPhotos)) % maxHeight);
         
         // Add gentle wave motion
-        const offsetX = Math.sin(time * 0.5 + y * 0.1) * 0.3;
+        const offsetX = Math.sin(time * 0.5 + y * 0.1) * spacing * 0.2;
+        const offsetZ = Math.cos(time * 0.5 + y * 0.1) * spacing * 0.2;
         
         // Create duplicate set below to maintain continuous stream
         if (y > maxHeight / 2) {
@@ -263,7 +270,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         positions.push([
           baseX + offsetX,
           y,
-          baseZ
+          baseZ + offsetZ
         ]);
       }
       break;
