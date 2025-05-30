@@ -102,7 +102,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * 1.2; // Consistent spacing
+      const spacing = baseSpacing * 1.5; // Increased spacing for better visibility
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
       
@@ -110,7 +110,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const z = (row - rows / 2) * spacing * 0.8; // Slightly compressed depth
+        const z = (row - rows / 2) * spacing; // Full depth spacing
         const y = 0; // Starting height will be handled by AnimatedPhoto
         positions.push([x, y, z]);
       }
@@ -150,7 +150,7 @@ const AnimatedPhoto: React.FC<{
   const startOffset = React.useRef(Math.random() * settings.patterns.float.height).current;
 
   const [spring, api] = useSpring(() => ({
-    position,
+    position: [position[0], 0, position[2]],
     rotation: [0, 0, 0],
     config: { mass: 1, tension: 170, friction: 26 }
   }));
@@ -159,14 +159,15 @@ const AnimatedPhoto: React.FC<{
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
-    const speed = settings.patterns.float.animationSpeed;
+    const speed = Math.abs(settings.patterns.float.animationSpeed);
     const height = settings.patterns.float.height;
     
-    // Calculate base position that only moves upward
-    let y = ((t * speed + startOffset) % height);
+    // Calculate y position with continuous upward movement
+    const baseY = (t * speed + startOffset);
+    const y = baseY % height;
     
-    // Offset to center around origin
-    y = y - height / 2;
+    // Center around origin and ensure smooth transition at boundaries
+    const finalY = y - height / 2;
     
     // Calculate rotation to face camera smoothly
     const dx = camera.position.x - position[0];
@@ -174,8 +175,12 @@ const AnimatedPhoto: React.FC<{
     const angle = Math.atan2(dx, dz);
     
     api.start({
-      position: [position[0], y, position[2]],
-      rotation: [0, angle, 0]
+      position: [position[0], finalY, position[2]],
+      config: { 
+        tension: 170, 
+        friction: 26,
+        clamp: true // Prevent overshooting
+      }
     });
   });
 
