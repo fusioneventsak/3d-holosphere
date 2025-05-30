@@ -145,41 +145,49 @@ const AnimatedPhoto: React.FC<{
   photo?: Photo;
   settings: SceneSettings;
   index: number;
-}> = React.memo(({ position, photo, settings }) => {
+}> = React.memo(({ position, photo, settings, index }) => {
   const { camera } = useThree();
   const startY = React.useRef({
     y: position[1],
-    offset: Math.random() * 20 // Smaller random offset for smoother distribution
+    offset: (index / settings.photoCount) * Math.PI * 2 // Evenly distribute offsets
   }).current;
 
   const [spring, api] = useSpring(() => ({
     position,
     rotation: [0, 0, 0],
-    config: { mass: 1, tension: 120, friction: 14 } // Smoother animation
+    config: { mass: 1, tension: 170, friction: 26 } // Adjusted for smoother motion
   }));
 
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
+    const speed = settings.patterns.float.animationSpeed;
+    const height = settings.patterns.float.height;
     
-    // Map animation speed from settings (0.1 to 2.0)
-    const speed = settings.animationSpeed * 2;
-    const height = 40; // Fixed height for consistent movement
+    // Calculate vertical position with smooth wrapping
+    let y = ((t * speed + startY.offset) % height);
+    const normalizedY = y / height; // 0 to 1
     
-    // Calculate position with wrapping
-    const y = ((t * speed + startY.offset) % height) - height * 0.5;
+    // Fade out near the top using a smooth curve
+    if (normalizedY > 0.8) {
+      const fadeProgress = (normalizedY - 0.8) / 0.2;
+      y = height * (1 - Math.pow(fadeProgress, 2));
+    }
     
-    // Calculate rotation to face camera
+    // Adjust final position
+    y = y - height * 0.5;
+    
+    // Calculate rotation to face camera smoothly
     const dx = camera.position.x - position[0];
     const dz = camera.position.z - position[2];
     const angle = Math.atan2(dx, dz);
     
-    // Update position with straight vertical movement only
+    // Apply smooth position and rotation updates
     api.start({
       position: [position[0], y, position[2]],
       rotation: [0, angle, 0]
-    });
+    }, { immediate: false });
   });
 
   return (
