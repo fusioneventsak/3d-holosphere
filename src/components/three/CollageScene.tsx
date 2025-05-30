@@ -183,13 +183,12 @@ const PhotoFrame = React.memo(({
 const generatePhotoPositions = (settings: SceneSettings): [number, number, number][] => {
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
-  const baseSpacing = settings.photoSize * (1 + settings.photoSpacing); 
   const time = Date.now() * 0.001 * settings.animationSpeed;
 
   switch (settings.animationPattern) {
     case 'grid': {
       const patternSettings = settings.patterns.grid;
-      const spacing = baseSpacing * (1 + patternSettings.spacing);
+      const spacing = settings.photoSize * (1 + settings.photoSpacing);
       const aspectRatio = patternSettings.aspectRatio;
       const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
       const rows = Math.ceil(totalPhotos / columns);
@@ -215,7 +214,6 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'spiral': {
       const patternSettings = settings.patterns.spiral;
-      const spacing = baseSpacing * (1 + patternSettings.spacing);
       const radius = patternSettings.radius;
       const heightStep = patternSettings.heightStep;
       const angleStep = (Math.PI * 2) / Math.max(1, totalPhotos / 3);
@@ -235,17 +233,27 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const maxRadius = settings.floorSize * 0.4;
-      const height = settings.floorSize * 0.3;
+      const maxRadius = patternSettings.spread;
+      const height = patternSettings.height;
       
       for (let i = 0; i < totalPhotos; i++) {
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const baseAngle = i * goldenRatio * Math.PI * 2;
-        const angle = settings.animationEnabled ? baseAngle + time : baseAngle;
+        const angle = settings.animationEnabled ? 
+          baseAngle + time * patternSettings.animationSpeed : 
+          baseAngle;
+        
         const r = maxRadius * Math.sqrt(i / totalPhotos);
         const x = Math.cos(angle) * r;
         const z = Math.sin(angle) * r;
-        const y = settings.wallHeight + Math.sin(time + i * 0.1) * height;
+        
+        // Unique floating animation
+        const floatPhase = time * patternSettings.animationSpeed + i * 0.1;
+        const y = settings.wallHeight + (
+          Math.sin(floatPhase) * height * 0.5 + 
+          Math.cos(floatPhase * 0.7) * height * 0.3
+        );
+        
         positions.push([x, y, z]);
       }
       break;
@@ -253,11 +261,11 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'wave': {
       const patternSettings = settings.patterns.wave;
-      const spacing = baseSpacing * (1 + patternSettings.spacing);
+      const spacing = settings.photoSize * (1 + settings.photoSpacing);
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
-      const frequency = 0.2;
-      const amplitude = settings.floorSize * 0.15;
+      const frequency = patternSettings.frequency;
+      const amplitude = patternSettings.amplitude;
       
       for (let i = 0; i < totalPhotos; i++) {
         const col = i % columns;
@@ -267,7 +275,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         let y = settings.wallHeight;
         
         if (settings.animationEnabled) {
-          const wavePhase = time * 2;
+          const wavePhase = time * patternSettings.animationSpeed;
           const distanceFromCenter = Math.sqrt(x * x + z * z);
           y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
         }
@@ -297,43 +305,7 @@ const PhotoWall: React.FC<{
   useFrame((state) => {
     if (settings.animationEnabled) {
       timeRef.current += state.clock.getDelta() * settings.animationSpeed;
-      
-      const newPositions = positions.map((basePos, index) => {
-        const time = timeRef.current;
-        let x = basePos[0], y = basePos[1], z = basePos[2];
-        
-        switch (settings.animationPattern) {
-          case 'float': {
-            const phase = index * 0.1 + time;
-            y += Math.sin(phase) * 2;
-            x += Math.cos(phase * 0.5) * 0.5;
-            z += Math.sin(phase * 0.7) * 0.5;
-            break;
-          }
-          case 'wave': {
-            const dist = Math.sqrt(x * x + z * z);
-            y += Math.sin(dist * 0.2 - time * 2) * 3;
-            break;
-          }
-          case 'spiral': {
-            const angle = index * 0.1 + time;
-            const radius = 10 * (1 - index / settings.photoCount);
-            x = Math.cos(angle) * radius;
-            z = Math.sin(angle) * radius;
-            y += index * 0.5;
-            break;
-          }
-          case 'grid': {
-            const phase = index * 0.1 + time;
-            y += Math.sin(phase) * 0.2;
-            break;
-          }
-        }
-        
-        return [x, y, z] as [number, number, number];
-      });
-      
-      setPositions(newPositions);
+      setPositions(generatePhotoPositions(settings));
     }
   });
   
