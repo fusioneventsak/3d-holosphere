@@ -132,9 +132,14 @@ const PhotoFrame = React.memo(({
   emptySlotColor
 }: PhotoFrameProps & { emptySlotColor: string }) => {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const { position: springPosition } = useSpring({
+  const springs = useSpring({
     position,
-    config: { mass: 1, tension: 170, friction: 26 }
+    config: { 
+      mass: 1,
+      tension: 280,
+      friction: 60,
+      precision: 0.001
+    }
   });
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
@@ -150,7 +155,7 @@ const PhotoFrame = React.memo(({
   const height = scale * (16/9);
 
   return (
-    <animated.mesh position={springPosition} rotation={rotation}>
+    <animated.mesh position={springs.position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
         map: texture,
@@ -173,7 +178,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
   const baseSpacing = settings.photoSize * (1 + settings.photoSpacing); 
-  const baseHeight = -settings.floorSize * 0.25; // Base height for animations
+  const time = Date.now() * 0.001 * settings.animationSpeed;
 
   switch (settings.animationPattern) {
     case 'grid': {
@@ -187,7 +192,15 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const y = settings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+        let y = settings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+        
+        // Add subtle wave animation when enabled
+        if (settings.animationEnabled) {
+          const waveX = Math.sin(time + col * 0.5) * 0.2;
+          const waveY = Math.cos(time + row * 0.5) * 0.2;
+          y += waveX + waveY;
+        }
+        
         const z = 0;
         positions.push([x, y, z]);
       }
@@ -202,7 +215,9 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const angleStep = (Math.PI * 2) / Math.max(1, totalPhotos / 3);
       
       for (let i = 0; i < totalPhotos; i++) {
-        const angle = i * angleStep;
+        const angle = settings.animationEnabled ? 
+          i * angleStep + time : 
+          i * angleStep;
         const spiralRadius = radius * (1 - i / totalPhotos);
         const x = Math.cos(angle) * spiralRadius;
         const y = settings.wallHeight + (i * heightStep);
@@ -214,15 +229,17 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const maxRadius = settings.floorSize * 0.4; // 80% of floor size for better visibility
+      const maxRadius = settings.floorSize * 0.4;
+      const height = settings.floorSize * 0.3;
       
       for (let i = 0; i < totalPhotos; i++) {
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
-        const angle = i * goldenRatio * Math.PI * 2;
+        const baseAngle = i * goldenRatio * Math.PI * 2;
+        const angle = settings.animationEnabled ? baseAngle + time : baseAngle;
         const r = maxRadius * Math.sqrt(i / totalPhotos);
         const x = Math.cos(angle) * r;
         const z = Math.sin(angle) * r;
-        const y = baseHeight + Math.random() * settings.floorSize * 0.5; // Random height variation
+        const y = settings.wallHeight + Math.sin(time + i * 0.1) * height;
         positions.push([x, y, z]);
       }
       break;
@@ -233,16 +250,22 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       const spacing = baseSpacing * (1 + patternSettings.spacing);
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
-      const frequency = 0.1; // Wave frequency
-      const amplitude = settings.floorSize * 0.1; // Wave amplitude
+      const frequency = 0.2;
+      const amplitude = settings.floorSize * 0.15;
       
       for (let i = 0; i < totalPhotos; i++) {
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
         const z = (row - rows / 2) * spacing;
-        const angle = (x + z) * frequency;
-        const y = settings.wallHeight + Math.sin(angle) * amplitude;
+        let y = settings.wallHeight;
+        
+        if (settings.animationEnabled) {
+          const wavePhase = time * 2;
+          const distanceFromCenter = Math.sqrt(x * x + z * z);
+          y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
+        }
+        
         positions.push([x, y, z]);
       }
       break;
@@ -260,17 +283,21 @@ const PhotoWall: React.FC<{
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
     return basePositions.slice(0, settings.photoCount);
-  }, [
-    settings.photoCount,
-    settings.photoSize,
-    settings.photoSpacing,
-    settings.animationPattern,
-    settings.patterns,
-    settings.wallHeight,
-    settings.floorSize,
-    settings.animationSpeed,
-    settings.animationEnabled
-  ]);
+  }, [settings]);
+
+  // Force re-render on animation frame when animations are enabled
+  useFrame(() => {
+    if (settings.animationEnabled) {
+      const newPositions = generatePhotoPositions(settings);
+      positions.forEach((pos, i) => {
+        if (i < newPositions.length) {
+          pos[0] = newPositions[i][0];
+          pos[1] = newPositions[i][1];
+          pos[2] = newPositions[i][2];
+        }
+      });
+    }
+  });
   
   return (
     <group>
