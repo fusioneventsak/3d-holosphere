@@ -88,18 +88,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     }
     
     case 'float': {
-      const patternSettings = settings.patterns.float;
-      const spread = patternSettings.spread;
-      const height = patternSettings.height;
+      // Calculate distribution in a cylinder
+      const radius = settings.floorSize * 0.3; // Use 30% of floor size for radius
+      const height = settings.floorSize * 0.5; // Use 50% of floor size for height
       
       for (let i = 0; i < totalPhotos; i++) {
-        const angle = i * angleStep;
-        const r = radius * Math.sqrt(Math.random()); // Uniform distribution in circle
+        // Distribute evenly around the cylinder
+        const angle = (i / totalPhotos) * Math.PI * 2;
+        const r = radius * Math.sqrt(Math.random()); // Uniform radial distribution
         const x = Math.cos(angle) * r;
         const z = Math.sin(angle) * r;
         
         // Random starting height within the animation range
-        const y = -height/2 + Math.random() * height;
+        const y = -height + Math.random() * height * 2;
         
         positions.push([x * baseSpacing, y, z * baseSpacing]);
       }
@@ -153,21 +154,21 @@ const AnimatedPhoto: React.FC<{
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
-    const patternSettings = settings.patterns.float;
     const t = state.clock.getElapsedTime();
     
     // Calculate vertical movement
     const baseY = animParams.startY;
-    const floatHeight = patternSettings.height;
-    const speed = patternSettings.animationSpeed;
+    const floatHeight = settings.floorSize * 0.5; // Use 50% of floor size
+    const speed = 0.2; // Constant gentle speed
     
     // Continuous upward movement with wrapping
     const moveY = ((t * speed + animParams.phase) % floatHeight);
     const y = baseY + moveY;
     
     // Add gentle wobble
-    const wobbleX = Math.sin(t * animParams.wobbleSpeed + animParams.wobblePhase) * 0.3;
-    const wobbleZ = Math.cos(t * animParams.wobbleSpeed + animParams.wobblePhase) * 0.3;
+    const wobbleAmount = settings.photoSize * 0.3; // Scale wobble with photo size
+    const wobbleX = Math.sin(t * animParams.wobbleSpeed + animParams.wobblePhase) * wobbleAmount;
+    const wobbleZ = Math.cos(t * animParams.wobbleSpeed + animParams.wobblePhase) * wobbleAmount;
     
     api.start({
       position: [
@@ -176,17 +177,17 @@ const AnimatedPhoto: React.FC<{
         position[2] + wobbleZ
       ],
       rotation: [
-        Math.sin(t * 0.3 + animParams.phase) * 0.1,
-        t * 0.1 + animParams.phase,
-        Math.cos(t * 0.3 + animParams.phase) * 0.1
+        Math.sin(t * 0.2 + animParams.phase) * 0.2,
+        Math.sin(t * 0.15 + animParams.phase) * 0.3,
+        Math.cos(t * 0.25 + animParams.phase) * 0.2
       ]
     });
     
     // Wrap position when photo goes too high
-    if (y > floatHeight) {
+    if (y > floatHeight * 0.5) {
       animParams.phase = Math.random() * Math.PI * 2;
       api.start({
-        position: [position[0], -floatHeight/2, position[2]],
+        position: [position[0], -floatHeight * 0.5, position[2]],
         immediate: true
       });
     }
