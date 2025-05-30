@@ -213,9 +213,11 @@ const PhotoWall: React.FC<{
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
+    const floorSize = settings.floorSize * 0.8;
+    
     return Array(settings.photoCount).fill(0).map(() => ({
-      x: (Math.random() - 0.5) * settings.floorSize * 0.8,
-      z: (Math.random() - 0.5) * settings.floorSize * 0.8,
+      x: (Math.random() - 0.5) * floorSize,
+      z: (Math.random() - 0.5) * floorSize,
       startY: Math.random() * -FLOAT_MAX_HEIGHT,
       speed: 0.5 + Math.random() * 0.5 // Slightly randomize speeds for more natural movement
     }));
@@ -234,7 +236,6 @@ const PhotoWall: React.FC<{
     switch (currentSettings.animationPattern) {
       case 'grid': {
         const patternSettings = currentSettings.patterns.grid;
-        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const aspectRatio = patternSettings.aspectRatio;
         const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
         const rows = Math.ceil(totalPhotos / columns);
@@ -287,6 +288,11 @@ const PhotoWall: React.FC<{
           const param = currentFloatParams[i];
           const x = param.x;
           const z = param.z;
+          // Apply spacing factor based on distance from center
+          const spacingFactor = 1 - (spacing * (1 - distanceFromCenter));
+          // Apply spacing to coordinates
+          const x = param.x * spacingFactor;
+          const z = param.z * spacingFactor;
           const speed = param.speed * baseSpeed;
           
           // Calculate base y position
