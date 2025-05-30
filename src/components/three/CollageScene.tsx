@@ -140,13 +140,35 @@ const PhotoFrame = React.memo(({
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
+  const [targetRotation, setTargetRotation] = useState<[number, number, number]>([0, 0, 0]);
+
+  const { rotation: springRotation } = useSpring({
+    rotation: targetRotation,
+    config: { 
+      mass: 1,
+      tension: 280,
+      friction: 60,
+      precision: 0.001
+    }
+  });
 
   useFrame(() => {
-    if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
-      // Make the photo face the camera
-      meshRef.current.lookAt(camera.position);
-      // Add a slight tilt for better visibility
-      meshRef.current.rotation.x += Math.PI * 0.1;
+    if (meshRef.current && settings.photoRotation) {
+      const lookAtVector = new THREE.Vector3();
+      meshRef.current.getWorldPosition(lookAtVector);
+      lookAtVector.sub(camera.position).normalize();
+      
+      const targetQuaternion = new THREE.Quaternion();
+      const upVector = new THREE.Vector3(0, 1, 0);
+      const matrix = new THREE.Matrix4().lookAt(lookAtVector, new THREE.Vector3(0, 0, 0), upVector);
+      targetQuaternion.setFromRotationMatrix(matrix);
+      
+      const euler = new THREE.Euler().setFromQuaternion(targetQuaternion);
+      euler.x += Math.PI * 0.1; // Add slight tilt
+      
+      setTargetRotation([euler.x, euler.y, euler.z]);
+    } else {
+      setTargetRotation(rotation || [0, 0, 0]);
     }
   });
 
@@ -165,22 +187,12 @@ const PhotoFrame = React.memo(({
   const dynamicScale = settings.animationPattern === 'float' 
     ? Math.min(1, settings.floorSize / (Math.sqrt(settings.photoCount) * 20))
     : 1;
-  
-  const springs = useSpring({
-    position,
-    config: { 
-      mass: 1,
-      tension: 280,
-      friction: 60,
-      precision: 0.001
-    }
-  });
 
   return (
     <animated.mesh 
       ref={meshRef}
-      position={springs.position} 
-      rotation={settings.animationPattern !== 'float' ? (rotation || [0, 0, 0]) : [0, 0, 0]}
+      position={position}
+      rotation={springRotation}
     >
       <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
@@ -199,7 +211,8 @@ const PhotoFrame = React.memo(({
          prev.position[2] === next.position[2] &&
          prev.settings.animationPattern === next.settings.animationPattern &&
          prev.settings.floorSize === next.settings.floorSize &&
-         prev.settings.photoCount === next.settings.photoCount;
+         prev.settings.photoCount === next.settings.photoCount &&
+         prev.settings.photoRotation === next.settings.photoRotation;
 });
 
 // Photo wall component
@@ -286,15 +299,13 @@ const PhotoWall: React.FC<{
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
-          let x = param.x;
-          let z = param.z;
-          const distanceFromCenter = Math.sqrt(x * x + z * z) / (floorSize / 2);
-          const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
+          const x = param.x;
+          const z = param.z;
           // Apply spacing factor based on distance from center
           const spacingFactor = 1 - (spacing * (1 - distanceFromCenter));
           // Apply spacing to coordinates
-          x = x * spacingFactor;
-          z = z * spacingFactor;
+          const x = param.x * spacingFactor;
+          const z = param.z * spacingFactor;
           const speed = param.speed * baseSpeed;
           
           // Calculate base y position
