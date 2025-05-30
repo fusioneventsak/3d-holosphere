@@ -18,7 +18,7 @@ const JoinCollage: React.FC = () => {
     }
     
     // Navigate to the collage viewer with the entered code
-    navigate(`/collage/${code.trim().toLowerCase()}`);
+    navigate(`/photobooth/${code.trim().toLowerCase()}`);
   };
 
   return (

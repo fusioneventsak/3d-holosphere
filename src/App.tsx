@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
+import PhotoboothPage from './pages/PhotoboothPage';
 import JoinCollage from './pages/JoinCollage';
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/join" element={<JoinCollage />} />
         <Route path="/collage/:code" element={<CollageViewerPage />} />
+        <Route path="/photobooth/:code" element={<PhotoboothPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
         <Route path="/moderation/:id" element={<CollageModerationPage />} />
