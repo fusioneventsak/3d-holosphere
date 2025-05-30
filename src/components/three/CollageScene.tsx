@@ -140,6 +140,7 @@ const PhotoFrame = React.memo(({
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
+  const [targetRotation, setTargetRotation] = useState(rotation || [0, 0, 0]);
 
   useFrame(() => {
     if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
@@ -240,6 +241,7 @@ const PhotoWall: React.FC<{
 
     switch (currentSettings.animationPattern) {
       case 'grid': {
+        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const patternSettings = currentSettings.patterns.grid;
         const aspectRatio = patternSettings.aspectRatio;
         const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
@@ -318,6 +320,7 @@ const PhotoWall: React.FC<{
       }
       
       case 'wave': {
+        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const patternSettings = currentSettings.patterns.wave;
         const columns = Math.ceil(Math.sqrt(totalPhotos));
         const rows = Math.ceil(totalPhotos / columns);
