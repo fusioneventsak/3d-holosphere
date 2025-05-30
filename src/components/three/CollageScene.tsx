@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight, Text } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
@@ -91,13 +91,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     case 'float': {
       const patternSettings = settings.patterns.float;
       const spacing = baseSpacing * (1 + patternSettings.spacing);
-      const spread = patternSettings.spread;
-      const height = patternSettings.height;
+      const { spread, density, yOffset } = patternSettings;
       
       for (let i = 0; i < totalPhotos; i++) {
-        const x = (Math.random() - 0.5) * spread * 2;
-        const y = baseHeight + height + Math.random() * height * 0.5;
-        const z = (Math.random() - 0.5) * spread * 2;
+        const col = i % gridSize;
+        const row = Math.floor(i / gridSize);
+        
+        // Calculate base position in grid
+        const x = (col - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize;
+        const z = (row - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize;
+        
+        // Start at different heights
+        const y = yOffset + Math.random() * patternSettings.height;
+        
         positions.push([x, y, z]);
       }
       break;
@@ -125,6 +131,54 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
   return positions;
 };
 
+// Custom hook for floating animation
+const useFloatingAnimation = (
+  initialPosition: [number, number, number],
+  settings: SceneSettings,
+  index: number
+) => {
+  const { current: offset } = React.useRef({
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.5 + Math.random() * 0.5
+  });
+  
+  const [spring, api] = useSpring(() => ({
+    position: initialPosition,
+    rotation: [0, 0, 0],
+    config: { mass: 1, tension: 50, friction: 20 }
+  }));
+
+  useFrame((state) => {
+    if (settings.animationPattern !== 'float') return;
+    
+    const patternSettings = settings.patterns.float;
+    const time = state.clock.getElapsedTime();
+    
+    // Calculate vertical position with smooth looping
+    const height = patternSettings.height;
+    const loopProgress = ((time * patternSettings.animationSpeed + offset.phase) % patternSettings.loopDuration) / patternSettings.loopDuration;
+    const y = patternSettings.yOffset + height + (loopProgress * height * 2);
+    
+    // Add subtle horizontal movement
+    const wobble = Math.sin(time * offset.speed + offset.phase) * 0.3;
+    
+    api.start({
+      position: [
+        initialPosition[0] + wobble,
+        y,
+        initialPosition[2] + wobble
+      ],
+      rotation: [
+        Math.sin(time * 0.5 + offset.phase) * 0.1,
+        time * 0.2 + offset.phase,
+        Math.cos(time * 0.5 + offset.phase) * 0.1
+      ]
+    });
+  });
+
+  return spring;
+};
+
 // Photo wall component
 const PhotoWall: React.FC<{
   photos: Photo[];
@@ -134,27 +188,24 @@ const PhotoWall: React.FC<{
 
   // Create springs for each photo position
   const springs = positions.map((position, index) => {
-    let rotation: [number, number, number] = [0, 0, 0];
-    
-    // Handle rotations based on pattern
-    if (settings.animationPattern === 'spiral') {
-      const angle = Math.atan2(position[2], position[0]);
-      rotation = [0, -angle + Math.PI / 2, 0];
-    } else if (settings.animationPattern !== 'grid') {
-      const angle = Math.atan2(position[2], position[0]);
-      rotation = [0, -angle + Math.PI / 2, 0];
-    }
+  // Use pattern-specific animations
+  const animatedProps = positions.map((position, index) => {
+    if (settings.animationPattern === 'float') {
+      return useFloatingAnimation(position, settings, index);
+    } 
 
-    return useSpring({
+    // Default spring animation for other patterns
+    const rotation: [number, number, number] = [0, 0, 0];
+    return useSpring(() => ({
       position,
       rotation,
       config: { mass: 1, tension: 120, friction: 14 },
-    });
+    }));
   });
   
   return (
     <group>
-      {springs.map((spring, index) => {
+      {animatedProps.map((spring, index) => {
         const photo = photos[index];
         
         return (
