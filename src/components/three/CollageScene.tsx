@@ -25,11 +25,11 @@ const PhotoFrame: React.FC<{
   return (
     <mesh position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
-      <meshStandardMaterial
-        color={url ? undefined : emptySlotColor}
-        transparent
-        opacity={url ? 1 : 0.5}
-      />
+      <meshStandardMaterial 
+        color={url ? undefined : emptySlotColor} 
+        transparent={!!url}
+        opacity={1}
+      /> 
     </mesh>
   );
 };
@@ -120,16 +120,14 @@ const PhotoWall: React.FC<{
         const photo = photos[index];
         let rotation: [number, number, number] = [0, 0, 0];
         
-        // Add variations to rotation based on pattern
+        // Handle rotations based on pattern
         if (settings.animationPattern === 'spiral') {
           const angle = Math.atan2(position[2], position[0]);
           rotation = [0, -angle + Math.PI / 2, 0];
-        } else if (settings.animationPattern === 'float') {
-          rotation = [
-            (Math.random() - 0.5) * 0.2,
-            (Math.random() - 0.5) * 0.2,
-            (Math.random() - 0.5) * 0.2
-          ];
+        } else if (settings.animationPattern !== 'grid') {
+          // For non-grid patterns, make frames face the camera
+          const angle = Math.atan2(position[2], position[0]);
+          rotation = [0, -angle + Math.PI / 2, 0];
         }
         
         return (
