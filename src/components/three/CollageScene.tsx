@@ -240,36 +240,41 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const maxHeight = 40; // Height before resetting
+      const maxHeight = 50; // Maximum height before reset
       const floorSize = settings.floorSize;
+      const photoSpacing = settings.photoSize * 2; // Minimum spacing between photos
       
-      // Calculate area to distribute photos
-      const areaSize = floorSize * 0.8; // Use 80% of floor size
+      // Calculate grid dimensions for even distribution
+      const areaSize = floorSize * 0.8;
       const halfArea = areaSize / 2;
+      const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+      const cellSize = areaSize / gridSize;
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Generate random positions within the floor area
-        const baseX = (Math.random() * areaSize - halfArea);
-        const baseZ = (Math.random() * areaSize - halfArea);
+        // Calculate grid position
+        const gridX = (i % gridSize) - gridSize / 2;
+        const gridZ = Math.floor(i / gridSize) - gridSize / 2;
         
-        // Offset start height based on index to create staggered effect
-        const heightOffset = (i / totalPhotos) * maxHeight;
+        // Add slight randomness to grid position for natural look
+        const offsetX = (Math.random() - 0.5) * cellSize * 0.5;
+        const offsetZ = (Math.random() - 0.5) * cellSize * 0.5;
         
-        // Calculate vertical position
-        let y = ((time * settings.animationSpeed * 5) + heightOffset) % maxHeight;
+        // Base position in grid
+        const baseX = gridX * cellSize + offsetX;
+        const baseZ = gridZ * cellSize + offsetZ;
         
-        // Add subtle horizontal drift
-        const drift = Math.sin(time + i) * 0.5;
-        const driftX = Math.sin(time * 0.5 + i) * drift;
-        const driftZ = Math.cos(time * 0.5 + i) * drift;
+        // Calculate vertical position with smooth movement
+        const speed = settings.animationSpeed * 2;
+        const heightOffset = (i % 3) * (maxHeight / 3); // Stagger initial heights
+        let y = ((time * speed) + heightOffset) % maxHeight;
         
-        // Reset position when reaching max height
-        if (y > maxHeight - 1) y = -1;
+        // Reset to bottom when reaching top
+        if (y > maxHeight - 0.1) y = -0.1;
         
         positions.push([
-          baseX + driftX,
+          baseX,
           y,
-          baseZ + driftZ
+          baseZ
         ]);
       }
       break;
