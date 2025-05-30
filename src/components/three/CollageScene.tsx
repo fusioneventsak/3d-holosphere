@@ -89,8 +89,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * (1 + patternSettings.spacing);
-      const spread = patternSettings.spread;
+      const spacing = baseSpacing * 1.2; // Consistent spacing
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
       
@@ -98,7 +97,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const z = (row - rows / 2) * spacing;
+        const z = (row - rows / 2) * spacing * 0.8; // Slightly compressed depth
         const y = 0; // Starting height will be handled by AnimatedPhoto
         positions.push([x, y, z]);
       }
@@ -136,27 +135,27 @@ const AnimatedPhoto: React.FC<{
 }> = React.memo(({ position, photo, settings, index }) => {
   const startY = React.useRef({
     y: position[1],
-    offset: Math.random() * settings.floorSize // Random starting offset
+    offset: Math.random() * 20 // Smaller random offset for smoother distribution
   }).current;
 
   const [spring, api] = useSpring(() => ({
     position,
-    config: { mass: 1, tension: 170, friction: 26 }
+    config: { mass: 1, tension: 120, friction: 14 } // Smoother animation
   }));
 
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
-    const patternSettings = settings.patterns.float;
     
-    // Calculate speed (0.1 to 2.0)
-    const speed = patternSettings.animationSpeed;
-    const height = settings.floorSize * 0.5;
+    // Map animation speed from settings (0.1 to 2.0)
+    const speed = settings.animationSpeed * 2;
+    const height = 40; // Fixed height for consistent movement
     
     // Calculate position with wrapping
     const y = ((t * speed + startY.offset) % height) - height * 0.5;
     
+    // Update position with straight vertical movement only
     api.start({
       position: [position[0], y, position[2]]
     });
