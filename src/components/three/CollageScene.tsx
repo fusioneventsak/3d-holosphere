@@ -23,8 +23,9 @@ interface PhotoFrameProps {
 const PhotoFrame = animated(({ 
   position,
   rotation,
-  url,
   scale,
+  url,
+  baseScale,
   emptySlotColor
 }: PhotoFrameProps) => {
   const { camera } = useThree();
@@ -41,13 +42,14 @@ const PhotoFrame = animated(({
   const ref = useRef<THREE.Mesh>(null);
 
   // Use 9:16 aspect ratio for the photo frame
-  const width = scale;
-  const height = scale * (16/9);
+  const width = baseScale;
+  const height = baseScale * (16/9);
 
   return (
     <animated.mesh ref={ref} position={position} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial 
+        scale={scale}
         color={url ? undefined : emptySlotColor} 
         transparent={!!url}
         opacity={1}
@@ -103,15 +105,18 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     case 'float': {
       const patternSettings = settings.patterns.float;
       const spacing = baseSpacing * 3; // Wider spacing for better distribution
-      const radius = Math.sqrt(totalPhotos) * spacing;
+      // Use floor size to determine distribution radius
+      const maxRadius = settings.floorSize / 2 * 0.9; // 90% of floor radius to keep within bounds
+      const radius = Math.min(Math.sqrt(totalPhotos) * spacing, maxRadius);
       
       for (let i = 0; i < totalPhotos; i++) {
         // Fibonacci spiral distribution for even spacing
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const angle = i * goldenRatio * Math.PI * 2;
         const r = radius * Math.sqrt(i / totalPhotos);
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
+        // Ensure photos stay within floor bounds
+        const x = Math.max(Math.min(Math.cos(angle) * r, maxRadius), -maxRadius);
+        const z = Math.max(Math.min(Math.sin(angle) * r, maxRadius), -maxRadius);
         const y = 0; // Start at ground level
         positions.push([x, y, z]);
       }
@@ -159,6 +164,7 @@ const AnimatedPhoto: React.FC<{
   const [spring, api] = useSpring(() => ({
     position: [position[0], 0, position[2]],
     rotation: [0, 0, 0],
+    scale: [1, 1, 1],
     config: { 
       mass: 1,
       tension: 50,
@@ -171,13 +177,17 @@ const AnimatedPhoto: React.FC<{
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
-    const speed = Math.abs(settings.patterns.float.animationSpeed) * 0.3;
-    const height = settings.patterns.float.height;
+    const speed = Math.abs(settings.patterns.float.animationSpeed) * 0.2;
+    const maxHeight = settings.floorSize * 0.5; // Max height scales with floor size
     
     // Continuous upward movement with slight oscillation
-    const baseMovement = (t * speed + initialPhase) % (height * 2);
+    const baseMovement = (t * speed + initialPhase) % (maxHeight * 2);
     const oscillation = Math.sin(t * speed * 0.5 + startOffset) * 0.5;
     const y = baseMovement + oscillation;
+    
+    // Scale based on height - photos get slightly smaller as they rise
+    const heightRatio = y / maxHeight;
+    const scale = 1 - (heightRatio * 0.2); // Scale between 100% and 80%
     
     // Calculate camera-facing rotation
     const dx = camera.position.x - position[0];
@@ -187,6 +197,7 @@ const AnimatedPhoto: React.FC<{
     api.start({
       position: [position[0], y, position[2]],
       rotation: [0, angle, 0],
+      scale: [scale, scale, scale],
       config: { 
         tension: 120,
         friction: 14,
@@ -198,8 +209,9 @@ const AnimatedPhoto: React.FC<{
   return (
     <PhotoFrame
       {...spring}
+      scale={spring.scale}
       url={photo?.url}
-      scale={settings.photoSize}
+      baseScale={settings.photoSize}
       emptySlotColor={settings.emptySlotColor}
     />
   );
