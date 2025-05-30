@@ -102,19 +102,17 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * 2; // Increased spacing for better distribution
-      const columns = Math.ceil(Math.sqrt(totalPhotos));
-      const rows = Math.ceil(totalPhotos / columns);
+      const spacing = baseSpacing * 3; // Wider spacing for better distribution
+      const radius = Math.sqrt(totalPhotos) * spacing;
       
       for (let i = 0; i < totalPhotos; i++) {
-        const col = i % columns;
-        const row = Math.floor(i / columns);
-        // Distribute in a circular pattern for better visual appeal
-        const angle = (i / totalPhotos) * Math.PI * 2;
-        const radius = Math.min(columns, rows) * spacing * 0.5;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
-        const y = patternSettings.height * 0.5; // Start at mid-height
+        // Fibonacci spiral distribution for even spacing
+        const goldenRatio = (1 + Math.sqrt(5)) / 2;
+        const angle = i * goldenRatio * Math.PI * 2;
+        const r = radius * Math.sqrt(i / totalPhotos);
+        const x = Math.cos(angle) * r;
+        const z = Math.sin(angle) * r;
+        const y = 0; // Start at ground level
         positions.push([x, y, z]);
       }
       break;
@@ -153,13 +151,18 @@ const AnimatedPhoto: React.FC<{
   const startOffset = React.useRef(Math.random() * Math.PI * 2).current;
   const baseY = React.useRef(position[1]).current;
 
+  // Calculate initial phase based on position to create wave-like effect
+  const initialPhase = React.useRef(
+    Math.atan2(position[0], position[2]) + Math.random() * Math.PI
+  ).current;
+
   const [spring, api] = useSpring(() => ({
     position: [position[0], 0, position[2]],
     rotation: [0, 0, 0],
     config: { 
       mass: 1,
-      tension: 120,
-      friction: 14,
+      tension: 50,
+      friction: 20,
       clamp: false
     }
   }));
@@ -168,12 +171,13 @@ const AnimatedPhoto: React.FC<{
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
-    const speed = Math.abs(settings.patterns.float.animationSpeed) * 0.5;
+    const speed = Math.abs(settings.patterns.float.animationSpeed) * 0.3;
     const height = settings.patterns.float.height;
     
-    // Calculate continuous upward movement
-    const cycle = ((t * speed + startOffset) % (Math.PI * 2));
-    const y = baseY + (Math.sin(cycle) + 1) * height;
+    // Continuous upward movement with slight oscillation
+    const baseMovement = (t * speed + initialPhase) % (height * 2);
+    const oscillation = Math.sin(t * speed * 0.5 + startOffset) * 0.5;
+    const y = baseMovement + oscillation;
     
     // Calculate camera-facing rotation
     const dx = camera.position.x - position[0];

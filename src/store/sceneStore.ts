@@ -138,9 +138,9 @@ const defaultSettings: SceneSettings = {
     },
     float: {
       enabled: false,
-      animationSpeed: 0.5,
-      height: 20,
-      spread: 15
+      animationSpeed: 0.2,
+      height: 30,
+      spread: 25
     },
     wave: {
       enabled: false,
