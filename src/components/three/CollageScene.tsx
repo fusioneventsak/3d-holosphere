@@ -286,7 +286,7 @@ const PhotoWall: React.FC<{
       
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
-        const baseSpeed = currentSettings.animationSpeed * 5;
+        const baseSpeed = currentSettings.animationSpeed;
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
@@ -305,7 +305,7 @@ const PhotoWall: React.FC<{
           const speed = param.speed * baseSpeed;
           
           // Calculate base y position
-          let y = param.startY + (currentTime * speed);
+          let y = param.startY + (currentTime * speed * 0.5);
           
           // Normalize y position to stay within range while maintaining continuous movement
           const normalizedY = ((y - minHeight) % heightRange) + minHeight;
@@ -356,7 +356,7 @@ const PhotoWall: React.FC<{
 
   useFrame((state) => {
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      timeRef.current += state.clock.getDelta();
       setPositions(generatePositions(settings, floatParams, timeRef.current));
     }
   });
