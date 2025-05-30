@@ -270,21 +270,27 @@ const PhotoWall: React.FC<{
       
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
-        const gridSize = Math.ceil(Math.sqrt(totalPhotos));
         const baseSpeed = currentSettings.animationSpeed * 5;
+        const maxHeight = FLOAT_MAX_HEIGHT;
+        const minHeight = -10;
+        const heightRange = maxHeight - minHeight;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           const baseX = param.x;
           const baseZ = param.z;
           
-          // Calculate y position with continuous upward motion
-          let y = param.startY + (currentTime * baseSpeed * param.speed);
+          // Calculate base y position
+          let y = param.startY + (currentTime * baseSpeed * param.speed) % heightRange;
           
-          // Reset position when reaching max height
-          if (y >= FLOAT_MAX_HEIGHT) {
-            param.startY = -2 + Math.random() * -10; // Reset to random start height
-            y = param.startY;
+          // Add duplicate position below when original is above halfway
+          if (y > minHeight + heightRange / 2) {
+            positions.push([baseX, y - heightRange, baseZ]);
+          }
+          
+          // Add duplicate position above when original is below halfway
+          if (y < minHeight + heightRange / 2) {
+            positions.push([baseX, y + heightRange, baseZ]);
           }
           
           positions.push([baseX, y, baseZ]);
