@@ -379,8 +379,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   uploadPhoto: async (collageId: string, file: File) => {
     set({ loading: true, error: null });
     try {
-      console.log('Starting photo upload process for collage:', collageId);
-      
       // Check file size (10MB limit)
       const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
       if (file.size > MAX_FILE_SIZE) {
@@ -407,7 +405,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .single();
 
       if (collageError) {
-        console.error('Collage verification error:', collageError);
         throw new Error('Collage not found. Please try again or create a new collage.');
       }
 
@@ -415,14 +412,10 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         throw new Error('Invalid collage ID');
       }
 
-      console.log(`Verified collage exists: ID=${collage.id}, code=${collage.code}`);
-
       // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collage.code}/${fileName}`;
-
-      console.log(`Uploading file to ${filePath} with content type ${contentType}`);
 
       // Upload file to storage with the correct content type
       const { error: uploadError, data: uploadData } = await supabase.storage
@@ -434,36 +427,29 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         });
 
       if (uploadError) {
-        console.error('Storage upload error:', uploadError);
         throw uploadError;
       }
 
-      console.log('Upload successful, getting public URL');
-
       // Generate public URL using the helper
-      const publicUrl = getFileUrl('photos', filePath, { cacheBust: true });
-      console.log('Public URL:', publicUrl);
+      const publicUrl = getFileUrl('photos', filePath);
 
       // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
           collage_id: collageId,
-          url: normalizeFileExtension(publicUrl)
+          url: publicUrl
         }])
         .select()
         .single();
 
       if (insertError) {
         // If insert fails, clean up the uploaded file
-        console.error('Database insert error:', insertError);
         await supabase.storage
           .from('photos')
           .remove([filePath]);
         throw insertError;
       }
-
-      console.log('Successfully added photo to database:', photoData);
 
       // Update local state with the clean URL
       const newPhoto = photoData as Photo;
@@ -476,19 +462,16 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       return newPhoto;
     } catch (error: any) {
-      console.error('Upload error details:', error);
       set({ 
         error: error.message || 'Failed to upload photo', 
         loading: false 
       });
       return null;
     }
-  },
 
   fetchPhotosByCollageId: async (collageId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log(`Fetching photos for collage: ${collageId}`);
       const { data, error } = await supabase
         .from('photos')
         .select('*')
@@ -496,21 +479,11 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching photos:', error);
         throw error;
       }
       
-      console.log(`Found ${data?.length || 0} photos`);
-      
-      // Add cache busting to URLs
-      const photosWithTimestamp = data?.map(photo => ({
-        ...photo,
-        url: addCacheBustToUrl(normalizeFileExtension(photo.url))
-      })) || [];
-      
-      set({ photos: photosWithTimestamp as Photo[], loading: false });
+      set({ photos: data as Photo[], loading: false });
     } catch (error: any) {
-      console.error('Error in fetchPhotosByCollageId:', error);
       set({ error: error.message, loading: false });
     }
   }
