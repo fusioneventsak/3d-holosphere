@@ -88,21 +88,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     }
     
     case 'float': {
-      // Calculate distribution in a cylinder
-      const radius = settings.floorSize * 0.3; // Use 30% of floor size for radius
-      const height = settings.floorSize * 0.5; // Use 50% of floor size for height
+      const patternSettings = settings.patterns.float;
+      const spacing = baseSpacing * (1 + patternSettings.spacing);
+      const spread = patternSettings.spread;
+      const columns = Math.ceil(Math.sqrt(totalPhotos));
+      const rows = Math.ceil(totalPhotos / columns);
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Distribute evenly around the cylinder
-        const angle = (i / totalPhotos) * Math.PI * 2;
-        const r = radius * Math.sqrt(Math.random()); // Uniform radial distribution
-        const x = Math.cos(angle) * r;
-        const z = Math.sin(angle) * r;
-        
-        // Random starting height within the animation range
-        const y = -height + Math.random() * height * 2;
-        
-        positions.push([x * baseSpacing, y, z * baseSpacing]);
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const x = (col - columns / 2) * spacing;
+        const z = (row - rows / 2) * spacing;
+        const y = 0; // Starting height will be handled by AnimatedPhoto
+        positions.push([x, y, z]);
       }
       break;
     }
@@ -136,61 +134,32 @@ const AnimatedPhoto: React.FC<{
   settings: SceneSettings;
   index: number;
 }> = React.memo(({ position, photo, settings, index }) => {
-  // Initialize animation parameters
-  const animParams = React.useRef({
-    startY: position[1],
-    phase: Math.random() * Math.PI * 2, // Random starting phase
-    speed: 0.8 + Math.random() * 0.4,   // Random speed variation
-    wobblePhase: Math.random() * Math.PI * 2,
-    wobbleSpeed: 0.2 + Math.random() * 0.3
+  const startY = React.useRef({
+    y: position[1],
+    offset: Math.random() * settings.floorSize // Random starting offset
   }).current;
 
   const [spring, api] = useSpring(() => ({
     position,
-    rotation: [0, 0, 0] as [number, number, number],
-    config: { mass: 1, tension: 180, friction: 12 }
+    config: { mass: 1, tension: 170, friction: 26 }
   }));
 
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
+    const patternSettings = settings.patterns.float;
     
-    // Calculate vertical movement
-    const baseY = animParams.startY;
-    const floatHeight = settings.floorSize * 0.5; // Use 50% of floor size
-    const speed = 0.2; // Constant gentle speed
+    // Calculate speed (0.1 to 2.0)
+    const speed = patternSettings.animationSpeed;
+    const height = settings.floorSize * 0.5;
     
-    // Continuous upward movement with wrapping
-    const moveY = ((t * speed + animParams.phase) % floatHeight);
-    const y = baseY + moveY;
-    
-    // Add gentle wobble
-    const wobbleAmount = settings.photoSize * 0.3; // Scale wobble with photo size
-    const wobbleX = Math.sin(t * animParams.wobbleSpeed + animParams.wobblePhase) * wobbleAmount;
-    const wobbleZ = Math.cos(t * animParams.wobbleSpeed + animParams.wobblePhase) * wobbleAmount;
+    // Calculate position with wrapping
+    const y = ((t * speed + startY.offset) % height) - height * 0.5;
     
     api.start({
-      position: [
-        position[0] + wobbleX,
-        y,
-        position[2] + wobbleZ
-      ],
-      rotation: [
-        Math.sin(t * 0.2 + animParams.phase) * 0.2,
-        Math.sin(t * 0.15 + animParams.phase) * 0.3,
-        Math.cos(t * 0.25 + animParams.phase) * 0.2
-      ]
+      position: [position[0], y, position[2]]
     });
-    
-    // Wrap position when photo goes too high
-    if (y > floatHeight * 0.5) {
-      animParams.phase = Math.random() * Math.PI * 2;
-      api.start({
-        position: [position[0], -floatHeight * 0.5, position[2]],
-        immediate: true
-      });
-    }
   });
 
   return (
