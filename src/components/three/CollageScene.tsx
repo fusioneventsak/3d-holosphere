@@ -104,19 +104,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * 3; // Wider spacing for better distribution
+      const spacing = baseSpacing * 2; // Adjusted spacing
       // Use floor size to determine distribution radius
       const maxRadius = settings.floorSize / 2 * 0.9; // 90% of floor radius
-      const radius = Math.min(maxRadius, settings.floorSize * 0.4); // Keep within floor bounds
+      const radius = Math.min(maxRadius, settings.floorSize * 0.45); // Slightly larger distribution
       
       for (let i = 0; i < totalPhotos; i++) {
         // Fibonacci spiral distribution for even spacing
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const angle = i * goldenRatio * Math.PI * 2;
-        const r = radius * Math.sqrt((i % Math.ceil(totalPhotos / 3)) / Math.ceil(totalPhotos / 3));
+        const r = radius * Math.sqrt(i / totalPhotos);
         const x = Math.max(Math.min(Math.cos(angle) * r, maxRadius), -maxRadius);
         const z = Math.max(Math.min(Math.sin(angle) * r, maxRadius), -maxRadius);
-        const y = 0; // Start at ground level
+        const y = Math.random() * (settings.floorSize * 0.5); // Random initial height
         positions.push([x, y, z]);
       }
       break;
@@ -163,11 +163,11 @@ const AnimatedPhoto: React.FC<{
   const [spring, api] = useSpring(() => ({
     position: [position[0], 0, position[2]],
     rotation: [0, 0, 0],
-    scale: [1, 1, 1],
+    scale: 1,
     config: { 
       mass: 1,
-      tension: 50,
-      friction: 20,
+      tension: 120,
+      friction: 14,
       clamp: false
     }
   }));
@@ -175,16 +175,12 @@ const AnimatedPhoto: React.FC<{
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
-    const speed = settings.patterns.float.animationSpeed * 0.5;
+    const speed = settings.patterns.float.animationSpeed;
     const maxHeight = settings.floorSize * 0.5; // Max height scales with floor size
     const t = state.clock.getElapsedTime() * speed;
     
     // Calculate position in the loop
     let y = ((t + startOffset) % maxHeight);
-    
-    // Scale based on height - photos get slightly smaller as they rise
-    const heightRatio = y / maxHeight;
-    const scale = 1 - (heightRatio * 0.15); // Subtle scale change
     
     // Calculate camera-facing rotation
     const dx = camera.position.x - position[0];
@@ -192,7 +188,7 @@ const AnimatedPhoto: React.FC<{
     const angle = Math.atan2(dx, dz);
     
     // When reaching top, reset to bottom smoothly
-    if (y > maxHeight * 0.95) {
+    if (y >= maxHeight) {
       y = 0;
       startOffset = Math.random() * maxHeight; // Randomize next cycle
     }
@@ -200,10 +196,10 @@ const AnimatedPhoto: React.FC<{
     api.start({
       position: [position[0], y, position[2]],
       rotation: [0, angle, 0],
-      scale: [scale, scale, scale],
+      scale: 1,
       config: { 
-        tension: 80,
-        friction: 20,
+        tension: 120,
+        friction: 14,
         clamp: false
       }
     });
