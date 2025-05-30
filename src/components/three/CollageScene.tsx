@@ -38,12 +38,14 @@ const PhotoFrame: React.FC<{
 const generatePhotoPositions = (settings: SceneSettings): [number, number, number][] => {
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
-  const spacing = settings.photoSize * (1 + settings.photoSpacing);
+  const baseSpacing = settings.photoSize;
 
   switch (settings.animationPattern) {
     case 'grid': {
+      const patternSettings = settings.patterns.grid;
+      const spacing = baseSpacing * (1 + patternSettings.spacing);
       // Calculate grid dimensions based on aspect ratio
-      const aspectRatio = settings.gridAspectRatio;
+      const aspectRatio = patternSettings.aspectRatio;
       const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
       const rows = Math.ceil(totalPhotos / columns);
       
@@ -51,7 +53,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const y = settings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+        const y = patternSettings.wallHeight + (rows / 2 - row) * spacing * (16/9);
         const z = 0;
         positions.push([x, y, z]);
       }
@@ -59,15 +61,17 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     }
     
     case 'spiral': {
-      const radius = settings.floorSize * 0.25;
-      const heightStep = spacing * 0.5;
+      const patternSettings = settings.patterns.spiral;
+      const spacing = baseSpacing * (1 + patternSettings.spacing);
+      const radius = patternSettings.radius;
+      const heightStep = patternSettings.heightStep;
       const angleStep = (Math.PI * 2) / (totalPhotos / 3);
       
       for (let i = 0; i < totalPhotos; i++) {
         const angle = i * angleStep;
         const spiralRadius = radius * (1 - i / totalPhotos);
         const x = Math.cos(angle) * spiralRadius;
-        const y = settings.wallHeight + (i * heightStep);
+        const y = (i * heightStep);
         const z = Math.sin(angle) * spiralRadius;
         positions.push([x, y, z]);
       }
@@ -75,19 +79,23 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     }
     
     case 'float': {
-      const area = settings.floorSize * 0.5;
+      const patternSettings = settings.patterns.float;
+      const spacing = baseSpacing * (1 + patternSettings.spacing);
+      const spread = patternSettings.spread;
+      const height = patternSettings.height;
+      
       for (let i = 0; i < totalPhotos; i++) {
-        const x = (Math.random() - 0.5) * area;
-        const y = settings.wallHeight + Math.random() * area * 0.5;
-        const z = (Math.random() - 0.5) * area;
+        const x = (Math.random() - 0.5) * spread * 2;
+        const y = height + Math.random() * height * 0.5;
+        const z = (Math.random() - 0.5) * spread * 2;
         positions.push([x, y, z]);
       }
       break;
     }
     
     case 'wave': {
-      const waveWidth = settings.floorSize * 0.5;
-      const waveDepth = settings.floorSize * 0.3;
+      const patternSettings = settings.patterns.wave;
+      const spacing = baseSpacing * (1 + patternSettings.spacing);
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
       
@@ -96,8 +104,8 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
         const z = (row - rows / 2) * spacing;
-        const angle = (x / waveWidth) * Math.PI * 2;
-        const y = settings.wallHeight + Math.sin(angle) * waveDepth * 0.2;
+        const angle = x * patternSettings.frequency;
+        const y = Math.sin(angle) * patternSettings.amplitude;
         positions.push([x, y, z]);
       }
       break;

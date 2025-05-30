@@ -3,8 +3,6 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
-  animationSpeed: number;
-  animationEnabled: boolean;
   photoCount: number;
   backgroundColor: string;
   backgroundGradient: boolean;
@@ -42,6 +40,37 @@ export type SceneSettings = {
   photoSpacing: number;
   wallHeight: number;
   gridAspectRatio: number;
+  // Pattern-specific settings
+  patterns: {
+    grid: {
+      enabled: boolean;
+      animationSpeed: number;
+      spacing: number;
+      aspectRatio: number;
+      wallHeight: number;
+    };
+    float: {
+      enabled: boolean;
+      animationSpeed: number;
+      spacing: number;
+      height: number;
+      spread: number;
+    };
+    wave: {
+      enabled: boolean;
+      animationSpeed: number;
+      spacing: number;
+      amplitude: number;
+      frequency: number;
+    };
+    spiral: {
+      enabled: boolean;
+      animationSpeed: number;
+      spacing: number;
+      radius: number;
+      heightStep: number;
+    };
+  };
 };
 
 type SceneState = {
@@ -62,8 +91,6 @@ const debounce = (fn: Function, ms = 300) => {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 0.2,
-  animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
   backgroundGradient: false,
@@ -100,7 +127,37 @@ const defaultSettings: SceneSettings = {
   photoSize: 0.8,
   photoSpacing: 0,
   wallHeight: 0,
-  gridAspectRatio: 1.77778 // 16:9 default
+  gridAspectRatio: 1.77778, // 16:9 default
+  patterns: {
+    grid: {
+      enabled: true,
+      animationSpeed: 0.2,
+      spacing: 0.1,
+      aspectRatio: 1.77778, // 16:9
+      wallHeight: 0
+    },
+    float: {
+      enabled: false,
+      animationSpeed: 0.5,
+      spacing: 0.2,
+      height: 10,
+      spread: 20
+    },
+    wave: {
+      enabled: false,
+      animationSpeed: 0.3,
+      spacing: 0.15,
+      amplitude: 5,
+      frequency: 0.5
+    },
+    spiral: {
+      enabled: false,
+      animationSpeed: 0.4,
+      spacing: 0.1,
+      radius: 15,
+      heightStep: 0.5
+    }
+  }
 };
 
 export const useSceneStore = create<SceneState>()(
