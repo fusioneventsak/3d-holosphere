@@ -4,7 +4,6 @@ import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { useFrame } from '@react-three/fiber';
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
@@ -360,7 +359,7 @@ const PhotoWall: React.FC<{
           />
         );
       })}
-    </animated.mesh>
+    </group>
   );
 });
 
