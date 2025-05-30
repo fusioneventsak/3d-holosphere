@@ -39,6 +39,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
   const positions: [number, number, number][] = [];
   const totalPhotos = Math.min(settings.photoCount, 500);
   const baseSpacing = settings.photoSize;
+  const baseHeight = 0; // Base height for all patterns
 
   switch (settings.animationPattern) {
     case 'grid': {
@@ -53,7 +54,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const col = i % columns;
         const row = Math.floor(i / columns);
         const x = (col - columns / 2) * spacing;
-        const y = patternSettings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+        const y = baseHeight + patternSettings.wallHeight + (rows / 2 - row) * spacing * (16/9);
         const z = 0;
         positions.push([x, y, z]);
       }
@@ -71,7 +72,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const angle = i * angleStep;
         const spiralRadius = radius * (1 - i / totalPhotos);
         const x = Math.cos(angle) * spiralRadius;
-        const y = (i * heightStep);
+        const y = baseHeight + (i * heightStep);
         const z = Math.sin(angle) * spiralRadius;
         positions.push([x, y, z]);
       }
@@ -86,7 +87,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
       
       for (let i = 0; i < totalPhotos; i++) {
         const x = (Math.random() - 0.5) * spread * 2;
-        const y = height + Math.random() * height * 0.5;
+        const y = baseHeight + height + Math.random() * height * 0.5;
         const z = (Math.random() - 0.5) * spread * 2;
         positions.push([x, y, z]);
       }
@@ -105,7 +106,7 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
         const x = (col - columns / 2) * spacing;
         const z = (row - rows / 2) * spacing;
         const angle = x * patternSettings.frequency;
-        const y = Math.sin(angle) * patternSettings.amplitude;
+        const y = baseHeight + Math.sin(angle) * patternSettings.amplitude;
         positions.push([x, y, z]);
       }
       break;
@@ -202,7 +203,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightCount = settings.spotlightCount;
   const radius = settings.spotlightDistance;
-  const height = settings.spotlightHeight;
   
   return (
     <>
@@ -214,7 +214,7 @@ const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         return (
           <SpotLight
             key={index}
-            position={[x, height, z]}
+            position={[x, settings.spotlightHeight, z]}
             angle={settings.spotlightAngle}
             penumbra={settings.spotlightPenumbra}
             intensity={settings.spotlightIntensity}
