@@ -102,16 +102,19 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * 1.5; // Increased spacing for better visibility
+      const spacing = baseSpacing * 2; // Increased spacing for better distribution
       const columns = Math.ceil(Math.sqrt(totalPhotos));
       const rows = Math.ceil(totalPhotos / columns);
       
       for (let i = 0; i < totalPhotos; i++) {
         const col = i % columns;
         const row = Math.floor(i / columns);
-        const x = (col - columns / 2) * spacing;
-        const z = (row - rows / 2) * spacing; // Full depth spacing
-        const y = 0; // Starting height will be handled by AnimatedPhoto
+        // Distribute in a circular pattern for better visual appeal
+        const angle = (i / totalPhotos) * Math.PI * 2;
+        const radius = Math.min(columns, rows) * spacing * 0.5;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        const y = patternSettings.height * 0.5; // Start at mid-height
         positions.push([x, y, z]);
       }
       break;
@@ -147,39 +150,43 @@ const AnimatedPhoto: React.FC<{
   index: number;
 }> = React.memo(({ position, photo, settings, index }) => {
   const { camera } = useThree();
-  const startOffset = React.useRef(Math.random() * settings.patterns.float.height).current;
+  const startOffset = React.useRef(Math.random() * Math.PI * 2).current;
+  const baseY = React.useRef(position[1]).current;
 
   const [spring, api] = useSpring(() => ({
     position: [position[0], 0, position[2]],
     rotation: [0, 0, 0],
-    config: { mass: 1, tension: 170, friction: 26 }
+    config: { 
+      mass: 1,
+      tension: 120,
+      friction: 14,
+      clamp: false
+    }
   }));
 
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
     const t = state.clock.getElapsedTime();
-    const speed = Math.abs(settings.patterns.float.animationSpeed);
+    const speed = Math.abs(settings.patterns.float.animationSpeed) * 0.5;
     const height = settings.patterns.float.height;
     
-    // Calculate y position with continuous upward movement
-    const baseY = (t * speed + startOffset);
-    const y = baseY % height;
+    // Calculate continuous upward movement
+    const cycle = ((t * speed + startOffset) % (Math.PI * 2));
+    const y = baseY + (Math.sin(cycle) + 1) * height;
     
-    // Center around origin and ensure smooth transition at boundaries
-    const finalY = y - height / 2;
-    
-    // Calculate rotation to face camera smoothly
+    // Calculate camera-facing rotation
     const dx = camera.position.x - position[0];
     const dz = camera.position.z - position[2];
     const angle = Math.atan2(dx, dz);
     
     api.start({
-      position: [position[0], finalY, position[2]],
+      position: [position[0], y, position[2]],
+      rotation: [0, angle, 0],
       config: { 
-        tension: 170, 
-        friction: 26,
-        clamp: true // Prevent overshooting
+        tension: 120,
+        friction: 14,
+        clamp: false
       }
     });
   });
