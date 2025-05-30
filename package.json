@@ -12,6 +12,7 @@
   "dependencies": {
     "@react-three/drei": "^9.99.0",
     "@react-three/fiber": "^8.15.16",
+    "@react-spring/three": "^9.7.3",
     "@react-three/postprocessing": "^2.15.12",
     "@supabase/supabase-js": "^2.39.3",
     "lucide-react": "^0.330.0",
