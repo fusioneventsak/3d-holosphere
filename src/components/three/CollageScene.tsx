@@ -286,13 +286,15 @@ const PhotoWall: React.FC<{
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
-          const x = param.x;
-          const z = param.z;
+          let x = param.x;
+          let z = param.z;
+          const distanceFromCenter = Math.sqrt(x * x + z * z) / (floorSize / 2);
+          const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
           // Apply spacing factor based on distance from center
           const spacingFactor = 1 - (spacing * (1 - distanceFromCenter));
           // Apply spacing to coordinates
-          const x = param.x * spacingFactor;
-          const z = param.z * spacingFactor;
+          x = x * spacingFactor;
+          z = z * spacingFactor;
           const speed = param.speed * baseSpeed;
           
           // Calculate base y position
