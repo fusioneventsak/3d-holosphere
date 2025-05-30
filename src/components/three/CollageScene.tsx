@@ -137,8 +137,18 @@ const PhotoFrame = React.memo(({
   emptySlotColor,
   settings
 }: PhotoFrameProps) => {
+  const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
+
+  useFrame(() => {
+    if (meshRef.current && settings.animationPattern === 'float') {
+      // Make the photo face the camera
+      meshRef.current.lookAt(camera.position);
+      // Add a slight tilt for better visibility
+      meshRef.current.rotation.x += Math.PI * 0.1;
+    }
+  });
 
   useEffect(() => {
     if (meshRef.current?.material instanceof THREE.MeshStandardMaterial) {
@@ -169,8 +179,8 @@ const PhotoFrame = React.memo(({
   return (
     <animated.mesh 
       ref={meshRef}
-      position={springs.position}
-      rotation={rotation || [0, 0, 0]}
+      position={springs.position} 
+      rotation={settings.animationPattern !== 'float' ? (rotation || [0, 0, 0]) : [0, 0, 0]}
     >
       <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
