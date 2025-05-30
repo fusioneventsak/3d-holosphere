@@ -204,12 +204,12 @@ const PhotoWall: React.FC<{
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
-    // Create random parameters for each photo
+    // Create parameters for evenly distributed starting positions
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * settings.floorSize * 0.8,
       z: (Math.random() - 0.5) * settings.floorSize * 0.8,
-      startY: -2 + Math.random() * -10, // Start below floor at random heights
-      speed: 0.5 + Math.random() * 0.5 // Random speed between 0.5-1.0
+      startY: Math.random() * -FLOAT_MAX_HEIGHT, // Distribute initial positions throughout height range
+      speed: 1.0 // Use consistent speed for smoother flow
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -271,28 +271,24 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 5;
-        const maxHeight = FLOAT_MAX_HEIGHT;
         const minHeight = -10;
+        const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           const baseX = param.x;
           const baseZ = param.z;
+          const speed = param.speed * baseSpeed;
           
-          // Calculate base y position
-          let y = param.startY + (currentTime * baseSpeed * param.speed) % heightRange;
+          // Calculate y position with continuous upward movement
+          let y = param.startY + (currentTime * speed);
+          y = ((y - minHeight) % heightRange) + minHeight;
           
-          // Add duplicate position below when original is above halfway
-          if (y > minHeight + heightRange / 2) {
-            positions.push([baseX, y - heightRange, baseZ]);
-          }
+          // Always add a duplicate above to ensure continuous flow
+          positions.push([baseX, y + heightRange, baseZ]);
           
-          // Add duplicate position above when original is below halfway
-          if (y < minHeight + heightRange / 2) {
-            positions.push([baseX, y + heightRange, baseZ]);
-          }
-          
+          // Add the current position
           positions.push([baseX, y, baseZ]);
         }
         break;
