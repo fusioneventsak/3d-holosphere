@@ -420,8 +420,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
-      // Store photos in collage-specific folders
-      const filePath = `collages/${collageId}/${fileName}`;
+      const filePath = `${collageId}/${fileName}`;
 
       console.log(`Uploading file to ${filePath} with content type ${contentType}`);
 
@@ -442,7 +441,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       console.log('Upload successful, getting public URL');
 
       // Generate public URL using the helper
-      const publicUrl = getFileUrl('photos', filePath, { cacheBust: true });
+      const publicUrl = getFileUrl('photos', `collages/${filePath}`, { cacheBust: true });
       console.log('Public URL:', publicUrl);
 
       // Insert photo record
