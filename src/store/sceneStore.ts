@@ -3,6 +3,8 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
+  animationSpeed: number;
+  animationEnabled: boolean;
   photoCount: number;
   backgroundColor: string;
   backgroundGradient: boolean;
@@ -91,6 +93,8 @@ const debounce = (fn: Function, ms = 300) => {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
+  animationSpeed: 1.0,
+  animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
   backgroundGradient: false,
