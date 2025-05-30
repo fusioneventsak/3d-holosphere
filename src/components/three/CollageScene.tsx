@@ -241,41 +241,39 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     case 'float': {
       const patternSettings = settings.patterns.float;
       const maxHeight = 50; // Maximum height before reset
-      const floorSize = settings.floorSize;
-      const photoSpacing = settings.photoSize * 2; // Minimum spacing between photos
+      const floorSize = settings.floorSize * 0.8; // Use 80% of floor size for better distribution
+      const halfSize = floorSize / 2;
       
       // Calculate grid dimensions for even distribution
-      const areaSize = floorSize * 0.8;
-      const halfArea = areaSize / 2;
       const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-      const cellSize = areaSize / gridSize;
+      const cellSize = floorSize / gridSize;
+      
+      // Generate random offsets for each photo once
+      const offsets = useMemo(() => {
+        return Array(totalPhotos).fill(0).map(() => ({
+          x: (Math.random() - 0.5) * cellSize * 0.5,
+          z: (Math.random() - 0.5) * cellSize * 0.5,
+          delay: Math.random() * maxHeight // Random start height
+        }));
+      }, [totalPhotos, cellSize, maxHeight]);
       
       for (let i = 0; i < totalPhotos; i++) {
         // Calculate grid position
         const gridX = (i % gridSize) - gridSize / 2;
         const gridZ = Math.floor(i / gridSize) - gridSize / 2;
         
-        // Add slight randomness to grid position for natural look
-        const offsetX = (Math.random() - 0.5) * cellSize * 0.5;
-        const offsetZ = (Math.random() - 0.5) * cellSize * 0.5;
-        
         // Base position in grid
-        const baseX = gridX * cellSize + offsetX;
-        const baseZ = gridZ * cellSize + offsetZ;
+        const baseX = gridX * cellSize + offsets[i].x;
+        const baseZ = gridZ * cellSize + offsets[i].z;
         
         // Calculate vertical position with smooth movement
         const speed = settings.animationSpeed * 2;
-        const heightOffset = (i % 3) * (maxHeight / 3); // Stagger initial heights
-        let y = ((time * speed) + heightOffset) % maxHeight;
+        let y = ((time * speed) + offsets[i].delay) % maxHeight;
         
         // Reset to bottom when reaching top
         if (y > maxHeight - 0.1) y = -0.1;
         
-        positions.push([
-          baseX,
-          y,
-          baseZ
-        ]);
+        positions.push([baseX, y, baseZ]);
       }
       break;
     }
