@@ -238,10 +238,10 @@ const PhotoWall: React.FC<{
   ): [number, number, number][] => {
     const positions: [number, number, number][] = [];
     const totalPhotos = Math.min(currentSettings.photoCount, 500);
+    const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
 
     switch (currentSettings.animationPattern) {
       case 'grid': {
-        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const patternSettings = currentSettings.patterns.grid;
         const aspectRatio = patternSettings.aspectRatio;
         const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
@@ -286,7 +286,6 @@ const PhotoWall: React.FC<{
       
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
-        const baseSpeed = currentSettings.animationSpeed;
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
@@ -302,10 +301,10 @@ const PhotoWall: React.FC<{
           // Apply spacing to coordinates
           x = x * spacingFactor;
           z = z * spacingFactor;
-          const speed = param.speed * baseSpeed;
+          const speed = param.speed;
           
           // Calculate base y position
-          let y = param.startY + (currentTime * speed * 0.5);
+          let y = param.startY + (currentTime * speed);
           
           // Normalize y position to stay within range while maintaining continuous movement
           const normalizedY = ((y - minHeight) % heightRange) + minHeight;
@@ -320,7 +319,6 @@ const PhotoWall: React.FC<{
       }
       
       case 'wave': {
-        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const patternSettings = currentSettings.patterns.wave;
         const columns = Math.ceil(Math.sqrt(totalPhotos));
         const rows = Math.ceil(totalPhotos / columns);
@@ -356,7 +354,7 @@ const PhotoWall: React.FC<{
 
   useFrame((state) => {
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta();
+      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
       setPositions(generatePositions(settings, floatParams, timeRef.current));
     }
   });
