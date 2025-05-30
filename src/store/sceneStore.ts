@@ -38,7 +38,7 @@ export type SceneSettings = {
   gridSize: number;
   gridDivisions: number;
   gridOpacity: number;
-  photoSize: number;
+  photoSize: number; // Controls the scale of photos (0.5 to 5.0)
   photoSpacing: number;
   wallHeight: number;
   gridAspectRatio: number;
@@ -128,7 +128,7 @@ const defaultSettings: SceneSettings = {
   gridSize: 200,
   gridDivisions: 30,
   gridOpacity: 1.0,
-  photoSize: 0.8,
+  photoSize: 2.0,
   photoSpacing: 0,
   wallHeight: 0,
   gridAspectRatio: 1.77778, // 16:9 default

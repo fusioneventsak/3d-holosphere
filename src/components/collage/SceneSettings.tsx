@@ -276,8 +276,8 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               </label>
               <input
                 type="range"
-                min="0.1"
-                max="2"
+                min="0.5"
+                max="5"
                 step="0.1"
                 value={settings.photoSize}
                 onChange={(e) => onSettingsChange({ 
@@ -285,6 +285,9 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                 }, true)}
                 className="w-full bg-gray-800"
               />
+              <p className="mt-1 text-xs text-gray-400">
+                Adjust photo size from very small (0.5x) to very large (5x)
+              </p>
             </div>
             
             <div>
