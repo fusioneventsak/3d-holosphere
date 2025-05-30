@@ -133,20 +133,21 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
   return positions;
 };
 
-// Custom hook for floating animation
-const useFloatingAnimation = (
-  initialPosition: [number, number, number],
-  settings: SceneSettings,
-  index: number
-) => {
-  const { current: offset } = React.useRef({
+// Individual animated photo component
+const AnimatedPhoto: React.FC<{
+  position: [number, number, number];
+  photo?: Photo;
+  settings: SceneSettings;
+  index: number;
+}> = React.memo(({ position, photo, settings, index }) => {
+  const offset = React.useRef({
     phase: Math.random() * Math.PI * 2,
     speed: 0.5 + Math.random() * 0.5
   });
-  
+
   const [spring, api] = useSpring(() => ({
-    position: initialPosition,
-    rotation: [0, 0, 0],
+    position,
+    rotation: [0, 0, 0] as [number, number, number],
     config: { mass: 1, tension: 50, friction: 20 }
   }));
 
@@ -158,69 +159,62 @@ const useFloatingAnimation = (
     
     // Calculate vertical position with smooth looping
     const height = patternSettings.height;
-    const loopProgress = ((time * patternSettings.animationSpeed + offset.phase) % patternSettings.loopDuration) / patternSettings.loopDuration;
+    const loopProgress = ((time * patternSettings.animationSpeed + offset.current.phase) % patternSettings.loopDuration) / patternSettings.loopDuration;
     const y = patternSettings.yOffset + height + (loopProgress * height * 2);
     
     // Add subtle horizontal movement
-    const wobble = Math.sin(time * offset.speed + offset.phase) * 0.3;
+    const wobble = Math.sin(time * offset.current.speed + offset.current.phase) * 0.3;
     
     api.start({
       position: [
-        initialPosition[0] + wobble,
+        position[0] + wobble,
         y,
-        initialPosition[2] + wobble
+        position[2] + wobble
       ],
       rotation: [
-        Math.sin(time * 0.5 + offset.phase) * 0.1,
-        time * 0.2 + offset.phase,
-        Math.cos(time * 0.5 + offset.phase) * 0.1
+        Math.sin(time * 0.5 + offset.current.phase) * 0.1,
+        time * 0.2 + offset.current.phase,
+        Math.cos(time * 0.5 + offset.current.phase) * 0.1
       ]
     });
   });
 
-  return spring;
-};
+  return (
+    <PhotoFrame
+      {...spring}
+      url={photo?.url}
+      scale={settings.photoSize}
+      emptySlotColor={settings.emptySlotColor}
+    />
+  );
+});
 
 // Photo wall component
 const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
-}> = ({ photos, settings }) => {
-  const positions = generatePhotoPositions(settings);
-
-  // Create springs for each photo position
-  const animatedProps = positions.map((position, index) => {
-    if (settings.animationPattern === 'float') {
-      return useFloatingAnimation(position, settings, index);
-    } 
-
-    // Default spring animation for other patterns
-    const rotation: [number, number, number] = [0, 0, 0];
-    return useSpring(() => ({
-      position,
-      rotation,
-      config: { mass: 1, tension: 120, friction: 14 },
-    }));
-  });
+}> = React.memo(({ photos, settings }) => {
+  const positions = React.useMemo(() => generatePhotoPositions(settings), [
+    settings.photoCount,
+    settings.photoSize,
+    settings.animationPattern,
+    settings.patterns
+  ]);
   
   return (
     <group>
-      {animatedProps.map((spring, index) => {
-        const photo = photos[index];
-        
-        return (
-          <PhotoFrame
-            key={index}
-            {...spring}
-            url={photo?.url}
-            scale={settings.photoSize}
-            emptySlotColor={settings.emptySlotColor}
-          />
-        );
-      })}
+      {positions.map((position, index) => (
+        <AnimatedPhoto
+          key={index}
+          position={position}
+          photo={photos[index]}
+          settings={settings}
+          index={index}
+        />
+      ))}
     </group>
   );
-};
+});
 
 // Create background color CSS based on settings
 const getBackgroundStyle = (settings: SceneSettings): string => {
