@@ -11,14 +11,22 @@ type Photo = {
   collage_id?: string;
 };
 
+interface PhotoFrameProps {
+  position: [number, number, number],
+  rotation?: [number, number, number],
+  url?: string,
+  scale: number,
+  emptySlotColor: string
+}
+
 // Photo frame component with 9:16 aspect ratio
 const PhotoFrame = animated(({ 
-  position: [number, number, number];
-  rotation?: [number, number, number];
-  url?: string;
-  scale: number;
-  emptySlotColor: string;
-}) => {
+  position,
+  rotation,
+  url,
+  scale,
+  emptySlotColor
+}: PhotoFrameProps) => {
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
