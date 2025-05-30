@@ -170,13 +170,13 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   </label>
                   <input
                     type="range"
-                    min="0.5"
-                    max="10"
+                    min="0.1"
+                    max="5"
                     step="0.1"
                     value={settings.animationSpeed}
                     onChange={(e) => onSettingsChange({ 
                       animationSpeed: parseFloat(e.target.value) 
-                    }, true)}
+                    })}
                     className="w-full bg-gray-800"
                   />
                 </div>

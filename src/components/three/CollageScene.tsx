@@ -197,7 +197,7 @@ const AnimatedPhoto: React.FC<{
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
-    const speed = settings.patterns.float.animationSpeed * 5;
+    const speed = settings.animationSpeed;
     const time = state.clock.getElapsedTime() * speed;
     
     // Calculate position in the loop
@@ -407,7 +407,7 @@ const CollageScene: React.FC<{
           enableZoom={true}
           enablePan={true}
           autoRotate={settings.cameraEnabled && settings.cameraRotationEnabled}
-          autoRotateSpeed={settings.cameraRotationSpeed * 4}
+          autoRotateSpeed={settings.cameraRotationSpeed}
         />
       </Canvas>
     </div>
