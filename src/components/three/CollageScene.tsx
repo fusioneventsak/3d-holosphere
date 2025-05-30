@@ -200,16 +200,16 @@ const PhotoWall: React.FC<{
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
   
-  // Memoize float offsets
-  const floatOffsets = useMemo(() => {
+  // Memoize float parameters
+  const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
-    // Create random offsets for each photo
+    // Create random parameters for each photo
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * settings.floorSize * 0.8,
       z: (Math.random() - 0.5) * settings.floorSize * 0.8,
-      startDelay: Math.random() * 10, // Random start delay between 0-10 seconds
-      speed: 0.8 + Math.random() * 0.4 // Random speed multiplier between 0.8-1.2
+      startY: -2 + Math.random() * -10, // Start below floor at random heights
+      speed: 0.5 + Math.random() * 0.5 // Random speed between 0.5-1.0
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -217,7 +217,7 @@ const PhotoWall: React.FC<{
   // Generate positions based on animation pattern
   const generatePositions = useCallback((
     currentSettings: SceneSettings,
-    currentFloatOffsets: typeof floatOffsets,
+    currentFloatParams: typeof floatParams,
     currentTime: number
   ): [number, number, number][] => {
     const positions: [number, number, number][] = [];
@@ -271,20 +271,20 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+        const speed = currentSettings.animationSpeed;
         
         for (let i = 0; i < totalPhotos; i++) {
-          const offset = currentFloatOffsets[i];
-          const baseX = offset.x;
-          const baseZ = offset.z;
+          const param = currentFloatParams[i];
+          const baseX = param.x;
+          const baseZ = param.z;
           
-          // Calculate y position based on time, speed, and start delay
-          const elapsedTime = Math.max(0, currentTime - offset.startDelay);
-          const speed = currentSettings.animationSpeed * offset.speed;
-          let y = -2 + (elapsedTime * speed) % FLOAT_MAX_HEIGHT;
+          // Calculate y position with continuous upward motion
+          let y = param.startY + (currentTime * speed * param.speed);
           
           // Reset position when reaching max height
           if (y >= FLOAT_MAX_HEIGHT) {
-            y = -2;
+            param.startY = -2 + Math.random() * -10; // Reset to random start height
+            y = param.startY;
           }
           
           positions.push([baseX, y, baseZ]);
@@ -324,13 +324,13 @@ const PhotoWall: React.FC<{
 
   // Initialize base positions
   useEffect(() => {
-    setPositions(generatePositions(settings, floatOffsets, 0));
-  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio, settings.animationPattern, generatePositions, floatOffsets]);
+    setPositions(generatePositions(settings, floatParams, 0));
+  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio, settings.animationPattern, generatePositions, floatParams]);
 
   useFrame((state) => {
     if (settings.animationEnabled) {
       timeRef.current += state.clock.getDelta() * settings.animationSpeed;
-      setPositions(generatePositions(settings, floatOffsets, timeRef.current));
+      setPositions(generatePositions(settings, floatParams, timeRef.current));
     }
   });
   
