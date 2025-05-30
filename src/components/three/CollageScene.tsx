@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
-import { OrbitControls, Grid } from '@react-three/drei';
+import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
@@ -49,6 +49,38 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
+// Spotlights component
+const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const spotlightCount = settings.spotlightCount;
+  const radius = settings.spotlightDistance;
+  const height = settings.spotlightHeight;
+  
+  return (
+    <>
+      {Array.from({ length: spotlightCount }).map((_, index) => {
+        const angle = (index / spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        return (
+          <SpotLight
+            key={index}
+            position={[x, height, z]}
+            angle={settings.spotlightAngle}
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity}
+            color={settings.spotlightColor}
+            distance={radius * 2}
+            attenuation={5}
+            anglePower={5}
+            lookAt={[0, 0, 0]}
+          />
+        );
+      })}
+    </>
+  );
+};
+
 // Scene components that use R3F hooks
 const Scene: React.FC<{
   settings: SceneSettings;
@@ -65,6 +97,7 @@ const Scene: React.FC<{
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
+      <Spotlights settings={settings} />
       <Floor settings={settings} />
     </>
   );
