@@ -131,27 +131,27 @@ const defaultSettings: SceneSettings = {
   patterns: {
     grid: {
       enabled: true,
-      animationSpeed: 0.2,
+      animationSpeed: 1.0,
       spacing: 0.1,
       aspectRatio: 1.77778, // 16:9
       wallHeight: 0
     },
     float: {
       enabled: false,
-      animationSpeed: 0.2,
+      animationSpeed: 1.0,
       height: 30,
       spread: 25
     },
     wave: {
       enabled: false,
-      animationSpeed: 0.3,
+      animationSpeed: 1.0,
       spacing: 0.15,
       amplitude: 5,
       frequency: 0.5
     },
     spiral: {
       enabled: false,
-      animationSpeed: 0.4,
+      animationSpeed: 1.0,
       spacing: 0.1,
       radius: 15,
       heightStep: 0.5
