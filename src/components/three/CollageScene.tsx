@@ -104,19 +104,16 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spacing = baseSpacing * 2; // Adjusted spacing
-      // Use floor size to determine distribution radius
-      const maxRadius = settings.floorSize / 2 * 0.9; // 90% of floor radius
-      const radius = Math.min(maxRadius, settings.floorSize * 0.45); // Slightly larger distribution
+      const maxRadius = settings.floorSize * 0.4; // 80% of floor size for better visibility
       
       for (let i = 0; i < totalPhotos; i++) {
         // Fibonacci spiral distribution for even spacing
         const goldenRatio = (1 + Math.sqrt(5)) / 2;
         const angle = i * goldenRatio * Math.PI * 2;
-        const r = radius * Math.sqrt(i / totalPhotos);
-        const x = Math.max(Math.min(Math.cos(angle) * r, maxRadius), -maxRadius);
-        const z = Math.max(Math.min(Math.sin(angle) * r, maxRadius), -maxRadius);
-        const y = Math.random() * (settings.floorSize * 0.5); // Random initial height
+        const r = maxRadius * Math.sqrt(i / totalPhotos);
+        const x = Math.cos(angle) * r;
+        const z = Math.sin(angle) * r;
+        const y = -settings.floorSize * 0.25; // Start below floor
         positions.push([x, y, z]);
       }
       break;
@@ -150,24 +147,23 @@ const AnimatedPhoto: React.FC<{
   photo?: Photo;
   settings: SceneSettings;
   index: number;
-}> = React.memo(({ position, photo, settings, index }) => {
+}> = React.memo(({ position: initialPosition, photo, settings, index }) => {
   const { camera } = useThree();
-  const startOffset = React.useRef(Math.random() * Math.PI * 2).current;
-  const baseY = React.useRef(position[1]).current;
+  const startOffset = React.useRef(Math.random() * settings.floorSize * 0.5).current;
+  const resetHeight = -settings.floorSize * 0.25; // Start below floor
+  const maxHeight = settings.floorSize * 0.5; // Maximum height
 
-  // Calculate initial phase based on position to create wave-like effect
-  const initialPhase = React.useRef(
-    Math.atan2(position[0], position[2]) + Math.random() * Math.PI
-  ).current;
+  // Keep original X and Z positions
+  const basePosition = React.useRef([initialPosition[0], resetHeight, initialPosition[2]]).current;
 
   const [spring, api] = useSpring(() => ({
-    position: [position[0], 0, position[2]],
+    position: basePosition,
     rotation: [0, 0, 0],
     scale: 1,
     config: { 
       mass: 1,
-      tension: 120,
-      friction: 14,
+      tension: 170,
+      friction: 26,
       clamp: false
     }
   }));
@@ -175,31 +171,22 @@ const AnimatedPhoto: React.FC<{
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
-    const speed = settings.patterns.float.animationSpeed;
-    const maxHeight = settings.floorSize * 0.5; // Max height scales with floor size
-    const t = state.clock.getElapsedTime() * speed;
+    const speed = settings.patterns.float.animationSpeed * 2;
+    const time = state.clock.getElapsedTime() * speed;
+    let y = ((time + startOffset) % (maxHeight - resetHeight)) + resetHeight;
     
-    // Calculate position in the loop
-    let y = ((t + startOffset) % maxHeight);
-    
-    // Calculate camera-facing rotation
+    // Always face camera
     const dx = camera.position.x - position[0];
     const dz = camera.position.z - position[2];
     const angle = Math.atan2(dx, dz);
     
-    // When reaching top, reset to bottom smoothly
-    if (y >= maxHeight) {
-      y = 0;
-      startOffset = Math.random() * maxHeight; // Randomize next cycle
-    }
-    
     api.start({
-      position: [position[0], y, position[2]],
+      position: [basePosition[0], y, basePosition[2]],
       rotation: [0, angle, 0],
       scale: 1,
       config: { 
-        tension: 120,
-        friction: 14,
+        tension: 170,
+        friction: 26,
         clamp: false
       }
     });
