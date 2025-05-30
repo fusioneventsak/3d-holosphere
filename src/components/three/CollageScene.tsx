@@ -4,6 +4,14 @@ import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
+// Create background color CSS based on settings
+const getBackgroundStyle = (settings: SceneSettings): string => {
+  if (settings.backgroundGradient) {
+    return `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`;
+  }
+  return settings.backgroundColor;
+};
+
 // Floor component with grid
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
@@ -70,6 +78,7 @@ const CollageScene: React.FC<{
   return (
     <div className="w-full h-full">
       <Canvas
+        style={{ background: getBackgroundStyle(settings) }}
         camera={{
           fov: 60,
           near: 0.1,
