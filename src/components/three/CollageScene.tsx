@@ -131,7 +131,7 @@ interface PhotoFrameProps {
 // Photo frame component with 9:16 aspect ratio
 const PhotoFrame = React.memo(({
   position,
-  rotation = [0, 0, 0],
+  rotation,
   url,
   scale = 1,
   emptySlotColor,
@@ -140,7 +140,6 @@ const PhotoFrame = React.memo(({
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
-  const [targetRotation, setTargetRotation] = useState<[number, number, number]>(rotation);
 
   useFrame(() => {
     if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
@@ -152,7 +151,7 @@ const PhotoFrame = React.memo(({
       const angle = Math.atan2(lookAtVector.x, lookAtVector.z);
       setTargetRotation([0, angle, 0]);
     } else {
-      setTargetRotation(rotation);
+      setTargetRotation(rotation || [0, 0, 0]);
     }
   });
 
@@ -174,7 +173,6 @@ const PhotoFrame = React.memo(({
   
   const springs = useSpring({
     position,
-    rotation: targetRotation,
     config: { 
       mass: 1,
       tension: 280,
@@ -186,8 +184,8 @@ const PhotoFrame = React.memo(({
   return (
     <animated.mesh 
       ref={meshRef}
-      position={springs.position}
-      rotation={springs.rotation}
+      position={springs.position} 
+      rotation={settings.animationPattern !== 'float' ? (rotation || [0, 0, 0]) : [0, 0, 0]}
     >
       <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
@@ -204,13 +202,9 @@ const PhotoFrame = React.memo(({
          prev.position[0] === next.position[0] &&
          prev.position[1] === next.position[1] &&
          prev.position[2] === next.position[2] &&
-         prev.rotation?.[0] === next.rotation?.[0] &&
-         prev.rotation?.[1] === next.rotation?.[1] &&
-         prev.rotation?.[2] === next.rotation?.[2] &&
          prev.settings.animationPattern === next.settings.animationPattern &&
          prev.settings.floorSize === next.settings.floorSize &&
-         prev.settings.photoCount === next.settings.photoCount &&
-         prev.settings.photoRotation === next.settings.photoRotation;
+         prev.settings.photoCount === next.settings.photoCount;
 });
 
 // Photo wall component
@@ -243,7 +237,6 @@ const PhotoWall: React.FC<{
   ): [number, number, number][] => {
     const positions: [number, number, number][] = [];
     const totalPhotos = Math.min(currentSettings.photoCount, 500);
-    const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
 
     switch (currentSettings.animationPattern) {
       case 'grid': {
@@ -326,7 +319,6 @@ const PhotoWall: React.FC<{
       
       case 'wave': {
         const patternSettings = currentSettings.patterns.wave;
-        const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
         const columns = Math.ceil(Math.sqrt(totalPhotos));
         const rows = Math.ceil(totalPhotos / columns);
         const frequency = patternSettings.frequency;
