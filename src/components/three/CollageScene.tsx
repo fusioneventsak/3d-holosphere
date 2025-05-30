@@ -120,7 +120,8 @@ interface PhotoFrameProps {
   rotation?: [number, number, number],
   url?: string,
   scale: number,
-  emptySlotColor: string
+  emptySlotColor: string,
+  settings: SceneSettings
 }
 
 // Photo frame component with 9:16 aspect ratio
@@ -129,8 +130,9 @@ const PhotoFrame = React.memo(({
   rotation,
   url,
   scale = 1,
-  emptySlotColor
-}: PhotoFrameProps & { emptySlotColor: string }) => {
+  emptySlotColor,
+  settings
+}: PhotoFrameProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0, z: 0 });
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
@@ -336,6 +338,8 @@ const PhotoWall: React.FC<{
             position={position}
             url={photo?.url || ''}
             emptySlotColor={settings.emptySlotColor}
+            scale={settings.photoSize}
+            settings={settings}
           />
         );
       })}
