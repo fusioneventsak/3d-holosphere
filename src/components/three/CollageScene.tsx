@@ -233,32 +233,37 @@ const generatePhotoPositions = (settings: SceneSettings): [number, number, numbe
     
     case 'float': {
       const patternSettings = settings.patterns.float;
-      const spread = 15; // Reduced spread for tighter formation
+      const spread = 10; // Tight formation for upward stream
       const baseHeight = settings.wallHeight;
-      const maxHeight = 30; // Maximum float height
+      const maxHeight = 40; // Height before resetting
+      const columns = 5; // Number of columns in the grid
+      const spacing = settings.photoSize * 2; // Space between photos
       
       for (let i = 0; i < totalPhotos; i++) {
-        // Create a repeating pattern of positions
-        const row = Math.floor(i / 5); // 5 photos per row
-        const col = i % 5;
+        // Calculate base grid position
+        const col = i % columns;
+        const row = Math.floor(i / columns);
         
-        // Calculate base position in a grid
-        const baseX = (col - 2) * settings.photoSize * 2;
-        const baseZ = (row - Math.floor(totalPhotos / 10)) * settings.photoSize * 2;
-        
-        // Add slight offset for natural look
-        const offsetX = Math.sin(time * 0.5 + i * 0.1) * 0.3;
-        const offsetZ = Math.cos(time * 0.5 + i * 0.2) * 0.3;
+        // Distribute evenly across floor
+        const baseX = (col - (columns - 1) / 2) * spacing;
+        const baseZ = 0; // All photos in same Z plane for cleaner look
         
         // Calculate vertical position with continuous upward motion
-        const speed = settings.animationEnabled ? settings.animationSpeed : 0;
-        const verticalOffset = ((time * speed + i * 0.1) % maxHeight);
-        const y = baseHeight + verticalOffset;
+        const speed = settings.animationEnabled ? settings.animationSpeed * 2 : 0;
+        let y = baseHeight + ((time * speed + (i * maxHeight / totalPhotos)) % maxHeight);
+        
+        // Add gentle wave motion
+        const offsetX = Math.sin(time * 0.5 + y * 0.1) * 0.3;
+        
+        // Create duplicate set below to maintain continuous stream
+        if (y > maxHeight / 2) {
+          y -= maxHeight;
+        }
         
         positions.push([
           baseX + offsetX,
           y,
-          baseZ + offsetZ
+          baseZ
         ]);
       }
       break;
@@ -448,7 +453,7 @@ const CollageScene: React.FC<{
   return (
     <div className="w-full h-full">
       <Canvas
-        frameloop="always"
+        frameloop="always" // Ensure smooth animations
         style={{ background: getBackgroundStyle(settings) }}
         camera={{
           fov: 60,
