@@ -210,16 +210,14 @@ const PhotoWall: React.FC<{
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
   
-  // Memoize float parameters
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
-    // Create parameters for evenly distributed starting positions
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * settings.floorSize * 0.8,
       z: (Math.random() - 0.5) * settings.floorSize * 0.8,
-      startY: Math.random() * -FLOAT_MAX_HEIGHT, // Distribute initial positions throughout height range
-      speed: 1.0 // Use consistent speed for smoother flow
+      startY: Math.random() * -FLOAT_MAX_HEIGHT,
+      speed: 0.5 + Math.random() * 0.5 // Slightly randomize speeds for more natural movement
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -281,25 +279,27 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 5;
-        const minHeight = -10;
+        const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
-          const baseX = param.x;
-          const baseZ = param.z;
+          const x = param.x;
+          const z = param.z;
           const speed = param.speed * baseSpeed;
           
-          // Calculate y position with continuous upward movement
+          // Calculate base y position
           let y = param.startY + (currentTime * speed);
-          y = ((y - minHeight) % heightRange) + minHeight;
+          
+          // Normalize y position to stay within range while maintaining continuous movement
+          const normalizedY = ((y - minHeight) % heightRange) + minHeight;
           
           // Always add a duplicate above to ensure continuous flow
-          positions.push([baseX, y + heightRange, baseZ]);
+          positions.push([x, normalizedY + heightRange, z]);
           
           // Add the current position
-          positions.push([baseX, y, baseZ]);
+          positions.push([x, normalizedY, z]);
         }
         break;
       }
