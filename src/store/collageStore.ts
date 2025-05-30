@@ -441,7 +441,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       console.log('Upload successful, getting public URL');
 
       // Generate public URL using the helper
-      const publicUrl = getFileUrl('photos', `collages/${filePath}`, { cacheBust: true });
+      const publicUrl = getFileUrl('photos', filePath, { cacheBust: true });
       console.log('Public URL:', publicUrl);
 
       // Insert photo record

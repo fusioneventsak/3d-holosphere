@@ -91,12 +91,10 @@ export const getFileUrl = (bucket: string, path: string, options: { cacheBust?: 
     return '';
   }
 
-  // Always ensure collage photos are in the collages folder
+  // Always ensure collage photos are in the correct folder
   let formattedPath = path;
   if (bucket === 'photos') {
-    if (!path.includes('collages/')) {
-      formattedPath = path;
-    }
+    formattedPath = path;
   }
   
   let url = `${supabaseUrl}/storage/v1/object/public/${bucket}/${formattedPath}`;
