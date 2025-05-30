@@ -52,6 +52,29 @@ export interface Database {
           created_at?: string
         }
       }
+      collage_settings: {
+        Row: {
+          id: string
+          collage_id: string
+          settings: Json
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          collage_id: string
+          settings: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          collage_id?: string
+          settings?: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
       high_scores: {
         Row: {
           id: string

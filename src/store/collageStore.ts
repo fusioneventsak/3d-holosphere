@@ -315,49 +315,64 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
   updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
     try {
-      // Get current settings to merge with updates
-      const { data: currentSettings, error: settingsError } = await supabase
+      // First check if settings exist for this collage
+      const { data: existingSettings, error: checkError } = await supabase
         .from('collage_settings')
         .select('settings')
         .eq('collage_id', collageId)
         .single();
-        
-      if (settingsError && settingsError.code !== 'PGRST116') { // Ignore 'not found' error
-        console.error('Failed to get current settings:', settingsError.message);
+
+      // If settings exist, update them
+      if (existingSettings) {
+        const mergedSettings = {
+          ...existingSettings.settings,
+          ...settings
+        };
+
+        const { data, error } = await supabase
+          .from('collage_settings')
+          .update({ settings: mergedSettings })
+          .eq('collage_id', collageId)
+          .select('settings')
+          .single();
+
+        if (error) throw error;
+
+        // Update local state
+        set(state => ({
+          currentCollage: state.currentCollage ? {
+            ...state.currentCollage,
+            settings: data.settings
+          } : null
+        }));
+
+        return data;
+      } else {
+        // If settings don't exist, insert new settings
+        const { data, error } = await supabase
+          .from('collage_settings')
+          .insert([{
+            collage_id: collageId,
+            settings: {
+              ...defaultSettings,
+              ...settings
+            }
+          }])
+          .select('settings')
+          .single();
+
+        if (error) throw error;
+
+        // Update local state
+        set(state => ({
+          currentCollage: state.currentCollage ? {
+            ...state.currentCollage,
+            settings: data.settings
+          } : null
+        }));
+
+        return data;
       }
-      
-      // Merge current settings with updates
-      const mergedSettings = {
-        ...(currentSettings?.settings || defaultSettings),
-        ...settings
-      };
-
-      // Update settings using upsert
-      const { data, error } = await supabase
-        .from('collage_settings')
-        .upsert({ 
-          collage_id: collageId,
-          settings: mergedSettings
-        }, {
-          onConflict: 'collage_id'
-        })
-        .select('settings')
-        .single();
-
-      if (error) {
-        console.error('Failed to update collage settings:', error.message);
-        throw new Error(`Failed to update collage settings: ${error.message}`);
-      }
-
-      // Update local state
-      set(state => ({
-        currentCollage: state.currentCollage ? {
-          ...state.currentCollage,
-          settings: data?.settings || state.currentCollage.settings
-        } : null
-      }));
-
-      return data;
     } catch (error: any) {
       console.error('Failed to update collage settings:', error.message);
       throw error;
