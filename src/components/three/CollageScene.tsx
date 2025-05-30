@@ -131,7 +131,7 @@ interface PhotoFrameProps {
 // Photo frame component with 9:16 aspect ratio
 const PhotoFrame = React.memo(({
   position,
-  rotation = [0, 0, 0],
+  rotation,
   url,
   scale = 1,
   emptySlotColor,
@@ -141,18 +141,6 @@ const PhotoFrame = React.memo(({
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
-  // Add rotation spring
-  const [springs, api] = useSpring(() => ({
-    rotation: rotation,
-    position: position,
-    config: { 
-      mass: 1,
-      tension: 280,
-      friction: 60,
-      precision: 0.001
-    }
-  }));
-
   useFrame(() => {
     if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
       const lookAtVector = new THREE.Vector3();
@@ -161,9 +149,9 @@ const PhotoFrame = React.memo(({
 
       // Calculate only the Y-axis rotation to face camera
       const angle = Math.atan2(lookAtVector.x, lookAtVector.z);
-      api.start({ rotation: [0, angle, 0] });
+      setTargetRotation([0, angle, 0]);
     } else {
-      api.start({ rotation: rotation });
+      setTargetRotation(rotation || [0, 0, 0]);
     }
   });
 
@@ -182,12 +170,22 @@ const PhotoFrame = React.memo(({
   const dynamicScale = settings.animationPattern === 'float' 
     ? Math.min(1, settings.floorSize / (Math.sqrt(settings.photoCount) * 20))
     : 1;
+  
+  const springs = useSpring({
+    position,
+    config: { 
+      mass: 1,
+      tension: 280,
+      friction: 60,
+      precision: 0.001
+    }
+  });
 
   return (
     <animated.mesh 
       ref={meshRef}
       position={springs.position} 
-      rotation={springs.rotation}
+      rotation={settings.animationPattern !== 'float' ? (rotation || [0, 0, 0]) : [0, 0, 0]}
     >
       <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
@@ -239,7 +237,6 @@ const PhotoWall: React.FC<{
   ): [number, number, number][] => {
     const positions: [number, number, number][] = [];
     const totalPhotos = Math.min(currentSettings.photoCount, 500);
-    const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
 
     switch (currentSettings.animationPattern) {
       case 'grid': {
@@ -408,7 +405,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       
       {/* Grid overlay - positioned slightly above the floor */}
       {settings.gridEnabled && (
-        <Grid
           position={[0, 0.01, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           args={[settings.floorSize, settings.floorSize]}
@@ -419,6 +415,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           fadeDistance={30}
           fadeStrength={1}
           infiniteGrid={false}
+          rotation={[-Math.PI / 2, 0, 0]}
         />
       )}
     </group>
