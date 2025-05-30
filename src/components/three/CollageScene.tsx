@@ -132,10 +132,10 @@ const PhotoFrame = React.memo(({
   emptySlotColor
 }: PhotoFrameProps & { emptySlotColor: string }) => {
   const materialRef = useRef<THREE.MeshStandardMaterial>(null);
-  const [spring, api] = useSpring(() => ({
-    position: position,
-    config: { mass: 1, tension: 280, friction: 60 }
-  }));
+  const { position: springPosition } = useSpring({
+    position,
+    config: { mass: 1, tension: 170, friction: 26 }
+  });
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
 
   useEffect(() => {
@@ -145,16 +145,12 @@ const PhotoFrame = React.memo(({
     }
   }, [texture]);
 
-  useEffect(() => {
-    api.start({ position });
-  }, [api, position]);
-
   // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
 
   return (
-    <animated.mesh position={spring.position} rotation={rotation}>
+    <animated.mesh position={springPosition} rotation={rotation}>
       <planeGeometry args={[width, height]} />
       <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
         map: texture,
@@ -267,10 +263,13 @@ const PhotoWall: React.FC<{
   }, [
     settings.photoCount,
     settings.photoSize,
+    settings.photoSpacing,
     settings.animationPattern,
     settings.patterns,
     settings.wallHeight,
-    settings.floorSize
+    settings.floorSize,
+    settings.animationSpeed,
+    settings.animationEnabled
   ]);
   
   return (
@@ -372,7 +371,15 @@ const Scene: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
-  const { camera } = useThree();
+  const { camera, clock } = useThree();
+  const time = useRef(0);
+
+  useFrame(() => {
+    if (settings.animationEnabled) {
+      time.current = clock.getElapsedTime() * settings.animationSpeed;
+      // Update animation state here if needed
+    }
+  });
 
   useEffect(() => {
     if (camera) {
