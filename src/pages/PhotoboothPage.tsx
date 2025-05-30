@@ -27,36 +27,53 @@ const PhotoboothPage: React.FC = () => {
   const startCamera = async (deviceId?: string) => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       setStream(null);
     }
 
     setLoading(true);
     setError(null);
 
+    // Add delay to ensure previous stream is fully cleaned up
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
-      // Request permission first
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      // First check if we have permission
+      const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      if (permissions.state === 'denied') {
+        throw new Error('Camera access is blocked. Please allow camera access in your browser settings and refresh the page.');
+      }
       
-      // Then enumerate devices after permission is granted
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices
-        .filter(device => device.kind === 'videoinput' && device.deviceId)
-        .map(device => ({
-          deviceId: device.deviceId,
-          label: device.label || `Camera ${device.deviceId}`
-        }));
+      // Get list of video devices
+      const allDevices = await navigator.mediaDevices.enumerateDevices()
+        .catch(() => []);
+      
+      const videoDevices = allDevices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => {
+          return {
+            deviceId: device.deviceId,
+            label: device.label || `Camera ${device.deviceId}`
+          };
+        });
       
       setDevices(videoDevices);
       
-      // If we have no devices after getting permission, something is wrong
       if (videoDevices.length === 0) {
         throw new Error('No cameras detected. Please check your camera connection and refresh the page.');
       }
 
-      // Determine which device to use
       let targetDeviceId = deviceId;
       if (!targetDeviceId || !videoDevices.find(d => d.deviceId === targetDeviceId)) {
         targetDeviceId = videoDevices[0].deviceId;
+      }
+
+      // Try to release any existing tracks
+      if (videoRef.current?.srcObject instanceof MediaStream) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
 
       const constraints = {
@@ -64,34 +81,48 @@ const PhotoboothPage: React.FC = () => {
           deviceId: { exact: targetDeviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          facingMode: "user"
+          facingMode: "user",
+          frameRate: { ideal: 30 }
         },
         audio: false
       };
 
-      // Get media stream with a timeout
-      const mediaStreamPromise = navigator.mediaDevices.getUserMedia(constraints);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Camera access timed out. Please try again.')), 10000);
-      });
+      let mediaStream: MediaStream;
+      try {
+        mediaStream = await Promise.race([
+          navigator.mediaDevices.getUserMedia(constraints),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Camera access timed out')), 10000)
+          )
+        ]);
+      } catch (err) {
+        // Try again with default constraints if specific device failed
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
 
-      const mediaStream = await Promise.race([mediaStreamPromise, timeoutPromise]);
-      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        await new Promise((resolve, reject) => {
-          if (videoRef.current) {
-            videoRef.current.onloadedmetadata = resolve;
-            videoRef.current.onerror = () => reject(new Error('Failed to initialize video stream'));
-          }
-        });
-        
-        // Start playing the video
-        await videoRef.current.play();
+        try {
+          await Promise.race([
+            new Promise<void>((resolve, reject) => {
+              if (!videoRef.current) return reject();
+              videoRef.current.onloadedmetadata = () => resolve();
+              videoRef.current.onerror = () => reject(new Error('Failed to initialize video'));
+            }),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('Video initialization timed out')), 5000)
+            )
+          ]);
+          
+          await videoRef.current.play();
+        } catch (err) {
+          throw new Error('Failed to initialize video stream. Please refresh and try again.');
+        }
       }
 
       setStream(mediaStream as MediaStream);
       setSelectedDevice(targetDeviceId);
+      setError(null);
     } catch (err: any) {
       let errorMessage = 'Failed to access camera';
       
@@ -106,16 +137,19 @@ const PhotoboothPage: React.FC = () => {
           '3. Try selecting a different camera if available';
       } else if (err.name === 'OverconstrainedError') {
         errorMessage = 'Could not find a camera matching the requested settings. Please try a different camera.';
-      } else if (err.message === 'Camera access timed out. Please try again.') {
+      } else if (err.message.includes('timed out')) {
         errorMessage = err.message;
       }
       
       setError(errorMessage);
       console.warn('Camera access warning:', err);
       
-      // Clean up any partial stream
+      // Clean up any partial streams
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
         setStream(null);
       }
     } finally {
@@ -132,25 +166,24 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     startCamera();
 
-    // Request permissions early
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .catch(err => console.warn('Initial permission request failed:', err));
-
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
         setStream(null);
       }
     };
   }, []);
 
   useEffect(() => {
-    if (selectedDevice) {
+    if (selectedDevice && !stream) {
       startCamera(selectedDevice);
     } else if (devices.length > 0) {
       setSelectedDevice(devices[0].deviceId);
     }
-  }, [selectedDevice, devices.length]);
+  }, [selectedDevice, devices.length, stream]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
