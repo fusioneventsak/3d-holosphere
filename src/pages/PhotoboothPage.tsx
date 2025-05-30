@@ -94,7 +94,7 @@ const PhotoboothPage: React.FC = () => {
       }
       
       setError(errorMessage);
-      console.error('Camera access error:', err);
+      console.warn('Camera access warning:', err); // Changed from error to warn
     } finally {
       setLoading(false);
     }
