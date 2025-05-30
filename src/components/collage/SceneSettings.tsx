@@ -78,7 +78,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       value={settings.cameraRotationSpeed}
                       onChange={(e) => onSettingsChange({ 
                         cameraRotationSpeed: parseFloat(e.target.value) 
-                      }, true)}
+                      })}
                       className="w-full bg-gray-800"
                     />
                   </div>
@@ -171,7 +171,7 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                   <input
                     type="range"
                     min="0.5"
-                    max="5"
+                    max="10"
                     step="0.1"
                     value={settings.animationSpeed}
                     onChange={(e) => onSettingsChange({ 
