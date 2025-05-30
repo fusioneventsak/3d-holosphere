@@ -150,10 +150,12 @@ const AnimatedPhoto: React.FC<{
   duplicate?: boolean;
 }> = React.memo(({ position: initialPosition, photo, settings, index, duplicate }) => {
   const { camera } = useThree();
-  const resetHeight = -settings.floorSize * 0.25; // Start below floor
-  const maxHeight = settings.floorSize * 0.5; // Maximum height
+  const resetHeight = -settings.floorSize * 0.4; // Lower starting point
+  const maxHeight = settings.floorSize * 0.6; // Higher maximum
   const totalDistance = maxHeight - resetHeight;
-  const startOffset = React.useRef(duplicate ? 0 : Math.random() * totalDistance).current;
+  const startOffset = React.useRef(
+    duplicate ? totalDistance * 0.5 : Math.random() * (totalDistance * 0.5)
+  ).current;
 
   // Keep original X and Z positions
   const basePosition = React.useRef([initialPosition[0], resetHeight, initialPosition[2]]).current;
@@ -173,11 +175,12 @@ const AnimatedPhoto: React.FC<{
   useFrame((state) => {
     if (settings.animationPattern !== 'float') return;
     
-    const speed = settings.patterns.float.animationSpeed * 2;
+    const speed = settings.patterns.float.animationSpeed;
     const time = state.clock.getElapsedTime() * speed;
     
     // Calculate position in the loop
-    let y = ((time + startOffset) % totalDistance) + resetHeight;
+    const cyclePosition = (time + startOffset) % totalDistance;
+    const y = cyclePosition + resetHeight;
     
     // Always face camera
     const dx = camera.position.x - initialPosition[0];
@@ -214,9 +217,14 @@ const PhotoWall: React.FC<{
 }> = React.memo(({ photos, settings }) => {
   const positions = React.useMemo(() => {
     const basePositions = generatePhotoPositions(settings);
-    // For float pattern, create duplicate set
+    // For float pattern, create duplicate set with offset positions
     if (settings.animationPattern === 'float') {
-      return [...basePositions, ...basePositions];
+      const duplicatePositions = basePositions.map(([x, y, z]) => [
+        x * 0.8 + (Math.random() - 0.5) * 5,
+        y,
+        z * 0.8 + (Math.random() - 0.5) * 5
+      ] as [number, number, number]);
+      return [...basePositions, ...duplicatePositions];
     }
     return basePositions;
   }, [
