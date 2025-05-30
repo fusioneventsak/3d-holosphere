@@ -260,7 +260,6 @@ const PhotoWall: React.FC<{
     settings.photoCount,
     settings.photoSize,
     settings.animationPattern,
-    settings.patterns
     settings.patterns,
     settings.wallHeight,
     settings.floorSize
