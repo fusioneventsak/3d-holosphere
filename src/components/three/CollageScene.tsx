@@ -182,10 +182,17 @@ const AnimatedPhoto: React.FC<{
     const cyclePosition = (time + startOffset) % totalDistance;
     const y = cyclePosition + resetHeight;
     
-    // Always face camera
+    // Calculate angle to camera but limit rotation
     const dx = camera.position.x - initialPosition[0];
     const dz = camera.position.z - initialPosition[2];
-    const angle = Math.atan2(dx, dz);
+    let angle = Math.atan2(dx, dz);
+    
+    // Normalize angle to -π to π range
+    while (angle > Math.PI) angle -= 2 * Math.PI;
+    while (angle < -Math.PI) angle += 2 * Math.PI;
+    
+    // Limit rotation to ±90 degrees (π/2)
+    angle = Math.max(Math.min(angle, Math.PI / 2), -Math.PI / 2);
     
     api.start({
       position: [basePosition[0], y, basePosition[2]],
