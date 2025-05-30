@@ -204,15 +204,14 @@ const PhotoWall: React.FC<{
   const floatOffsets = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
-    const floorSize = settings.floorSize * 0.8;
-    const gridSize = Math.ceil(Math.sqrt(settings.photoCount));
-    const cellSize = floorSize / gridSize;
-    
+    // Create random offsets for each photo
     return Array(settings.photoCount).fill(0).map(() => ({
-      x: (Math.random() - 0.5) * cellSize * 0.5,
-      z: (Math.random() - 0.5) * cellSize * 0.5,
-      delay: Math.random() * FLOAT_MAX_HEIGHT
+      x: (Math.random() - 0.5) * settings.floorSize * 0.8,
+      z: (Math.random() - 0.5) * settings.floorSize * 0.8,
+      startDelay: Math.random() * 10, // Random start delay between 0-10 seconds
+      speed: 0.8 + Math.random() * 0.4 // Random speed multiplier between 0.8-1.2
     }));
+    
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
 
   // Generate positions based on animation pattern
@@ -272,20 +271,21 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const gridSize = Math.ceil(Math.sqrt(totalPhotos));
-        const cellSize = floorSize / gridSize;
         
         for (let i = 0; i < totalPhotos; i++) {
-          const gridX = (i % gridSize) - gridSize / 2;
-          const gridZ = Math.floor(i / gridSize) - gridSize / 2;
-          
           const offset = currentFloatOffsets[i];
-          const baseX = gridX * cellSize + offset.x;
-          const baseZ = gridZ * cellSize + offset.z;
+          const baseX = offset.x;
+          const baseZ = offset.z;
           
-          const speed = currentSettings.animationSpeed * 2;
-          let y = ((currentTime * speed) + offset.delay) % FLOAT_MAX_HEIGHT;
+          // Calculate y position based on time, speed, and start delay
+          const elapsedTime = Math.max(0, currentTime - offset.startDelay);
+          const speed = currentSettings.animationSpeed * offset.speed;
+          let y = -2 + (elapsedTime * speed) % FLOAT_MAX_HEIGHT;
           
-          if (y > FLOAT_MAX_HEIGHT - 0.1) y = -0.1;
+          // Reset position when reaching max height
+          if (y >= FLOAT_MAX_HEIGHT) {
+            y = -2;
+          }
           
           positions.push([baseX, y, baseZ]);
         }
