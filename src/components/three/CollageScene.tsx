@@ -209,13 +209,17 @@ const PhotoWall: React.FC<{
     if (settings.animationPattern !== 'float') return [];
     
     const floorSize = settings.floorSize * 0.8;
+    const totalPhotos = settings.photoCount * 2; // Double the photo count for two sets
     
-    return Array(settings.photoCount).fill(0).map(() => ({
-      x: (Math.random() - 0.5) * floorSize,
-      z: (Math.random() - 0.5) * floorSize,
-      startY: FLOAT_MIN_HEIGHT + Math.random() * Math.abs(FLOAT_MIN_HEIGHT),
-      speed: 0.8 + Math.random() * 0.4
-    }));
+    return Array(totalPhotos).fill(0).map((_, i) => {
+      const isSecondSet = i >= settings.photoCount;
+      return {
+        x: (Math.random() - 0.5) * floorSize,
+        z: (Math.random() - 0.5) * floorSize,
+        startY: isSecondSet ? FLOAT_MAX_HEIGHT / 2 : FLOAT_MIN_HEIGHT,
+        speed: 0.8 + Math.random() * 0.4
+      };
+    });
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
 
@@ -276,7 +280,8 @@ const PhotoWall: React.FC<{
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 20;
         
-        for (let i = 0; i < totalPhotos; i++) {
+        // Generate positions for both sets
+        for (let i = 0; i < currentFloatParams.length; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
@@ -284,22 +289,22 @@ const PhotoWall: React.FC<{
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate vertical position with continuous movement
+          // Calculate vertical position
           let y = param.startY + time;
-          
-          // Reset position when reaching max height
-          if (y > FLOAT_MAX_HEIGHT) {
-            param.startY = FLOAT_MIN_HEIGHT;
-            param.x = (Math.random() - 0.5) * floorSize;
-            param.z = (Math.random() - 0.5) * floorSize;
-            y = FLOAT_MIN_HEIGHT;
-            x = param.x;
-            z = param.z;
-          }
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
+          
+          // Reset when reaching max height
+          if (y > FLOAT_MAX_HEIGHT) {
+            y = FLOAT_MIN_HEIGHT;
+            param.startY = FLOAT_MIN_HEIGHT;
+            param.x = (Math.random() - 0.5) * floorSize;
+            param.z = (Math.random() - 0.5) * floorSize;
+            x = param.x;
+            z = param.z;
+          }
           
           positions.push([x, y, z]);
         }
@@ -348,16 +353,19 @@ const PhotoWall: React.FC<{
   
   return (
     <group>
-      {positions.slice(0, settings.photoCount).map((position, index) => (
-        <PhotoFrame
-          key={`photo-${index}-${photos[index]?.id || 'empty'}`}
-          position={position}
-          url={photos[index]?.url}
-          emptySlotColor={settings.emptySlotColor}
-          scale={settings.photoSize}
-          settings={settings}
-        />
-      ))}
+      {positions.slice(0, settings.photoCount * 2).map((position, index) => {
+        const photoIndex = index % photos.length;
+        return (
+          <PhotoFrame
+            key={`photo-${index}-${photos[photoIndex]?.id || 'empty'}`}
+            position={position}
+            url={photos[photoIndex]?.url}
+            emptySlotColor={settings.emptySlotColor}
+            scale={settings.photoSize}
+            settings={settings}
+          />
+        );
+      })}
     </group>
   );
 });
