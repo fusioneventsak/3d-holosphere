@@ -211,13 +211,19 @@ const PhotoWall: React.FC<{
     const floorSize = settings.floorSize * 0.8;
     const totalPhotos = settings.photoCount;
     
-    // Create initial parameters for each photo
-    return Array(totalPhotos).fill(0).map(() => ({
-      x: (Math.random() - 0.5) * floorSize,
-      z: (Math.random() - 0.5) * floorSize,
-      y: FLOAT_MIN_HEIGHT,
-      speed: 0.8 + Math.random() * 0.4
-    }));
+    // Create initial parameters for each photo with defined starting positions
+    return Array(totalPhotos).fill(0).map((_, index) => {
+      const angle = (index / totalPhotos) * Math.PI * 2;
+      const radius = (Math.random() * 0.5 + 0.5) * floorSize * 0.5;
+      
+      return {
+        x: Math.cos(angle) * radius,
+        z: Math.sin(angle) * radius,
+        y: FLOAT_MIN_HEIGHT + (index * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT) / totalPhotos),
+        speed: 0.8 + Math.random() * 0.2,
+        startAngle: angle
+      };
+    });
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
 
   const generatePositions = useCallback((
@@ -232,20 +238,20 @@ const PhotoWall: React.FC<{
 
     switch (currentSettings.animationPattern) {
       case 'float': {
-        const baseSpeed = currentSettings.animationSpeed * 20;
+        const baseSpeed = currentSettings.animationSpeed * 10;
         
         currentFloatParams.forEach((param, i) => {
-          let x = param.x + Math.sin(currentTime * 0.5 + i) * 2;
-          let z = param.z + Math.cos(currentTime * 0.5 + i) * 2;
+          // Calculate smooth circular motion
+          const angle = param.startAngle + currentTime * 0.2;
+          const radius = floorSize * 0.4;
+          
+          let x = Math.cos(angle) * radius;
+          let z = Math.sin(angle) * radius;
           let y = param.y + (baseSpeed * param.speed);
           
           // Reset when reaching max height
           if (y > FLOAT_MAX_HEIGHT) {
             param.y = FLOAT_MIN_HEIGHT;
-            param.x = (Math.random() - 0.5) * floorSize;
-            param.z = (Math.random() - 0.5) * floorSize;
-            x = param.x;
-            z = param.z;
             y = FLOAT_MIN_HEIGHT;
           } else {
             param.y = y;
