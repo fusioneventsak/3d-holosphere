@@ -11,7 +11,7 @@ textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 // Constants
-const FLOAT_MAX_HEIGHT = 100;
+const FLOAT_MAX_HEIGHT = 200;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
 
@@ -290,29 +290,32 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 20;
-        const heightRange = FLOAT_MAX_HEIGHT / 2; // Reduced range for smoother transitions
+        const heightRange = FLOAT_MAX_HEIGHT;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate continuous upward movement
+          // Calculate base movement
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
-          const baseY = -heightRange + (time % (heightRange * 2));
+          
+          // Calculate y position with continuous upward movement
+          const cycleHeight = heightRange * 2;
+          const y = -heightRange + (time % cycleHeight);
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Create two instances with proper spacing
-          const y1 = baseY;
-          const y2 = baseY + heightRange * 2;
+          // Add positions for continuous flow
+          positions.push([x, y, z]);
           
-          // Add both positions to create continuous flow
-          positions.push([x, y1, z]);
-          positions.push([x, y2, z]);
+          // Add duplicate above when original is about to finish
+          if (y > 0) {
+            positions.push([x, y - cycleHeight, z]);
+          }
         }
         break;
       }
