@@ -18,22 +18,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'photobooth-app'
     },
-    // Add fetch options to handle CORS
+    // Add fetch options to handle network errors gracefully
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
-        credentials: 'include',
-        headers: {
-          ...options.headers,
-          'Access-Control-Allow-Origin': window.location.origin
-        }
+        credentials: 'include'
       }).catch(error => {
         console.error('Supabase fetch error:', error);
         if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
           throw new Error(
-            'Unable to connect to the server. This might be due to CORS settings. ' +
-            'Please ensure your Supabase project is configured to allow requests from: ' +
-            window.location.origin
+            'Unable to connect to the server. Please ensure your Supabase project is configured correctly ' +
+            'and that you have a stable internet connection.'
           );
         }
         throw error;
