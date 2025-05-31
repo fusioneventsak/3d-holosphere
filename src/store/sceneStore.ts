@@ -38,12 +38,11 @@ export type SceneSettings = {
   gridSize: number;
   gridDivisions: number;
   gridOpacity: number;
-  photoSize: number; // Controls the scale of photos (0.5 to 5.0)
-  photoRotation: boolean; // Controls whether photos rotate to face camera
+  photoSize: number;
+  photoRotation: boolean;
   photoSpacing: number;
   wallHeight: number;
   gridAspectRatio: number;
-  // Pattern-specific settings
   patterns: {
     grid: {
       enabled: boolean;
@@ -73,21 +72,6 @@ export type SceneSettings = {
       radius: number;
       heightStep: number;
     };
-  };
-};
-
-type SceneState = {
-  settings: SceneSettings;
-  updateSettings: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
-  resetSettings: () => void;
-};
-
-// Debounce helper
-const debounce = (fn: Function, ms = 300) => {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return function (this: any, ...args: any[]) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => fn.apply(this, args), ms);
   };
 };
 
@@ -130,16 +114,16 @@ const defaultSettings: SceneSettings = {
   gridDivisions: 30,
   gridOpacity: 1.0,
   photoSize: 4.0,
-  photoRotation: false,
+  photoRotation: true,
   photoSpacing: 0,
   wallHeight: 0,
-  gridAspectRatio: 1.77778, // 16:9 default
+  gridAspectRatio: 1.77778,
   patterns: {
     grid: {
       enabled: true,
       animationSpeed: 1.0,
       spacing: 0.1,
-      aspectRatio: 1.77778, // 16:9
+      aspectRatio: 1.77778,
       wallHeight: 0
     },
     float: {
@@ -165,11 +149,23 @@ const defaultSettings: SceneSettings = {
   }
 };
 
+type SceneState = {
+  settings: SceneSettings;
+  updateSettings: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
+  resetSettings: () => void;
+};
+
+const debounce = (fn: Function, ms = 300) => {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return function (this: any, ...args: any[]) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn.apply(this, args), ms);
+  };
+};
+
 export const useSceneStore = create<SceneState>()(
   (set) => {
-    // Create immediate and debounced update functions
     const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
-      // Validate photoCount to ensure it's a valid number between 5-500
       if (newSettings.photoCount !== undefined) {
         const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
         if (!isNaN(count)) {
@@ -184,13 +180,11 @@ export const useSceneStore = create<SceneState>()(
       }));
     };
     
-    // Create a debounced version of the update function with a shorter delay
     const debouncedUpdate = debounce(immediateUpdate, 100);
     
     return {
       settings: defaultSettings,
       
-      // updateSettings function that can use either immediate or debounced updates
       updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
         if (debounce) {
           debouncedUpdate(newSettings);
