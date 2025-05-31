@@ -89,13 +89,14 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             .select('*')
             .eq('collage_id', collageId)
             .order('created_at', { ascending: false });
+            
+          if (!error && data) {
             // Add cache busting to URLs
             const photosWithTimestamp = data.map(photo => ({
               ...photo,
               url: addCacheBustToUrl(normalizeFileExtension(photo.url))
             }));
             
-          if (!error && data) {
             console.log(`Updated photos list received: ${data.length} photos`);
             set({ photos: photosWithTimestamp as Photo[] });
           } else {
@@ -240,18 +241,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .eq('collage_id', id)
         .single();
 
-      // If settings don't exist or there was an error, use updateCollageSettings to create/update them
-      if (settingsError || !settings) {
-        try {
-          const updatedSettings = await get().updateCollageSettings(collage.id, defaultSettings);
-          collage.settings = updatedSettings?.settings || defaultSettings;
-        } catch (error) {
-          console.error('Error updating collage settings:', error);
-          collage.settings = defaultSettings;
-        }
-      } else {
-        collage.settings = settings.settings;
-      }
+      // If settings don't exist or there was an error, use default settings
+      collage.settings = settings?.settings || defaultSettings;
 
       set({ currentCollage: collage as Collage, loading: false });
       await get().fetchPhotosByCollageId(collage.id);
@@ -268,7 +259,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       // Generate a unique code
       const code = nanoid(6).toLowerCase();
       
-      // Create collage without requiring a user_id
+      // Create collage
       const { data: collage, error: collageError } = await supabase
         .from('collages')
         .insert([{
@@ -280,29 +271,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (collageError) throw collageError;
 
-      // Create settings
-      const { error: settingsError } = await supabase
-        .from('collage_settings')
-        .insert([{
-          collage_id: collage.id,
-          settings: defaultSettings
-        }]);
-
-      if (settingsError) throw settingsError;
-
-      // Create storage folder for collage
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('photos')
-        .list(code);
-
-      // If folder doesn't exist, create it with a placeholder file
-      if (!storageData || storageError) {
-        const placeholderFile = new File([''], '.placeholder', { type: 'text/plain' });
-        await supabase.storage
-          .from('photos')
-          .upload(`${code}/.placeholder`, placeholderFile);
-      }
-
+      // Settings will be created automatically via trigger
       const newCollage = { 
         ...collage,
         settings: defaultSettings 
@@ -324,29 +293,25 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
   updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
     try {
-      // Get current settings if they exist
+      // Get current settings
       const { data: existingSettings } = await supabase
         .from('collage_settings')
         .select('settings')
         .eq('collage_id', collageId)
         .single();
 
-      // Merge existing or default settings with new settings
+      // Merge settings
       const mergedSettings = {
         ...(existingSettings?.settings || defaultSettings),
         ...settings
       };
 
-      // Use upsert to either insert new settings or update existing ones
+      // Update settings
       const { data, error } = await supabase
         .from('collage_settings')
-        .upsert({
-          collage_id: collageId,
-          settings: mergedSettings
-        }, {
-          onConflict: 'collage_id'
-        })
-        .select('settings')
+        .update({ settings: mergedSettings })
+        .eq('collage_id', collageId)
+        .select()
         .single();
 
       if (error) throw error;
@@ -355,7 +320,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       set(state => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
-          settings: data.settings
+          settings: mergedSettings
         } : null
       }));
 
