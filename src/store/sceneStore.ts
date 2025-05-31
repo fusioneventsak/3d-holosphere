@@ -166,6 +166,36 @@ const debounce = (fn: Function, ms = 300) => {
 
 export const useSceneStore = create<SceneState>()((set, get) => {
   const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
+    const currentSettings = get().settings;
+
+    // Handle pattern changes
+    if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
+      // Store current pattern's speed before switching
+      currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
+        currentSettings.animationSpeed / 50;
+
+      // Update enabled states
+      Object.keys(currentSettings.patterns).forEach(pattern => {
+        currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
+          pattern === newSettings.animationPattern;
+      });
+
+      // Set speed from target pattern
+      newSettings.animationSpeed = 
+        currentSettings.patterns[newSettings.animationPattern].animationSpeed * 50;
+    }
+
+    // Handle animation speed changes
+    if (newSettings.animationSpeed !== undefined) {
+      const normalizedSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
+      newSettings.animationSpeed = normalizedSpeed;
+      
+      // Update pattern-specific speed
+      currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
+        normalizedSpeed / 50;
+    }
+
+    // Handle photo count validation
     if (newSettings.photoCount !== undefined) {
       const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
       if (!isNaN(count)) {
@@ -173,36 +203,6 @@ export const useSceneStore = create<SceneState>()((set, get) => {
       } else {
         delete newSettings.photoCount;
       }
-    }
-
-    if (newSettings.animationSpeed !== undefined) {
-      newSettings.animationSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
-    }
-
-    // Update pattern-specific settings
-    if (newSettings.animationPattern) {
-      const currentSettings = get().settings;
-      const currentPatternSettings = currentSettings.patterns[currentSettings.animationPattern];
-      const newPatternSettings = currentSettings.patterns[newSettings.animationPattern];
-      
-      Object.keys(currentSettings.patterns).forEach(pattern => {
-        currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
-          pattern === newSettings.animationPattern;
-      });
-      
-      newSettings = {
-        ...newSettings,
-        animationSpeed: newPatternSettings.animationSpeed * 50,
-        patterns: currentSettings.patterns
-      };
-    }
-
-    // Update pattern-specific animation speed when main speed changes
-    if (newSettings.animationSpeed !== undefined) {
-      const currentSettings = get().settings;
-      const pattern = currentSettings.animationPattern;
-      const patternSettings = currentSettings.patterns[pattern];
-      patternSettings.animationSpeed = newSettings.animationSpeed / 50;
     }
 
     set((state) => ({
