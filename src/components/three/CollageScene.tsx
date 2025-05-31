@@ -291,7 +291,7 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const maxHeight = FLOAT_MAX_HEIGHT;
-        const baseSpeed = currentSettings.animationSpeed * 10;
+        const baseSpeed = currentSettings.animationSpeed * 20;
         const heightRange = maxHeight;
         
         for (let i = 0; i < totalPhotos; i++) {

@@ -94,7 +94,7 @@ const debounce = (fn: Function, ms = 300) => {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 1.0,
+  animationSpeed: 5.0,
   animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
@@ -144,7 +144,7 @@ const defaultSettings: SceneSettings = {
     },
     float: {
       enabled: false,
-      animationSpeed: 1.0,
+      animationSpeed: 5.0,
       height: 30,
       spread: 25
     },
