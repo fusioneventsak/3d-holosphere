@@ -223,12 +223,11 @@ const PhotoWall: React.FC<{
     if (settings.animationPattern !== 'float') return [];
     
     const floorSize = settings.floorSize * 0.8;
-    const heightRange = FLOAT_MAX_HEIGHT;
     
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: Math.random() * -heightRange, // Distribute initial positions throughout the height range
+      startY: -5 - Math.random() * 10, // Start below floor with some variation
       speed: 0.8 + Math.random() * 0.4 // Tighter speed range for more consistent movement
     }));
     
@@ -291,7 +290,6 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 20;
-        const heightRange = FLOAT_MAX_HEIGHT;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
@@ -301,17 +299,19 @@ const PhotoWall: React.FC<{
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate base position
-          let y = param.startY + time;
+          // Calculate y position with wrapping
+          const totalHeight = FLOAT_MAX_HEIGHT + 10; // Add extra space for smooth transitions
+          let y = param.startY + time % totalHeight;
           
-          // Ensure positive wrapping
-          y = ((y % heightRange) + heightRange) % heightRange;
+          // Wrap back to bottom when reaching top
+          if (y > FLOAT_MAX_HEIGHT) {
+            y = -5;
+          }
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Add position
           positions.push([x, y, z]);
         }
         break;
