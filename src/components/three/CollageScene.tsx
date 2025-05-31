@@ -199,17 +199,24 @@ const PhotoWall: React.FC<{
 }> = React.memo(({ photos, settings }) => {
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
+  const lastFrameTimeRef = useRef(Date.now());
   const patternRef = useRef(PatternFactory.createPattern(settings.animationPattern, settings, photos));
 
   useEffect(() => {
     patternRef.current = PatternFactory.createPattern(settings.animationPattern, settings, photos);
     const { positions: initialPositions } = patternRef.current.generatePositions(0);
     setPositions(initialPositions);
+    timeRef.current = 0;
+    lastFrameTimeRef.current = Date.now();
   }, [settings.animationPattern, settings.photoCount, settings.photoSize, settings.photoSpacing, photos]);
 
-  useFrame((state) => {
+  useFrame(() => {
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      const now = Date.now();
+      const deltaTime = (now - lastFrameTimeRef.current) / 1000; // Convert to seconds
+      timeRef.current += deltaTime;
+      lastFrameTimeRef.current = now;
+      
       const { positions: newPositions } = patternRef.current.generatePositions(timeRef.current);
       setPositions(newPositions);
     }
