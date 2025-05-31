@@ -36,7 +36,7 @@ export class FloatPattern extends BasePattern {
         x,
         z,
         y,
-        speed: 0.2 + Math.random() * 0.3, // Reduced base speed range
+        speed: 0.2 + Math.random() * 0.3, // Base speed range
         phase: Math.random() * Math.PI * 2
       };
     });
@@ -44,22 +44,26 @@ export class FloatPattern extends BasePattern {
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const normalizedSpeed = Math.max(0, Math.min(1, this.settings.animationSpeed / 100)); // Convert 0-100 to 0-1
+    
+    // Convert animation speed from percentage (0-100) to a normalized value (0-1)
+    // 50% = normal speed (0.5), 0% = stopped, 100% = double speed
+    const normalizedSpeed = (this.settings.animationSpeed / 50);
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
-      // Calculate vertical movement with normalized speed
-      const verticalSpeed = normalizedSpeed * param.speed;
+      // Apply normalized speed to vertical movement
+      const verticalSpeed = param.speed * normalizedSpeed * 0.1; // Reduced base speed
       param.y += verticalSpeed;
       
+      // Reset position when reaching max height
       if (param.y > FLOAT_MAX_HEIGHT) {
         param.y = FLOAT_MIN_HEIGHT;
       }
       
       // Calculate horizontal drift with normalized speed
       const driftScale = 0.5;
-      const driftSpeed = normalizedSpeed * 0.1;
+      const driftSpeed = normalizedSpeed * 0.05; // Reduced drift speed
       const xDrift = Math.sin(time * driftSpeed + param.phase) * driftScale;
       const zDrift = Math.cos(time * driftSpeed + param.phase) * driftScale;
       
