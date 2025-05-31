@@ -17,11 +17,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true
   },
   global: {
     headers: {
-      'X-Client-Info': 'photobooth-app'
+      'x-client-info': 'photosphere@1.0.0'
     },
     // Add fetch options to handle network errors gracefully
     fetch: (url, options = {}) => {
@@ -38,19 +39,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         }
         throw error;
       });
-    }
-  }
-}
-)
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'x-client-info': 'photosphere@1.0.0'
     }
   },
   db: {
