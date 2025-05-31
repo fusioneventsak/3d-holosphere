@@ -216,6 +216,11 @@ const PhotoWall: React.FC<{
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
   
+  // Reset time when animation pattern changes
+  useEffect(() => {
+    timeRef.current = 0;
+  }, [settings.animationPattern]);
+
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
@@ -224,8 +229,8 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: Math.random() * -FLOAT_MAX_HEIGHT,
-      speed: 0.5 + Math.random() * 0.5 // Slightly randomize speeds for more natural movement
+      startY: Math.random() * FLOAT_MAX_HEIGHT,
+      speed: 1 + Math.random() // Randomize speeds between 1-2
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -289,28 +294,18 @@ const PhotoWall: React.FC<{
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
+        const baseSpeed = currentSettings.animationSpeed * 2;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
-          const distanceFromCenter = Math.sqrt(x * x + z * z) / (floorSize / 2);
-          const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
-          // Apply spacing factor based on distance from center
-          const spacingFactor = 1 - (spacing * (1 - distanceFromCenter));
-          // Apply spacing to coordinates
-          x = x * spacingFactor;
-          z = z * spacingFactor;
-          const speed = param.speed;
           
           // Calculate base y position
-          let y = param.startY + (currentTime * speed);
+          let y = param.startY + (currentTime * param.speed * baseSpeed);
           
           // Normalize y position to stay within range while maintaining continuous movement
           const normalizedY = ((y - minHeight) % heightRange) + minHeight;
-          
-          // Always add a duplicate above to ensure continuous flow
-          positions.push([x, normalizedY + heightRange, z]);
           
           // Add the current position
           positions.push([x, normalizedY, z]);
@@ -354,7 +349,7 @@ const PhotoWall: React.FC<{
 
   useFrame((state) => {
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      timeRef.current += state.clock.getDelta();
       setPositions(generatePositions(settings, floatParams, timeRef.current));
     }
   });
