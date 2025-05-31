@@ -65,29 +65,27 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     return createEmptySlotTexture(emptySlotColor);
   }
   
-  const cacheBustedUrl = `${url}?_t=${Date.now()}`;
-  
-  if (textureCache.has(cacheBustedUrl)) {
-    const entry = textureCache.get(cacheBustedUrl)!;
+  if (textureCache.has(url)) {
+    const entry = textureCache.get(url)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
   
   const placeholderTexture = createEmptySlotTexture(emptySlotColor);
-  textureCache.set(cacheBustedUrl, {
+  textureCache.set(url, {
     texture: placeholderTexture,
     lastUsed: Date.now()
   });
   
   textureLoader.load(
-    cacheBustedUrl,
+    url,
     (loadedTexture) => {
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.generateMipmaps = false;
       
-      if (textureCache.has(cacheBustedUrl)) {
-        const entry = textureCache.get(cacheBustedUrl)!;
+      if (textureCache.has(url)) {
+        const entry = textureCache.get(url)!;
         entry.texture = loadedTexture;
         entry.lastUsed = Date.now();
       }
