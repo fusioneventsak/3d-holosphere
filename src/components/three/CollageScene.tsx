@@ -14,6 +14,7 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 const FLOAT_MAX_HEIGHT = 50;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
+const FLOAT_MIN_HEIGHT = -10; // Minimum height for floating photos
 
 // Cleanup unused textures periodically
 setInterval(() => {
@@ -227,7 +228,7 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: -5 - Math.random() * 10, // Start below floor with some variation
+      startY: FLOAT_MIN_HEIGHT - Math.random() * 5, // Start below floor with less variation
       speed: 0.8 + Math.random() * 0.4 // Tighter speed range for more consistent movement
     }));
     
@@ -295,17 +296,17 @@ const PhotoWall: React.FC<{
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
+          const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
           
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate y position with wrapping
-          const totalHeight = FLOAT_MAX_HEIGHT + 10; // Add extra space for smooth transitions
-          let y = param.startY + time % totalHeight;
+          // Calculate base movement
+          let y = param.startY + (time % totalHeight);
           
-          // Wrap back to bottom when reaching top
+          // Wrap around when reaching the top
           if (y > FLOAT_MAX_HEIGHT) {
-            y = -5;
+            y = FLOAT_MIN_HEIGHT;
           }
           
           // Add slight horizontal movement
