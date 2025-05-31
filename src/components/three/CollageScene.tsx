@@ -77,30 +77,33 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     return createEmptySlotTexture(emptySlotColor);
   }
   
+  // Add cache busting to URL to prevent stale images
+  const cacheBustedUrl = `${url}?_t=${Date.now()}`;
+  
   // Check texture cache
-  if (textureCache.has(url)) {
-    const entry = textureCache.get(url)!;
+  if (textureCache.has(cacheBustedUrl)) {
+    const entry = textureCache.get(cacheBustedUrl)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
   
   // Create placeholder texture
   const placeholderTexture = createEmptySlotTexture(emptySlotColor);
-  textureCache.set(url, {
+  textureCache.set(cacheBustedUrl, {
     texture: placeholderTexture,
     lastUsed: Date.now()
   });
   
   // Load actual texture
   textureLoader.load(
-    url,
+    cacheBustedUrl,
     (loadedTexture) => {
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.generateMipmaps = false;
       
-      if (textureCache.has(url)) {
-        const entry = textureCache.get(url)!;
+      if (textureCache.has(cacheBustedUrl)) {
+        const entry = textureCache.get(cacheBustedUrl)!;
         entry.texture = loadedTexture;
         entry.lastUsed = Date.now();
       }
@@ -354,19 +357,19 @@ const PhotoWall: React.FC<{
   
   return (
     <group>
-      {positions.slice(0, settings.photoCount).map((position, index) => {
+      {positions.map((position, index) => {
         const photo = index < photos.length ? photos[index] : null;
         return (
           <PhotoFrame
             key={`photo-${index}`}
             position={position}
-            url={photo?.url || ''}
+            url={photo?.url}
             emptySlotColor={settings.emptySlotColor}
             scale={settings.photoSize}
             settings={settings}
           />
         );
-      })}
+      }).slice(0, settings.photoCount)}
     </group>
   );
 });
