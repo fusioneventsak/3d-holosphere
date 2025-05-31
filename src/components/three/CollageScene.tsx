@@ -126,25 +126,29 @@ const PhotoFrame = React.memo(({
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
-  const quaternion = useMemo(() => new THREE.Quaternion(), []);
-  const targetQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const targetRotation = useRef(new THREE.Euler());
+  const currentRotation = useRef(new THREE.Euler());
   const meshPosition = useMemo(() => new THREE.Vector3(), []);
-  const direction = useMemo(() => new THREE.Vector3(), []);
-  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
 
   useFrame(() => {
     if (meshRef.current && settings.photoRotation) {
       const mesh = meshRef.current;
       
+      // Get world position
       mesh.getWorldPosition(meshPosition);
-      direction.subVectors(camera.position, meshPosition).normalize();
       
-      const matrix = new THREE.Matrix4();
-      matrix.lookAt(meshPosition, camera.position, up);
-      targetQuaternion.setFromRotationMatrix(matrix);
+      // Calculate direction to camera
+      const directionToCamera = camera.position.clone().sub(meshPosition).normalize();
       
-      quaternion.slerpQuaternions(mesh.quaternion, targetQuaternion, 0.1);
-      mesh.quaternion.copy(quaternion);
+      // Calculate target rotation (only Y-axis)
+      const angle = Math.atan2(directionToCamera.x, directionToCamera.z);
+      targetRotation.current.y = angle;
+      
+      // Smooth interpolation
+      currentRotation.current.y += (targetRotation.current.y - currentRotation.current.y) * 0.1;
+      
+      // Apply rotation
+      mesh.rotation.y = currentRotation.current.y;
     }
   });
 

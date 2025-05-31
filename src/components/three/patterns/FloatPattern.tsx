@@ -9,7 +9,7 @@ type FloatParams = {
   y: number;
   speed: number;
   phase: number;
-  lastUpdate: number;
+  driftOffset: number;
 };
 
 export class FloatPattern extends BasePattern {
@@ -41,7 +41,7 @@ export class FloatPattern extends BasePattern {
         y,
         speed: 0.5 + Math.random() * 0.5,
         phase: Math.random() * Math.PI * 2,
-        lastUpdate: 0
+        driftOffset: Math.random() * Math.PI * 2
       };
     });
   }
@@ -51,15 +51,15 @@ export class FloatPattern extends BasePattern {
     const deltaTime = time - this.lastTime;
     this.lastTime = time;
     
-    // Convert percentage to actual speed multiplier (0-100% → 0-2)
+    // Convert animation speed (0-100) to a multiplier (0-2)
     const speedMultiplier = this.settings.animationSpeed / 50;
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
       if (this.settings.animationEnabled && speedMultiplier > 0) {
-        // Calculate time-based movement
-        const verticalSpeed = param.speed * speedMultiplier * 2; // Increased multiplier for more noticeable effect
+        // Vertical movement
+        const verticalSpeed = param.speed * speedMultiplier * 5;
         param.y += verticalSpeed * deltaTime;
         
         // Reset position when reaching max height
@@ -67,11 +67,13 @@ export class FloatPattern extends BasePattern {
           param.y = FLOAT_MIN_HEIGHT;
         }
         
-        // Calculate horizontal drift
-        const driftScale = 3.0; // Increased for more noticeable movement
-        const driftSpeed = time * speedMultiplier;
-        const xDrift = Math.sin(driftSpeed + param.phase) * driftScale;
-        const zDrift = Math.cos(driftSpeed + param.phase) * driftScale;
+        // Horizontal drift
+        const driftAmplitude = 3.0;
+        const driftFrequency = speedMultiplier * 0.5;
+        const driftTime = time * driftFrequency;
+        
+        const xDrift = Math.sin(driftTime + param.driftOffset) * driftAmplitude;
+        const zDrift = Math.cos(driftTime + param.driftOffset) * driftAmplitude;
         
         positions.push([
           param.x + xDrift,
@@ -79,7 +81,7 @@ export class FloatPattern extends BasePattern {
           param.z + zDrift
         ]);
       } else {
-        // If animation is disabled or speed is 0, maintain current position
+        // When animation is disabled or speed is 0, maintain static positions
         positions.push([param.x, param.y, param.z]);
       }
     }
