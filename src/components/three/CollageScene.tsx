@@ -1,19 +1,20 @@
-import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, SpotLight } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
+import { PatternFactory } from './patterns/PatternFactory';
+import { type Photo } from './patterns/BasePattern';
 
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
-const FLOAT_MAX_HEIGHT = 50;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000;
 const TEXTURE_CLEANUP_INTERVAL = 30000;
-const FLOAT_MIN_HEIGHT = -20;
 
+// Cleanup unused textures periodically
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of textureCache.entries()) {
@@ -24,12 +25,7 @@ setInterval(() => {
   }
 }, TEXTURE_CLEANUP_INTERVAL);
 
-type Photo = {
-  id: string;
-  url: string;
-  collage_id?: string;
-};
-
+// Helper functions for texture management
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -204,137 +200,19 @@ const PhotoWall: React.FC<{
 }> = React.memo(({ photos, settings }) => {
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
-
-  const floatParams = useMemo(() => {
-    if (settings.animationPattern !== 'float') return [];
-    
-    const floorSize = settings.floorSize * 0.8;
-    const gridSize = Math.ceil(Math.sqrt(settings.photoCount));
-    const cellSize = floorSize / gridSize;
-    
-    return Array(settings.photoCount).fill(0).map((_, index) => {
-      const row = Math.floor(index / gridSize);
-      const col = index % gridSize;
-      
-      return {
-        x: (col - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize * 0.5,
-        z: (row - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize * 0.5,
-        y: FLOAT_MIN_HEIGHT,
-        speed: 0.8 + Math.random() * 0.2,
-        resetY: FLOAT_MIN_HEIGHT
-      };
-    });
-  }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
-
-  const generatePositions = useCallback((
-    currentSettings: SceneSettings,
-    currentFloatParams: typeof floatParams,
-    currentTime: number
-  ): [number, number, number][] => {
-    const positions: [number, number, number][] = [];
-    const totalPhotos = Math.min(currentSettings.photoCount, 500);
-    const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
-
-    switch (currentSettings.animationPattern) {
-      case 'float': {
-        const baseSpeed = currentSettings.animationSpeed * 5;
-        
-        currentFloatParams.forEach((param, i) => {
-          let y = param.y + (baseSpeed * param.speed);
-          
-          // Reset when reaching max height
-          if (y > FLOAT_MAX_HEIGHT) {
-            param.y = param.resetY;
-            y = param.resetY;
-          } else {
-            param.y = y;
-          }
-          
-          positions.push([param.x, y, param.z]);
-        });
-        break;
-      }
-      
-      case 'grid': {
-        const patternSettings = currentSettings.patterns.grid;
-        const aspectRatio = patternSettings.aspectRatio;
-        const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
-        const rows = Math.ceil(totalPhotos / columns);
-        
-        for (let i = 0; i < totalPhotos; i++) {
-          const col = i % columns;
-          const row = Math.floor(i / columns);
-          const x = (col - columns / 2) * spacing;
-          let y = currentSettings.wallHeight + (rows / 2 - row) * spacing * (16/9);
-          
-          if (currentSettings.animationEnabled) {
-            const waveX = Math.sin(currentTime + col * 0.5) * 0.2;
-            const waveY = Math.cos(currentTime + row * 0.5) * 0.2;
-            y += waveX + waveY;
-          }
-          
-          const z = 0;
-          positions.push([x, y, z]);
-        }
-        break;
-      }
-      
-      case 'spiral': {
-        const patternSettings = currentSettings.patterns.spiral;
-        const radius = patternSettings.radius;
-        const heightStep = patternSettings.heightStep;
-        const angleStep = (Math.PI * 2) / Math.max(1, totalPhotos / 3);
-        
-        for (let i = 0; i < totalPhotos; i++) {
-          const angle = currentSettings.animationEnabled ? 
-            i * angleStep + currentTime : 
-            i * angleStep;
-          const spiralRadius = radius * (1 - i / totalPhotos);
-          const x = Math.cos(angle) * spiralRadius;
-          const y = currentSettings.wallHeight + (i * heightStep);
-          const z = Math.sin(angle) * spiralRadius;
-          positions.push([x, y, z]);
-        }
-        break;
-      }
-      
-      case 'wave': {
-        const patternSettings = currentSettings.patterns.wave;
-        const columns = Math.ceil(Math.sqrt(totalPhotos));
-        const rows = Math.ceil(totalPhotos / columns);
-        const frequency = patternSettings.frequency;
-        const amplitude = patternSettings.amplitude;
-        
-        for (let i = 0; i < totalPhotos; i++) {
-          const col = i % columns;
-          const row = Math.floor(i / columns);
-          const x = (col - columns / 2) * spacing;
-          const z = (row - rows / 2) * spacing;
-          let y = currentSettings.wallHeight;
-          
-          if (currentSettings.animationEnabled) {
-            const wavePhase = currentTime * patternSettings.animationSpeed;
-            const distanceFromCenter = Math.sqrt(x * x + z * z);
-            y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
-          }
-          
-          positions.push([x, y, z]);
-        }
-        break;
-      }
-    }
-
-    return positions;
-  }, []);
+  const patternRef = useRef(PatternFactory.createPattern(settings.animationPattern, settings, photos));
 
   useEffect(() => {
-    setPositions(generatePositions(settings, floatParams, 0));
-  }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio, settings.animationPattern, generatePositions, floatParams]);
+    patternRef.current = PatternFactory.createPattern(settings.animationPattern, settings, photos);
+    const { positions: initialPositions } = patternRef.current.generatePositions(0);
+    setPositions(initialPositions);
+  }, [settings.animationPattern, settings.photoCount, settings.photoSize, settings.photoSpacing, photos]);
 
   useFrame((state) => {
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta();
-      setPositions(generatePositions(settings, floatParams, timeRef.current));
+      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      const { positions: newPositions } = patternRef.current.generatePositions(timeRef.current);
+      setPositions(newPositions);
     }
   });
 
@@ -432,14 +310,7 @@ const Scene: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
-  const { camera, clock } = useThree();
-  const time = useRef(0);
-
-  useFrame(() => {
-    if (settings.animationEnabled) {
-      time.current = clock.getElapsedTime() * settings.animationSpeed;
-    }
-  });
+  const { camera } = useThree();
 
   useEffect(() => {
     if (camera) {
