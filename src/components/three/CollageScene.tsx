@@ -134,20 +134,15 @@ const PhotoFrame = React.memo(({
     if (meshRef.current && settings.photoRotation) {
       const mesh = meshRef.current;
       
-      // Get world position
       mesh.getWorldPosition(meshPosition);
       
-      // Calculate direction to camera
       const directionToCamera = camera.position.clone().sub(meshPosition).normalize();
       
-      // Calculate target rotation (only Y-axis)
       const angle = Math.atan2(directionToCamera.x, directionToCamera.z);
       targetRotation.current.y = angle;
       
-      // Smooth interpolation
       currentRotation.current.y += (targetRotation.current.y - currentRotation.current.y) * 0.1;
       
-      // Apply rotation
       mesh.rotation.y = currentRotation.current.y;
     }
   });
@@ -205,6 +200,7 @@ const PhotoWall: React.FC<{
   const timeRef = useRef(0);
   const lastFrameTimeRef = useRef(Date.now());
   const patternRef = useRef(PatternFactory.createPattern(settings.animationPattern, settings, photos));
+  const photoArrayRef = useRef<Photo[]>([]);
 
   useEffect(() => {
     patternRef.current = PatternFactory.createPattern(settings.animationPattern, settings, photos);
@@ -212,13 +208,23 @@ const PhotoWall: React.FC<{
     setPositions(initialPositions);
     timeRef.current = 0;
     lastFrameTimeRef.current = Date.now();
-  }, [settings.animationPattern, settings.photoCount, settings.photoSize, settings.photoSpacing, photos]);
+  }, [
+    settings.animationPattern,
+    settings.photoCount,
+    settings.photoSize,
+    settings.photoSpacing,
+    settings.patterns[settings.animationPattern].animationSpeed
+  ]);
+
+  useEffect(() => {
+    photoArrayRef.current = photos;
+  }, [photos]);
 
   useFrame(() => {
     if (settings.animationEnabled) {
       const now = Date.now();
-      const deltaTime = (now - lastFrameTimeRef.current) / 1000; // Convert to seconds
-      timeRef.current += deltaTime;
+      const deltaTime = (now - lastFrameTimeRef.current) / 1000;
+      timeRef.current += deltaTime * (settings.patterns[settings.animationPattern].animationSpeed);
       lastFrameTimeRef.current = now;
       
       const { positions: newPositions } = patternRef.current.generatePositions(timeRef.current);
@@ -229,12 +235,12 @@ const PhotoWall: React.FC<{
   return (
     <group>
       {positions.map((position, index) => {
-        const photoIndex = index % photos.length;
+        const photoIndex = index % photoArrayRef.current.length;
         return (
           <PhotoFrame
-            key={`photo-${index}-${photos[photoIndex]?.id || 'empty'}`}
+            key={`photo-${index}-${photoArrayRef.current[photoIndex]?.id || 'empty'}`}
             position={position}
-            url={photos[photoIndex]?.url}
+            url={photoArrayRef.current[photoIndex]?.url}
             emptySlotColor={settings.emptySlotColor}
             scale={settings.photoSize}
             settings={settings}
