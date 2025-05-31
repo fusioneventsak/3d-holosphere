@@ -164,7 +164,7 @@ const debounce = (fn: Function, ms = 300) => {
   };
 };
 
-export const useSceneStore = create<SceneState>()((set) => {
+export const useSceneStore = create<SceneState>()((set, get) => {
   const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
     if (newSettings.photoCount !== undefined) {
       const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
@@ -181,7 +181,7 @@ export const useSceneStore = create<SceneState>()((set) => {
 
     // Update pattern-specific settings when changing patterns
     if (newSettings.animationPattern) {
-      const currentSettings = set.getState().settings;
+      const currentSettings = get().settings;
       const currentPatternSettings = currentSettings.patterns[currentSettings.animationPattern];
       const newPatternSettings = currentSettings.patterns[newSettings.animationPattern];
       
