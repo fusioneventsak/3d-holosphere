@@ -179,24 +179,30 @@ export const useSceneStore = create<SceneState>()((set, get) => {
       newSettings.animationSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
     }
 
-    // Update pattern-specific settings when changing patterns
+    // Update pattern-specific settings
     if (newSettings.animationPattern) {
       const currentSettings = get().settings;
       const currentPatternSettings = currentSettings.patterns[currentSettings.animationPattern];
       const newPatternSettings = currentSettings.patterns[newSettings.animationPattern];
       
-      // Enable the new pattern and disable others
       Object.keys(currentSettings.patterns).forEach(pattern => {
         currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
           pattern === newSettings.animationPattern;
       });
       
-      // Apply pattern-specific settings
       newSettings = {
         ...newSettings,
-        animationSpeed: newPatternSettings.animationSpeed * 50, // Convert to percentage
+        animationSpeed: newPatternSettings.animationSpeed * 50,
         patterns: currentSettings.patterns
       };
+    }
+
+    // Update pattern-specific animation speed when main speed changes
+    if (newSettings.animationSpeed !== undefined) {
+      const currentSettings = get().settings;
+      const pattern = currentSettings.animationPattern;
+      const patternSettings = currentSettings.patterns[pattern];
+      patternSettings.animationSpeed = newSettings.animationSpeed / 50;
     }
 
     set((state) => ({
