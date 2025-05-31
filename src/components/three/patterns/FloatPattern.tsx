@@ -10,13 +10,13 @@ type FloatParams = {
   speed: number;
   phase: number;
   driftOffset: number;
-  currentSpeed: number; // Track current interpolated speed
+  currentSpeed: number;
 };
 
 export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
   private lastTime: number;
-  private speedLerpFactor: number = 0.1; // Speed interpolation factor
+  private speedLerpFactor: number = 0.1;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
@@ -44,17 +44,16 @@ export class FloatPattern extends BasePattern {
         speed: 0.5 + Math.random() * 0.5,
         phase: Math.random() * Math.PI * 2,
         driftOffset: Math.random() * Math.PI * 2,
-        currentSpeed: 0 // Initialize current speed
+        currentSpeed: this.settings.animationSpeed / 50 // Initialize with current speed
       };
     });
   }
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const deltaTime = Math.min(time - this.lastTime, 0.1); // Clamp delta time
+    const deltaTime = Math.min(time - this.lastTime, 0.1);
     this.lastTime = time;
     
-    // Convert animation speed (0-100) to a multiplier (0-2)
     const targetSpeedMultiplier = this.settings.animationEnabled ? 
       (this.settings.animationSpeed / 50) : 0;
     
@@ -64,17 +63,16 @@ export class FloatPattern extends BasePattern {
       // Smoothly interpolate to target speed
       param.currentSpeed += (targetSpeedMultiplier - param.currentSpeed) * this.speedLerpFactor;
       
-      if (param.currentSpeed > 0.001) { // Small threshold to prevent micro-movements
-        // Vertical movement with smooth speed
+      if (param.currentSpeed > 0.001) {
+        // Vertical movement
         const verticalSpeed = param.speed * param.currentSpeed * 5;
         param.y += verticalSpeed * deltaTime;
         
-        // Reset position when reaching max height
         if (param.y > FLOAT_MAX_HEIGHT) {
           param.y = FLOAT_MIN_HEIGHT;
         }
         
-        // Horizontal drift with smooth speed
+        // Horizontal drift
         const driftAmplitude = 3.0;
         const driftFrequency = param.currentSpeed * 0.5;
         const driftTime = time * driftFrequency;
@@ -88,7 +86,6 @@ export class FloatPattern extends BasePattern {
           param.z + zDrift
         ]);
       } else {
-        // When effectively stopped, maintain static positions
         positions.push([param.x, param.y, param.z]);
       }
     }
