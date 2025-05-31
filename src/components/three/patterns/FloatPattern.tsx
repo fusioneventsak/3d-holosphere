@@ -2,7 +2,6 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 const FLOAT_MAX_HEIGHT = 50;
 const FLOAT_MIN_HEIGHT = -10;
-const BASE_SPEED = 0.1;
 
 type FloatParams = {
   x: number;
@@ -37,7 +36,7 @@ export class FloatPattern extends BasePattern {
         x,
         z,
         y,
-        speed: 0.8 + Math.random() * 0.2,
+        speed: 0.5 + Math.random() * 0.5, // Reduced speed range
         phase: Math.random() * Math.PI * 2
       };
     });
@@ -45,20 +44,23 @@ export class FloatPattern extends BasePattern {
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const baseSpeed = BASE_SPEED * (this.settings.animationSpeed / 5);
+    const normalizedSpeed = this.settings.animationSpeed * 0.05; // Scale down animation speed
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
-      param.y += baseSpeed * param.speed;
+      // Calculate vertical movement
+      param.y += normalizedSpeed * param.speed;
       
       if (param.y > FLOAT_MAX_HEIGHT) {
         param.y = FLOAT_MIN_HEIGHT;
       }
       
-      const driftScale = 0.2;
-      const xDrift = Math.sin(time * 0.2 + param.phase) * driftScale;
-      const zDrift = Math.cos(time * 0.2 + param.phase) * driftScale;
+      // Calculate horizontal drift
+      const driftScale = 0.5;
+      const driftSpeed = normalizedSpeed * 0.2;
+      const xDrift = Math.sin(time * driftSpeed + param.phase) * driftScale;
+      const zDrift = Math.cos(time * driftSpeed + param.phase) * driftScale;
       
       positions.push([
         param.x + xDrift,
