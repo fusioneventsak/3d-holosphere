@@ -78,7 +78,7 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 5.0,
+  animationSpeed: 0.5,
   animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
@@ -128,7 +128,8 @@ const defaultSettings: SceneSettings = {
     },
     float: {
       enabled: false,
-      animationSpeed: 5.0,
+      animationSpeed: 1.0,
+      spacing: 0.1,
       height: 30,
       spread: 25
     },
@@ -173,6 +174,10 @@ export const useSceneStore = create<SceneState>()(
         } else {
           delete newSettings.photoCount;
         }
+      }
+
+      if (newSettings.animationSpeed !== undefined) {
+        newSettings.animationSpeed = Math.max(0.1, Math.min(10, newSettings.animationSpeed));
       }
 
       set((state) => ({
