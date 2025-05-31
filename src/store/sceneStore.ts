@@ -200,3 +200,5 @@ export const useSceneStore = create<SceneState>()((set) => {
 });
 
 export { defaultSettings };
+
+export { useSceneStore }
