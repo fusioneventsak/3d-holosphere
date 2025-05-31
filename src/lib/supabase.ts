@@ -4,7 +4,43 @@ import { Database } from '../types/supabase';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+}
+
+// Configure the Supabase client with additional options
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'photobooth-app'
+    },
+    // Add fetch options to handle CORS
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        credentials: 'include',
+        headers: {
+          ...options.headers,
+          'Access-Control-Allow-Origin': window.location.origin
+        }
+      }).catch(error => {
+        console.error('Supabase fetch error:', error);
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+          throw new Error(
+            'Unable to connect to the server. This might be due to CORS settings. ' +
+            'Please ensure your Supabase project is configured to allow requests from: ' +
+            window.location.origin
+          );
+        }
+        throw error;
+      });
+    }
+  }
+});
 
 // Normalize file extension to lowercase
 export const normalizeFileExtension = (url: string): string => {
