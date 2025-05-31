@@ -227,7 +227,7 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: Math.random() * FLOAT_MAX_HEIGHT * 2 - FLOAT_MAX_HEIGHT,
+      startY: 0, // Start at floor level
       speed: 5 + Math.random() * 10 // Randomize speeds between 5-15
     }));
     
@@ -292,24 +292,24 @@ const PhotoWall: React.FC<{
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
-        const baseSpeed = currentSettings.animationSpeed * 25;
+        const baseSpeed = currentSettings.animationSpeed * 50; // Double the speed multiplier
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate y position with increased speed
-          let y = param.startY + (currentTime * param.speed * baseSpeed);
+          // Calculate y position - only moving upward
+          let y = Math.abs(Math.sin(currentTime * param.speed * 0.5)) * FLOAT_MAX_HEIGHT;
           
-          // Normalize y position to stay within range while maintaining continuous movement
-          const normalizedY = ((y - minHeight) % heightRange) + minHeight;
+          // Ensure minimum height is above floor
+          y = Math.max(y, 2); // Keep photos at least 2 units above floor
           
           // Add position with slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          positions.push([x, normalizedY, z]);
+          positions.push([x, y, z]);
         }
         break;
       }
