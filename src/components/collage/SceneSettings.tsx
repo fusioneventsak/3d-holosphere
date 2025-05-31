@@ -20,6 +20,75 @@ const SceneSettings: React.FC<{
       </div>
 
       <div className="space-y-6">
+        {/* Animation Controls */}
+        <div>
+          <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+            <ImageIcon className="h-4 w-4 mr-2" />
+            Animation
+          </h4>
+          
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={settings.animationEnabled}
+                onChange={(e) => onSettingsChange({ 
+                  animationEnabled: e.target.checked 
+                })}
+                className="mr-2 bg-gray-800 border-gray-700"
+              />
+              <label className="text-sm text-gray-300">
+                Enable Animations
+              </label>
+            </div>
+
+            {settings.animationEnabled && (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Animation Pattern
+                  </label>
+                  <select
+                    value={settings.animationPattern}
+                    onChange={(e) => onSettingsChange({ 
+                      animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
+                    })}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                  >
+                    <option value="grid">Grid Wall</option>
+                    <option value="float">Float</option>
+                    <option value="wave">Wave</option>
+                    <option value="spiral">Spiral</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Animation Speed
+                    <span className="ml-2 text-xs text-gray-400">
+                      {settings.animationSpeed}%
+                    </span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={settings.animationSpeed}
+                    onChange={(e) => onSettingsChange({ 
+                      animationSpeed: parseFloat(e.target.value)
+                    })}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Adjust from stopped (0%) to maximum speed (100%)
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Camera Controls */}
         <div>
           <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
@@ -111,69 +180,6 @@ const SceneSettings: React.FC<{
                   />
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Photo Animation Settings */}
-        <div>
-          <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-            <ImageIcon className="h-4 w-4 mr-2" />
-            Photo Animations
-          </h4>
-          
-          <div className="space-y-4">
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={settings.animationEnabled}
-                onChange={(e) => onSettingsChange({ 
-                  animationEnabled: e.target.checked 
-                })}
-                className="mr-2 bg-gray-800 border-gray-700"
-              />
-              <label className="text-sm text-gray-300">
-                Enable Photo Animations
-              </label>
-            </div>
-
-            {settings.animationEnabled && (
-              <>
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Animation Pattern
-                  </label>
-                  <select
-                    value={settings.animationPattern}
-                    onChange={(e) => onSettingsChange({ 
-                      animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
-                    })}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-                  >
-                    <option value="grid">Grid Wall</option>
-                    <option value="float">Float</option>
-                    <option value="wave">Wave</option>
-                    <option value="spiral">Spiral</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-2">
-                    Animation Speed
-                  </label>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="50"
-                    step="0.1"
-                    value={settings.animationSpeed}
-                    onChange={(e) => onSettingsChange({ 
-                      animationSpeed: parseFloat(e.target.value) 
-                    })}
-                    className="w-full bg-gray-800"
-                  />
-                </div>
-              </>
             )}
           </div>
         </div>
