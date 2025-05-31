@@ -25,15 +25,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 if (!isValidUrl(supabaseUrl)) {
   throw new Error(
-    `Invalid Supabase URL: "${supabaseUrl}". Please click "Connect to Supabase" ` +
-    'in the top right corner to properly configure your Supabase project.'
-  );
-}
-
-if (supabaseUrl === 'your_project_url' || supabaseAnonKey === 'your_anon_key') {
-  throw new Error(
-    'Default placeholder values detected in .env file. Please click "Connect to Supabase" ' +
-    'in the top right corner to configure your project with actual Supabase credentials.'
+    `Invalid Supabase URL: "${supabaseUrl}". Please ensure your Supabase URL is correct.`
   );
 }
 
@@ -49,19 +41,19 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     headers: {
       'x-client-info': 'photosphere@1.0.0'
     },
-    // Configure fetch with retries and better error handling
-    fetch: (url, options = {}) => {
-      // Add retry logic for failed requests
+    fetch: async (url, options = {}) => {
+      console.log('Supabase request:', url); // Log the request URL
+
       const MAX_RETRIES = 3;
-      const RETRY_DELAY = 1000; // 1 second
+      const RETRY_DELAY = 1000;
 
       const fetchWithRetry = async (attempt = 0): Promise<Response> => {
         try {
-          // Add credentials and cache control
+          console.log(`Attempt ${attempt + 1} of ${MAX_RETRIES}`);
+          
           const response = await fetch(url, {
             ...options,
             credentials: 'include',
-            // Add cache control headers to prevent caching
             headers: {
               ...options.headers,
               'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -70,27 +62,37 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
           });
 
           if (!response.ok) {
+            console.error('Response not OK:', {
+              status: response.status,
+              statusText: response.statusText
+            });
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
           return response;
         } catch (error) {
+          console.error(`Attempt ${attempt + 1} failed:`, error);
+
           if (attempt < MAX_RETRIES) {
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (attempt + 1)));
-            console.log(`Retrying request (attempt ${attempt + 1} of ${MAX_RETRIES})...`);
+            const delay = RETRY_DELAY * (attempt + 1);
+            console.log(`Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
             return fetchWithRetry(attempt + 1);
           }
           
-          console.error('Supabase request failed after retries:', error);
-          
-          if (error instanceof Error && error.message.includes('Failed to fetch')) {
-            throw new Error(
-              'Unable to connect to Supabase. Please:\n' +
-              '1. Check your internet connection\n' +
-              '2. Ensure you\'ve clicked "Connect to Supabase" in the top right\n' +
-              '3. Verify your Supabase project is running'
-            );
-          } else if (error instanceof Error) {
+          if (error instanceof Error) {
+            if (error.message.includes('Failed to fetch')) {
+              console.error('Network error details:', {
+                url: supabaseUrl,
+                error: error.message
+              });
+              throw new Error(
+                'Unable to connect to Supabase. Please check:\n' +
+                '1. Your internet connection\n' +
+                '2. The Supabase project status\n' +
+                '3. Your project configuration'
+              );
+            }
             throw new Error(`Supabase request failed: ${error.message}`);
           }
           throw error;
