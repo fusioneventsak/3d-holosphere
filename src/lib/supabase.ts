@@ -5,11 +5,35 @@ import { Database } from '../types/supabase';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Validate Supabase URL format
+const isValidUrl = (urlString: string): boolean => {
+  try {
+    new URL(urlString);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     'Missing Supabase environment variables. Please ensure VITE_SUPABASE_URL and ' +
     'VITE_SUPABASE_ANON_KEY are set in your .env file and click "Connect to Supabase" ' +
     'to configure your project.'
+  );
+}
+
+if (!isValidUrl(supabaseUrl)) {
+  throw new Error(
+    `Invalid Supabase URL: "${supabaseUrl}". Please click "Connect to Supabase" ` +
+    'in the top right corner to properly configure your Supabase project.'
+  );
+}
+
+if (supabaseUrl === 'your_project_url' || supabaseAnonKey === 'your_anon_key') {
+  throw new Error(
+    'Default placeholder values detected in .env file. Please click "Connect to Supabase" ' +
+    'in the top right corner to configure your project with actual Supabase credentials.'
   );
 }
 
