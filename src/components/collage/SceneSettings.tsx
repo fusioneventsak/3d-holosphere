@@ -2,18 +2,11 @@ import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square } from 'lucide-react';
 
-type SceneSettingsProps = {
+const SceneSettings: React.FC<{
   settings: SceneSettings;
   onSettingsChange: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
   onReset: () => void;
-};
-
-const SceneSettings: React.FC<SceneSettingsProps> = ({ 
-  settings, 
-  onSettingsChange,
-  onReset
-}) => {
-
+}> = ({ settings, onSettingsChange, onReset }) => {
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-800 rounded-lg p-4 sticky top-20">
       <div className="flex items-center justify-between mb-4">
@@ -293,20 +286,6 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               </p>
             </div>
             
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                checked={settings.photoRotation}
-                onChange={(e) => onSettingsChange({ 
-                  photoRotation: e.target.checked 
-                })}
-                className="mr-2 bg-gray-800 border-gray-700"
-              />
-              <label className="text-sm text-gray-300">
-                Rotate Photos to Face Camera
-              </label>
-            </div>
-            
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Photo Spacing
@@ -326,6 +305,30 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
               <p className="mt-1 text-xs text-gray-400">
                 Adjust gap between photos (0% = no gap, 100% = one photo width)
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Photo Behavior */}
+        <div>
+          <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+            <ImageIcon className="h-4 w-4 mr-2" />
+            Photo Behavior
+          </h4>
+          
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                checked={settings.photoRotation}
+                onChange={(e) => onSettingsChange({ 
+                  photoRotation: e.target.checked 
+                })}
+                className="mr-2 bg-gray-800 border-gray-700"
+              />
+              <label className="text-sm text-gray-300">
+                Rotate Photos to Face Camera
+              </label>
             </div>
           </div>
         </div>
@@ -413,7 +416,6 @@ const SceneSettings: React.FC<SceneSettingsProps> = ({
                       onChange={(e) => onSettingsChange({
                         backgroundGradientEnd: e.target.value
                       }, true)}
-                
                       className="w-full h-8 rounded cursor-pointer bg-gray-800"
                     />
                   </div>
