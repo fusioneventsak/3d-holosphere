@@ -9,14 +9,17 @@ type FloatParams = {
   y: number;
   speed: number;
   phase: number;
+  lastUpdate: number;
 };
 
 export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
+  private lastTime: number;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
     this.floatParams = this.initializeFloatParams();
+    this.lastTime = 0;
   }
 
   private initializeFloatParams(): FloatParams[] {
@@ -36,25 +39,28 @@ export class FloatPattern extends BasePattern {
         x,
         z,
         y,
-        speed: 0.5 + Math.random() * 0.5, // Normalized base speed
-        phase: Math.random() * Math.PI * 2
+        speed: 0.5 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        lastUpdate: 0
       };
     });
   }
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
+    const deltaTime = time - this.lastTime;
+    this.lastTime = time;
     
     // Convert percentage to actual speed multiplier (0-100% → 0-2)
-    const speedMultiplier = (this.settings.animationSpeed / 50);
+    const speedMultiplier = this.settings.animationSpeed / 50;
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
       if (this.settings.animationEnabled && speedMultiplier > 0) {
-        // Calculate vertical movement
-        const verticalSpeed = param.speed * speedMultiplier * 0.5;
-        param.y += verticalSpeed;
+        // Calculate time-based movement
+        const verticalSpeed = param.speed * speedMultiplier * 2; // Increased multiplier for more noticeable effect
+        param.y += verticalSpeed * deltaTime;
         
         // Reset position when reaching max height
         if (param.y > FLOAT_MAX_HEIGHT) {
@@ -62,7 +68,7 @@ export class FloatPattern extends BasePattern {
         }
         
         // Calculate horizontal drift
-        const driftScale = 2.0;
+        const driftScale = 3.0; // Increased for more noticeable movement
         const driftSpeed = time * speedMultiplier;
         const xDrift = Math.sin(driftSpeed + param.phase) * driftScale;
         const zDrift = Math.cos(driftSpeed + param.phase) * driftScale;
