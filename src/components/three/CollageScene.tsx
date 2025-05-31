@@ -290,32 +290,50 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 20;
-        const heightRange = FLOAT_MAX_HEIGHT;
+        const heightRange = FLOAT_MAX_HEIGHT + 10; // Add extra height to ensure smooth transitions
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
-          const cycleHeight = heightRange * 2;
           
           // Calculate base movement
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate y position with continuous upward movement
-          let y = param.startY + (time % cycleHeight);
+          // Calculate base y position
+          let y = param.startY + time;
           
           // Reset position when it reaches the top
           if (y > heightRange) {
-            y = -5; // Reset to just below floor
+            // Reset to just below floor while maintaining relative position
+            y = -5 + (y % heightRange);
           }
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Add the current position
-          positions.push([x, y, z]);
+          // Add both current and duplicate positions for continuous flow
+          if (y > -10 && y < heightRange - 10) {
+            positions.push([x, y, z]);
+          }
+          
+          // Add duplicate below when original is high enough
+          if (y > heightRange / 2) {
+            const duplicateY = y - heightRange;
+            if (duplicateY > -10) {
+              positions.push([x, duplicateY, z]);
+            }
+          }
+          
+          // Add duplicate above when original is low enough
+          if (y < heightRange / 2) {
+            const duplicateY = y + heightRange;
+            if (duplicateY < heightRange) {
+              positions.push([x, duplicateY, z]);
+            }
+          }
         }
         break;
       }
