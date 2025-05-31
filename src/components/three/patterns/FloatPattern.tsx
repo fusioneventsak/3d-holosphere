@@ -33,15 +33,15 @@ export class FloatPattern extends BasePattern {
       const x = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       const z = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       
-      // Distribute initial heights evenly throughout the vertical space
+      // Distribute initial heights evenly below the floor
       const heightRange = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
       const phase = (index / this.settings.photoCount) * heightRange;
       
       return {
         x,
         z,
-        y: FLOAT_MIN_HEIGHT + phase,
-        speed: BASE_SPEED + (Math.random() - 0.5) * 2, // Speed variation of ±1
+        y: FLOAT_MIN_HEIGHT - phase, // Start below floor
+        speed: BASE_SPEED + (Math.random() - 0.5), // Smaller speed variation
         phase
       };
     });
@@ -57,10 +57,12 @@ export class FloatPattern extends BasePattern {
       let y = param.y + (baseSpeed * param.speed * time);
       
       // Wrap around when reaching max height
-      y = ((y - FLOAT_MIN_HEIGHT) % heightRange) + FLOAT_MIN_HEIGHT;
-      
-      // Store updated Y position
-      param.y = y;
+      if (y > FLOAT_MAX_HEIGHT) {
+        y = FLOAT_MIN_HEIGHT;
+        param.y = FLOAT_MIN_HEIGHT;
+      } else {
+        param.y = y;
+      }
       
       // Add subtle horizontal drift based on height
       const driftScale = 0.2;
