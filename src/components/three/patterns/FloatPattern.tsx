@@ -2,7 +2,7 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 const FLOAT_MAX_HEIGHT = 50;
 const FLOAT_MIN_HEIGHT = -10;
-const BASE_SPEED = 10;
+const BASE_SPEED = 5;
 
 type FloatParams = {
   x: number;
@@ -33,15 +33,15 @@ export class FloatPattern extends BasePattern {
       const x = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       const z = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       
-      // Distribute initial heights evenly below the floor
-      const heightRange = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
-      const phase = (index / this.settings.photoCount) * heightRange;
+      // Start photos at different heights below the floor
+      const heightRange = Math.abs(FLOAT_MIN_HEIGHT);
+      const phase = Math.random() * Math.PI * 2;
       
       return {
         x,
         z,
-        y: FLOAT_MIN_HEIGHT - phase, // Start below floor
-        speed: BASE_SPEED + (Math.random() - 0.5), // Smaller speed variation
+        y: FLOAT_MIN_HEIGHT - (Math.random() * heightRange),
+        speed: 0.8 + Math.random() * 0.4, // Tighter speed range
         phase
       };
     });
@@ -52,29 +52,28 @@ export class FloatPattern extends BasePattern {
     const heightRange = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
     const baseSpeed = this.settings.animationSpeed * BASE_SPEED;
     
-    this.floatParams.forEach((param) => {
-      // Calculate vertical position with wrapping
-      let y = param.y + (baseSpeed * param.speed * time);
+    for (let i = 0; i < this.floatParams.length; i++) {
+      const param = this.floatParams[i];
+      
+      // Calculate new Y position
+      param.y += baseSpeed * param.speed * 0.016; // Assuming ~60fps
       
       // Wrap around when reaching max height
-      if (y > FLOAT_MAX_HEIGHT) {
-        y = FLOAT_MIN_HEIGHT;
+      if (param.y > FLOAT_MAX_HEIGHT) {
         param.y = FLOAT_MIN_HEIGHT;
-      } else {
-        param.y = y;
       }
       
       // Add subtle horizontal drift based on height
       const driftScale = 0.2;
-      const xDrift = Math.sin(y * 0.1 + param.phase) * driftScale;
-      const zDrift = Math.cos(y * 0.1 + param.phase) * driftScale;
+      const xDrift = Math.sin(param.y * 0.1 + param.phase) * driftScale;
+      const zDrift = Math.cos(param.y * 0.1 + param.phase) * driftScale;
       
       positions.push([
         param.x + xDrift,
-        y,
+        param.y,
         param.z + zDrift
       ]);
-    });
+    }
 
     return { positions };
   }
