@@ -19,7 +19,6 @@ const FLOAT_MIN_HEIGHT = -10; // Minimum height for floating photos
 // Cleanup unused textures periodically
 setInterval(() => {
   const now = Date.now();
-  
   for (const [key, entry] of textureCache.entries()) {
     if (now - entry.lastUsed > TEXTURE_CACHE_MAX_AGE) {
       entry.texture.dispose();
@@ -38,7 +37,7 @@ type Photo = {
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
-  canvas.height = 456; // Using 9:16 aspect ratio
+  canvas.height = 456;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -78,24 +77,20 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
     return createEmptySlotTexture(emptySlotColor);
   }
   
-  // Add cache busting to URL to prevent stale images
   const cacheBustedUrl = `${url}?_t=${Date.now()}`;
   
-  // Check texture cache
   if (textureCache.has(cacheBustedUrl)) {
     const entry = textureCache.get(cacheBustedUrl)!;
     entry.lastUsed = Date.now();
     return entry.texture;
   }
   
-  // Create placeholder texture
   const placeholderTexture = createEmptySlotTexture(emptySlotColor);
   textureCache.set(cacheBustedUrl, {
     texture: placeholderTexture,
     lastUsed: Date.now()
   });
   
-  // Load actual texture
   textureLoader.load(
     cacheBustedUrl,
     (loadedTexture) => {
@@ -124,15 +119,14 @@ const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Tex
 };
 
 interface PhotoFrameProps {
-  position: [number, number, number],
-  rotation?: [number, number, number],
-  url?: string,
-  scale: number,
-  emptySlotColor: string,
-  settings: SceneSettings
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  url?: string;
+  scale: number;
+  emptySlotColor: string;
+  settings: SceneSettings;
 }
 
-// Photo frame component with 9:16 aspect ratio
 const PhotoFrame = React.memo(({
   position,
   rotation,
@@ -144,34 +138,30 @@ const PhotoFrame = React.memo(({
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
-  const [targetRotation, setTargetRotation] = useState(rotation || [0, 0, 0]);
-
+  
   useFrame(() => {
-    if (meshRef.current && settings.photoRotation && settings.animationPattern === 'float') {
-      const lookAtVector = new THREE.Vector3();
-      meshRef.current.getWorldPosition(lookAtVector);
-      lookAtVector.sub(camera.position).normalize();
-
-      // Calculate only the Y-axis rotation to face camera
-      const angle = Math.atan2(lookAtVector.x, lookAtVector.z);
-      setTargetRotation([0, angle, 0]);
-    } else {
-      setTargetRotation(rotation || [0, 0, 0]);
+    if (meshRef.current && settings.photoRotation) {
+      const mesh = meshRef.current;
+      const meshPosition = new THREE.Vector3();
+      mesh.getWorldPosition(meshPosition);
+      
+      // Calculate direction to camera
+      const direction = new THREE.Vector3().subVectors(camera.position, meshPosition).normalize();
+      
+      // Calculate rotation to face camera
+      const lookAtMatrix = new THREE.Matrix4();
+      lookAtMatrix.lookAt(meshPosition, camera.position, new THREE.Vector3(0, 1, 0));
+      const quaternion = new THREE.Quaternion();
+      quaternion.setFromRotationMatrix(lookAtMatrix);
+      
+      // Apply rotation
+      mesh.quaternion.copy(quaternion);
     }
   });
 
-  useEffect(() => {
-    if (meshRef.current?.material instanceof THREE.MeshStandardMaterial) {
-      meshRef.current.material.map = texture;
-      meshRef.current.material.needsUpdate = true;
-    }
-  }, [texture]);
-
-  // Use 9:16 aspect ratio for the photo frame
   const width = scale;
   const height = scale * (16/9);
   
-  // Scale photos based on floor size and photo count
   const dynamicScale = settings.animationPattern === 'float' 
     ? Math.min(1, settings.floorSize / (Math.sqrt(settings.photoCount) * 20))
     : 1;
@@ -189,15 +179,15 @@ const PhotoFrame = React.memo(({
   return (
     <animated.mesh 
       ref={meshRef}
-      position={springs.position} 
-      rotation={settings.animationPattern !== 'float' ? (rotation || [0, 0, 0]) : [0, 0, 0]}
+      position={springs.position}
+      rotation={!settings.photoRotation ? (rotation || [0, 0, 0]) : undefined}
     >
       <planeGeometry args={[width * dynamicScale, height * dynamicScale]} />
-      <primitive object={useMemo(() => new THREE.MeshStandardMaterial({
-        map: texture,
-        transparent: true,
-        side: THREE.DoubleSide
-      }), [])} />
+      <meshStandardMaterial
+        map={texture}
+        transparent
+        side={THREE.DoubleSide}
+      />
     </animated.mesh>
   );
 }, (prev, next) => {
@@ -228,13 +218,12 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: FLOAT_MIN_HEIGHT - Math.random() * 5, // Start below floor with less variation
-      speed: 0.8 + Math.random() * 0.4 // Tighter speed range for more consistent movement
+      startY: FLOAT_MIN_HEIGHT - Math.random() * 5,
+      speed: 0.8 + Math.random() * 0.4
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
 
-  // Generate positions based on animation pattern
   const generatePositions = useCallback((
     currentSettings: SceneSettings,
     currentFloatParams: typeof floatParams,
@@ -301,15 +290,12 @@ const PhotoWall: React.FC<{
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate base movement
           let y = param.startY + (time % totalHeight);
           
-          // Wrap around when reaching the top
           if (y > FLOAT_MAX_HEIGHT) {
             y = FLOAT_MIN_HEIGHT;
           }
           
-          // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
@@ -347,7 +333,6 @@ const PhotoWall: React.FC<{
     return positions;
   }, []);
 
-  // Initialize base positions
   useEffect(() => {
     setPositions(generatePositions(settings, floatParams, 0));
   }, [settings.photoCount, settings.photoSize, settings.photoSpacing, settings.gridAspectRatio, settings.animationPattern, generatePositions, floatParams]);
@@ -375,7 +360,6 @@ const PhotoWall: React.FC<{
   );
 });
 
-// Create background color CSS based on settings
 const getBackgroundStyle = (settings: SceneSettings): string => {
   if (settings.backgroundGradient) {
     return `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`;
@@ -383,13 +367,11 @@ const getBackgroundStyle = (settings: SceneSettings): string => {
   return settings.backgroundColor;
 };
 
-// Floor component with grid
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
   return (
     <group position={[0, -2, 0]}>
-      {/* Floor material */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[settings.floorSize, settings.floorSize]} />
         <meshStandardMaterial
@@ -401,7 +383,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         />
       </mesh>
       
-      {/* Grid overlay - positioned slightly above the floor */}
       {settings.gridEnabled && (
         <Grid
           position={[0, 0.01, 0]} 
@@ -420,7 +401,6 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Spotlights component
 const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightCount = settings.spotlightCount;
   const radius = settings.spotlightDistance;
@@ -451,7 +431,6 @@ const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Scene components that use R3F hooks
 const Scene: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
@@ -482,7 +461,6 @@ const Scene: React.FC<{
   );
 };
 
-// Main CollageScene component that provides the Canvas
 const CollageScene: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
