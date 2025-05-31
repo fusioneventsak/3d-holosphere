@@ -14,7 +14,6 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000;
 const TEXTURE_CLEANUP_INTERVAL = 30000;
 
-// Cleanup unused textures periodically
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of textureCache.entries()) {
@@ -25,7 +24,6 @@ setInterval(() => {
   }
 }, TEXTURE_CLEANUP_INTERVAL);
 
-// Helper functions for texture management
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -159,6 +157,7 @@ const PhotoFrame = React.memo(({
   
   const springs = useSpring({
     position,
+    immediate: settings.animationPattern === 'float',
     config: { 
       mass: 1,
       tension: 280,
