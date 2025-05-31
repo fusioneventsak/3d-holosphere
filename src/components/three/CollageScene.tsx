@@ -216,11 +216,6 @@ const PhotoWall: React.FC<{
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
   
-  // Reset time when animation pattern changes
-  useEffect(() => {
-    timeRef.current = 0;
-  }, [settings.animationPattern]);
-
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
@@ -230,7 +225,7 @@ const PhotoWall: React.FC<{
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
       startY: Math.random() * FLOAT_MAX_HEIGHT * 2 - FLOAT_MAX_HEIGHT,
-      speed: 2 + Math.random() * 3 // Randomize speeds between 2-5
+      speed: 5 + Math.random() * 10 // Randomize speeds between 5-15
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -294,20 +289,23 @@ const PhotoWall: React.FC<{
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
-        const baseSpeed = currentSettings.animationSpeed * 10;
+        const baseSpeed = currentSettings.animationSpeed * 25;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate base y position
+          // Calculate y position with increased speed
           let y = param.startY + (currentTime * param.speed * baseSpeed);
           
           // Normalize y position to stay within range while maintaining continuous movement
           const normalizedY = ((y - minHeight) % heightRange) + minHeight;
           
-          // Add the current position
+          // Add position with slight horizontal movement
+          x += Math.sin(currentTime * 0.5 + param.startY) * 2;
+          z += Math.cos(currentTime * 0.5 + param.startY) * 2;
+          
           positions.push([x, normalizedY, z]);
         }
         break;
