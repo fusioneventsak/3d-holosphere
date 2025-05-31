@@ -2,7 +2,7 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 const FLOAT_MAX_HEIGHT = 50; // Maximum height before resetting
 const FLOAT_MIN_HEIGHT = -10; // Starting height below floor
-const BASE_SPEED = 0.1; // Reduced base speed for better control
+const BASE_SPEED = 0.005; // Significantly reduced base speed for better control
 
 type FloatParams = {
   x: number;
