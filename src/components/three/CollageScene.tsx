@@ -292,18 +292,18 @@ const PhotoWall: React.FC<{
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
-        const baseSpeed = currentSettings.animationSpeed * 50; // Double the speed multiplier
+        const baseSpeed = currentSettings.animationSpeed * 10;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate y position - only moving upward
-          let y = Math.abs(Math.sin(currentTime * param.speed * 0.5)) * FLOAT_MAX_HEIGHT;
+          // Calculate y position with continuous upward movement
+          let y = ((param.startY + currentTime * param.speed * baseSpeed) % heightRange) + minHeight;
           
           // Ensure minimum height is above floor
-          y = Math.max(y, 2); // Keep photos at least 2 units above floor
+          y = Math.max(y, 0);
           
           // Add position with slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
