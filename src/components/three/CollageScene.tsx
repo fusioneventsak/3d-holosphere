@@ -229,8 +229,8 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: Math.random() * FLOAT_MAX_HEIGHT,
-      speed: 1 + Math.random() // Randomize speeds between 1-2
+      startY: Math.random() * FLOAT_MAX_HEIGHT * 2 - FLOAT_MAX_HEIGHT,
+      speed: 2 + Math.random() * 3 // Randomize speeds between 2-5
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -294,7 +294,7 @@ const PhotoWall: React.FC<{
         const minHeight = -FLOAT_MAX_HEIGHT;
         const maxHeight = FLOAT_MAX_HEIGHT;
         const heightRange = maxHeight - minHeight;
-        const baseSpeed = currentSettings.animationSpeed * 2;
+        const baseSpeed = currentSettings.animationSpeed * 10;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
