@@ -78,7 +78,7 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 0.5,
+  animationSpeed: 1.0,
   animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
@@ -164,43 +164,39 @@ const debounce = (fn: Function, ms = 300) => {
   };
 };
 
-export const useSceneStore = create<SceneState>()(
-  (set) => {
-    const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
-      if (newSettings.photoCount !== undefined) {
-        const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
-        if (!isNaN(count)) {
-          newSettings.photoCount = count;
-        } else {
-          delete newSettings.photoCount;
-        }
+export const useSceneStore = create<SceneState>()((set) => {
+  const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
+    if (newSettings.photoCount !== undefined) {
+      const count = Math.min(Math.max(5, Math.floor(Number(newSettings.photoCount))), 500);
+      if (!isNaN(count)) {
+        newSettings.photoCount = count;
+      } else {
+        delete newSettings.photoCount;
       }
+    }
 
-      if (newSettings.animationSpeed !== undefined) {
-        newSettings.animationSpeed = Math.max(0.1, Math.min(10, newSettings.animationSpeed));
+    if (newSettings.animationSpeed !== undefined) {
+      newSettings.animationSpeed = Math.max(0.1, Math.min(5, newSettings.animationSpeed));
+    }
+
+    set((state) => ({
+      settings: { ...state.settings, ...newSettings },
+    }));
+  };
+
+  const debouncedUpdate = debounce(immediateUpdate, 100);
+
+  return {
+    settings: defaultSettings,
+    updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
+      if (debounce) {
+        debouncedUpdate(newSettings);
+      } else {
+        immediateUpdate(newSettings);
       }
-
-      set((state) => ({
-        settings: { ...state.settings, ...newSettings },
-      }));
-    };
-    
-    const debouncedUpdate = debounce(immediateUpdate, 100);
-    
-    return {
-      settings: defaultSettings,
-      
-      updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
-        if (debounce) {
-          debouncedUpdate(newSettings);
-        } else {
-          immediateUpdate(newSettings);
-        }
-      },
-      
-      resetSettings: () => set({ settings: defaultSettings }),
-    };
-  }
-);
+    },
+    resetSettings: () => set({ settings: defaultSettings }),
+  };
+});
 
 export { defaultSettings };
