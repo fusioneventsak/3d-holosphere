@@ -136,10 +136,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         }
       } catch (err) {
         console.warn('Failed to parse photo URL:', photo.url, err);
-        // If URL parsing fails, we'll try a direct delete from the database only
       }
-
-      console.log(`Deleting photo from storage path: ${filePath}`);
 
       // Delete from storage if we have a valid path
       if (filePath) {
@@ -149,7 +146,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
         if (storageError) {
           console.warn('Failed to delete photo from storage:', storageError);
-          // Continue with database deletion even if storage deletion fails
         }
       }
 
@@ -293,6 +289,19 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         }]);
 
       if (settingsError) throw settingsError;
+
+      // Create storage folder for collage
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('photos')
+        .list(code);
+
+      // If folder doesn't exist, create it with a placeholder file
+      if (!storageData || storageError) {
+        const placeholderFile = new File([''], '.placeholder', { type: 'text/plain' });
+        await supabase.storage
+          .from('photos')
+          .upload(`${code}/.placeholder`, placeholderFile);
+      }
 
       const newCollage = { 
         ...collage,
