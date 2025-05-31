@@ -5,18 +5,15 @@ import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 
-// Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
-// Constants
 const FLOAT_MAX_HEIGHT = 50;
-const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
-const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
-const FLOAT_MIN_HEIGHT = -10;
+const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000;
+const TEXTURE_CLEANUP_INTERVAL = 30000;
+const FLOAT_MIN_HEIGHT = -20; // Increased negative value to start lower below floor
 
-// Cleanup unused textures periodically
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of textureCache.entries()) {
@@ -33,7 +30,6 @@ type Photo = {
   collage_id?: string;
 };
 
-// Helper function to create an empty slot texture
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -49,7 +45,6 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   return texture;
 };
 
-// Helper function to create an error texture
 const createErrorTexture = (): THREE.Texture => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
@@ -71,7 +66,6 @@ const createErrorTexture = (): THREE.Texture => {
   return texture;
 };
 
-// Enhanced loadTexture function with better error handling
 const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
   if (!url) {
     return createEmptySlotTexture(emptySlotColor);
@@ -148,18 +142,13 @@ const PhotoFrame = React.memo(({
     if (meshRef.current && settings.photoRotation) {
       const mesh = meshRef.current;
       
-      // Get current mesh position
       mesh.getWorldPosition(meshPosition);
-      
-      // Calculate direction to camera
       direction.subVectors(camera.position, meshPosition).normalize();
       
-      // Create rotation matrix to face camera
       const matrix = new THREE.Matrix4();
       matrix.lookAt(meshPosition, camera.position, up);
       targetQuaternion.setFromRotationMatrix(matrix);
       
-      // Smoothly interpolate current rotation to target
       quaternion.slerpQuaternions(mesh.quaternion, targetQuaternion, 0.1);
       mesh.quaternion.copy(quaternion);
     }
@@ -209,7 +198,6 @@ const PhotoFrame = React.memo(({
          prev.settings.photoCount === next.settings.photoCount;
 });
 
-// Photo wall component
 const PhotoWall: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
@@ -225,7 +213,7 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: FLOAT_MIN_HEIGHT - Math.random() * 5,
+      startY: FLOAT_MIN_HEIGHT + Math.random() * Math.abs(FLOAT_MIN_HEIGHT),
       speed: 0.8 + Math.random() * 0.4
     }));
     
@@ -292,17 +280,19 @@ const PhotoWall: React.FC<{
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
-          const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
           
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          let y = param.startY + (time % totalHeight);
+          // Calculate vertical position
+          let y = param.startY + time;
           
+          // Reset position when reaching max height
           if (y > FLOAT_MAX_HEIGHT) {
             y = FLOAT_MIN_HEIGHT;
           }
           
+          // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
