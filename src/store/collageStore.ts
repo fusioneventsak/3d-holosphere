@@ -322,8 +322,15 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .eq('collage_id', collageId)
         .single();
 
-      // If settings exist, update them
+      // If there's an error and it's not a "no rows found" error (PGRST116), throw it
+      if (checkError && !checkError.message.includes('PGRST116')) {
+        throw checkError;
+      }
+
+      let result;
+      
       if (existingSettings) {
+        // If settings exist, update them
         const mergedSettings = {
           ...existingSettings.settings,
           ...settings
@@ -337,42 +344,57 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           .single();
 
         if (error) throw error;
-
-        // Update local state
-        set(state => ({
-          currentCollage: state.currentCollage ? {
-            ...state.currentCollage,
-            settings: data.settings
-          } : null
-        }));
-
-        return data;
+        result = data;
       } else {
-        // If settings don't exist, insert new settings
-        const { data, error } = await supabase
-          .from('collage_settings')
-          .insert([{
-            collage_id: collageId,
-            settings: {
-              ...defaultSettings,
-              ...settings
-            }
-          }])
-          .select('settings')
-          .single();
+        // If settings don't exist, try to insert new settings
+        try {
+          const { data, error } = await supabase
+            .from('collage_settings')
+            .insert([{
+              collage_id: collageId,
+              settings: {
+                ...defaultSettings,
+                ...settings
+              }
+            }])
+            .select('settings')
+            .single();
 
-        if (error) throw error;
+          if (error) throw error;
+          result = data;
+        } catch (insertError: any) {
+          // If insert fails due to race condition (another process created the settings),
+          // try updating instead
+          if (insertError.code === '23505') { // Duplicate key error
+            const { data, error } = await supabase
+              .from('collage_settings')
+              .update({ 
+                settings: {
+                  ...defaultSettings,
+                  ...settings
+                }
+              })
+              .eq('collage_id', collageId)
+              .select('settings')
+              .single();
 
-        // Update local state
-        set(state => ({
-          currentCollage: state.currentCollage ? {
-            ...state.currentCollage,
-            settings: data.settings
-          } : null
-        }));
-
-        return data;
+            if (error) throw error;
+            result = data;
+          } else {
+            throw insertError;
+          }
+        }
       }
+
+      // Update local state
+      set(state => ({
+        currentCollage: state.currentCollage ? {
+          ...state.currentCollage,
+          settings: result.settings
+        } : null
+      }));
+
+      return result;
     } catch (error: any) {
       console.error('Failed to update collage settings:', error.message);
       throw error;
