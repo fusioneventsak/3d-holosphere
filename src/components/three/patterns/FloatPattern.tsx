@@ -1,7 +1,7 @@
 import { BasePattern, type PatternState, type Position } from './BasePattern';
 
-const FLOAT_MAX_HEIGHT = 50;
-const FLOAT_MIN_HEIGHT = -10;
+const FLOAT_MAX_HEIGHT = 50; // Maximum height before resetting
+const FLOAT_MIN_HEIGHT = -10; // Starting height below floor
 const BASE_SPEED = 5;
 
 type FloatParams = {
@@ -33,40 +33,38 @@ export class FloatPattern extends BasePattern {
       const x = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       const z = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
       
-      // Start photos at different heights below the floor
-      const heightRange = Math.abs(FLOAT_MIN_HEIGHT);
-      const phase = Math.random() * Math.PI * 2;
+      // Stagger starting heights below the floor
+      const y = FLOAT_MIN_HEIGHT - (Math.random() * Math.abs(FLOAT_MIN_HEIGHT));
       
       return {
         x,
         z,
-        y: FLOAT_MIN_HEIGHT - (Math.random() * heightRange),
-        speed: 0.8 + Math.random() * 0.4, // Tighter speed range
-        phase
+        y,
+        speed: 0.8 + Math.random() * 0.2, // Tighter speed range for more uniform movement
+        phase: Math.random() * Math.PI * 2
       };
     });
   }
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const heightRange = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
     const baseSpeed = this.settings.animationSpeed * BASE_SPEED;
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
-      // Calculate new Y position
-      param.y += baseSpeed * param.speed * 0.016; // Assuming ~60fps
+      // Calculate vertical movement
+      param.y += baseSpeed * param.speed * 0.016; // Fixed time step for consistent speed
       
-      // Wrap around when reaching max height
+      // Reset position when reaching max height
       if (param.y > FLOAT_MAX_HEIGHT) {
         param.y = FLOAT_MIN_HEIGHT;
       }
       
-      // Add subtle horizontal drift based on height
+      // Add subtle horizontal drift
       const driftScale = 0.2;
-      const xDrift = Math.sin(param.y * 0.1 + param.phase) * driftScale;
-      const zDrift = Math.cos(param.y * 0.1 + param.phase) * driftScale;
+      const xDrift = Math.sin(time * 0.5 + param.phase) * driftScale;
+      const zDrift = Math.cos(time * 0.5 + param.phase) * driftScale;
       
       positions.push([
         param.x + xDrift,
