@@ -12,7 +12,7 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 const FLOAT_MAX_HEIGHT = 50;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000;
 const TEXTURE_CLEANUP_INTERVAL = 30000;
-const FLOAT_MIN_HEIGHT = -20; // Increased negative value to start lower below floor
+const FLOAT_MIN_HEIGHT = -20;
 
 setInterval(() => {
   const now = Date.now();
@@ -284,12 +284,17 @@ const PhotoWall: React.FC<{
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate vertical position
+          // Calculate vertical position with continuous movement
           let y = param.startY + time;
           
           // Reset position when reaching max height
           if (y > FLOAT_MAX_HEIGHT) {
+            param.startY = FLOAT_MIN_HEIGHT;
+            param.x = (Math.random() - 0.5) * floorSize;
+            param.z = (Math.random() - 0.5) * floorSize;
             y = FLOAT_MIN_HEIGHT;
+            x = param.x;
+            z = param.z;
           }
           
           // Add slight horizontal movement
