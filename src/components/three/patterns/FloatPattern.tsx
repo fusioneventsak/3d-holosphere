@@ -44,7 +44,7 @@ export class FloatPattern extends BasePattern {
         speed: 0.5 + Math.random() * 0.5,
         phase: Math.random() * Math.PI * 2,
         driftOffset: Math.random() * Math.PI * 2,
-        currentSpeed: this.settings.animationSpeed / 50 // Initialize with current speed
+        currentSpeed: this.settings.patterns.float.animationSpeed
       };
     });
   }
@@ -55,7 +55,7 @@ export class FloatPattern extends BasePattern {
     this.lastTime = time;
     
     const targetSpeedMultiplier = this.settings.animationEnabled ? 
-      (this.settings.animationSpeed / 50) : 0;
+      this.settings.patterns.float.animationSpeed : 0;
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];

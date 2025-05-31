@@ -170,9 +170,9 @@ export const useSceneStore = create<SceneState>()((set, get) => {
 
     // Handle pattern changes
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-      // Store current pattern's speed before switching
-      currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
-        currentSettings.animationSpeed / 50;
+      // Store current pattern's settings
+      const currentPattern = currentSettings.animationPattern;
+      currentSettings.patterns[currentPattern].animationSpeed = currentSettings.animationSpeed / 50;
 
       // Update enabled states
       Object.keys(currentSettings.patterns).forEach(pattern => {
@@ -180,9 +180,9 @@ export const useSceneStore = create<SceneState>()((set, get) => {
           pattern === newSettings.animationPattern;
       });
 
-      // Set speed from target pattern
-      newSettings.animationSpeed = 
-        currentSettings.patterns[newSettings.animationPattern].animationSpeed * 50;
+      // Load new pattern's settings
+      const newPattern = newSettings.animationPattern;
+      newSettings.animationSpeed = currentSettings.patterns[newPattern].animationSpeed * 50;
     }
 
     // Handle animation speed changes
