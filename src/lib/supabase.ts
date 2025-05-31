@@ -26,19 +26,46 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     },
     // Add fetch options to handle network errors gracefully
     fetch: (url, options = {}) => {
-      return fetch(url, {
-        ...options,
-        credentials: 'include'
-      }).catch(error => {
-        console.error('Supabase fetch error:', error);
-        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-          throw new Error(
-            'Unable to connect to the server. Please ensure your Supabase project is configured correctly ' +
-            'and that you have a stable internet connection.'
-          );
+      // Add retry logic for failed requests
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 1000; // 1 second
+
+      const fetchWithRetry = async (attempt = 0): Promise<Response> => {
+        try {
+          const response = await fetch(url, {
+            ...options,
+            credentials: 'include',
+            // Add cache control headers to prevent caching
+            headers: {
+              ...options.headers,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+
+          if (!response.ok && attempt < MAX_RETRIES) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          return response;
+        } catch (error) {
+          if (attempt < MAX_RETRIES) {
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (attempt + 1)));
+            return fetchWithRetry(attempt + 1);
+          }
+          
+          console.error('Supabase fetch error after retries:', error);
+          if (error instanceof Error && error.message.includes('Failed to fetch')) {
+            throw new Error(
+              'Unable to connect to the server. Please check your internet connection and ensure ' +
+              'your Supabase project is configured correctly.'
+            );
+          }
+          throw error;
         }
-        throw error;
-      });
+      };
+
+      return fetchWithRetry();
     }
   },
   db: {
