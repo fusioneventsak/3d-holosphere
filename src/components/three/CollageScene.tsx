@@ -11,7 +11,7 @@ textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 // Constants
-const FLOAT_MAX_HEIGHT = 100;
+const FLOAT_MAX_HEIGHT = 50;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
 
@@ -290,50 +290,33 @@ const PhotoWall: React.FC<{
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
         const baseSpeed = currentSettings.animationSpeed * 20;
-        const heightRange = FLOAT_MAX_HEIGHT + 10; // Add extra height to ensure smooth transitions
+        const heightRange = FLOAT_MAX_HEIGHT;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate base movement
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
-          // Calculate base y position
           let y = param.startY + time;
           
-          // Reset position when it reaches the top
-          if (y > heightRange) {
-            // Reset to just below floor while maintaining relative position
-            y = -5 + (y % heightRange);
-          }
+          // Normalize y position to create continuous loop
+          y = y % heightRange;
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Add both current and duplicate positions for continuous flow
-          if (y > -10 && y < heightRange - 10) {
-            positions.push([x, y, z]);
-          }
+          // Add current position
+          positions.push([x, y, z]);
           
-          // Add duplicate below when original is high enough
-          if (y > heightRange / 2) {
-            const duplicateY = y - heightRange;
-            if (duplicateY > -10) {
-              positions.push([x, duplicateY, z]);
-            }
-          }
+          // Add duplicate above for continuous flow
+          positions.push([x, y + heightRange, z]);
           
-          // Add duplicate above when original is low enough
-          if (y < heightRange / 2) {
-            const duplicateY = y + heightRange;
-            if (duplicateY < heightRange) {
-              positions.push([x, duplicateY, z]);
-            }
-          }
+          // Add duplicate below for continuous flow
+          positions.push([x, y - heightRange, z]);
         }
         break;
       }
