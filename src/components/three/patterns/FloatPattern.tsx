@@ -2,7 +2,7 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 const FLOAT_MAX_HEIGHT = 50; // Maximum height before resetting
 const FLOAT_MIN_HEIGHT = -10; // Starting height below floor
-const BASE_SPEED = 0.5; // Reduced base speed
+const BASE_SPEED = 0.1; // Reduced base speed for better control
 
 type FloatParams = {
   x: number;
@@ -54,7 +54,7 @@ export class FloatPattern extends BasePattern {
       const param = this.floatParams[i];
       
       // Calculate vertical movement with scaled speed
-      param.y += baseSpeed * param.speed * 0.016; // Fixed time step for consistent speed
+      param.y += baseSpeed * param.speed;
       
       // Reset position when reaching max height
       if (param.y > FLOAT_MAX_HEIGHT) {
