@@ -11,7 +11,7 @@ textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
 
 // Constants
-const FLOAT_MAX_HEIGHT = 200;
+const FLOAT_MAX_HEIGHT = 100;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
 
@@ -227,7 +227,7 @@ const PhotoWall: React.FC<{
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: -FLOAT_MAX_HEIGHT, // All photos start at the bottom
+      startY: -5, // Start just below the floor
       speed: 0.8 + Math.random() * 0.4 // Tighter speed range for more consistent movement
     }));
     
@@ -296,26 +296,26 @@ const PhotoWall: React.FC<{
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
+          const cycleHeight = heightRange * 2;
           
           // Calculate base movement
           const speed = param.speed * baseSpeed;
           const time = currentTime * speed;
           
           // Calculate y position with continuous upward movement
-          const cycleHeight = heightRange * 2;
-          const y = -heightRange + (time % cycleHeight);
+          let y = param.startY + (time % cycleHeight);
+          
+          // Reset position when it reaches the top
+          if (y > heightRange) {
+            y = -5; // Reset to just below floor
+          }
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Add positions for continuous flow
+          // Add the current position
           positions.push([x, y, z]);
-          
-          // Add duplicate above when original is about to finish
-          if (y > 0) {
-            positions.push([x, y - cycleHeight, z]);
-          }
         }
         break;
       }
