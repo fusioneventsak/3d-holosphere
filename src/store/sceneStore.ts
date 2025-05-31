@@ -78,7 +78,7 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 50, // Default to 50% speed
+  animationSpeed: 50,
   animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',
@@ -177,6 +177,26 @@ export const useSceneStore = create<SceneState>()((set) => {
 
     if (newSettings.animationSpeed !== undefined) {
       newSettings.animationSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
+    }
+
+    // Update pattern-specific settings when changing patterns
+    if (newSettings.animationPattern) {
+      const currentSettings = set.getState().settings;
+      const currentPatternSettings = currentSettings.patterns[currentSettings.animationPattern];
+      const newPatternSettings = currentSettings.patterns[newSettings.animationPattern];
+      
+      // Enable the new pattern and disable others
+      Object.keys(currentSettings.patterns).forEach(pattern => {
+        currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
+          pattern === newSettings.animationPattern;
+      });
+      
+      // Apply pattern-specific settings
+      newSettings = {
+        ...newSettings,
+        animationSpeed: newPatternSettings.animationSpeed * 50, // Convert to percentage
+        patterns: currentSettings.patterns
+      };
     }
 
     set((state) => ({
