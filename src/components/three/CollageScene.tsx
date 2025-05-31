@@ -209,17 +209,15 @@ const PhotoWall: React.FC<{
     if (settings.animationPattern !== 'float') return [];
     
     const floorSize = settings.floorSize * 0.8;
+    const totalPhotos = settings.photoCount;
     
-    // Create two sets of parameters
-    return Array(settings.photoCount * 2).fill(0).map((_, i) => {
-      const isSecondSet = i >= settings.photoCount;
-      return {
-        x: (Math.random() - 0.5) * floorSize,
-        z: (Math.random() - 0.5) * floorSize,
-        y: isSecondSet ? FLOAT_MIN_HEIGHT : FLOAT_MAX_HEIGHT / 2,
-        speed: 0.8 + Math.random() * 0.4
-      };
-    });
+    // Create two sets of parameters for continuous loop
+    return Array(totalPhotos * 2).fill(0).map((_, i) => ({
+      x: (Math.random() - 0.5) * floorSize,
+      z: (Math.random() - 0.5) * floorSize,
+      y: i < totalPhotos ? FLOAT_MIN_HEIGHT + (i * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT) / totalPhotos) : FLOAT_MIN_HEIGHT,
+      speed: 0.8 + Math.random() * 0.4
+    }));
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
 
   const generatePositions = useCallback((
@@ -230,8 +228,36 @@ const PhotoWall: React.FC<{
     const positions: [number, number, number][] = [];
     const totalPhotos = Math.min(currentSettings.photoCount, 500);
     const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
+    const floorSize = currentSettings.floorSize * 0.8;
 
     switch (currentSettings.animationPattern) {
+      case 'float': {
+        const baseSpeed = currentSettings.animationSpeed * 20;
+        
+        currentFloatParams.forEach((param, i) => {
+          let x = param.x;
+          let z = param.z;
+          let y = param.y + (baseSpeed * currentTime);
+          
+          // Add slight horizontal movement
+          x += Math.sin(currentTime * 0.5 + i) * 2;
+          z += Math.cos(currentTime * 0.5 + i) * 2;
+          
+          // Reset when reaching max height
+          if (y > FLOAT_MAX_HEIGHT) {
+            y = FLOAT_MIN_HEIGHT;
+            param.y = FLOAT_MIN_HEIGHT;
+            param.x = (Math.random() - 0.5) * floorSize;
+            param.z = (Math.random() - 0.5) * floorSize;
+            x = param.x;
+            z = param.z;
+          }
+          
+          positions.push([x, y, z]);
+        });
+        break;
+      }
+      
       case 'grid': {
         const patternSettings = currentSettings.patterns.grid;
         const aspectRatio = patternSettings.aspectRatio;
@@ -272,37 +298,6 @@ const PhotoWall: React.FC<{
           const z = Math.sin(angle) * spiralRadius;
           positions.push([x, y, z]);
         }
-        break;
-      }
-      
-      case 'float': {
-        const floorSize = currentSettings.floorSize * 0.8;
-        const baseSpeed = currentSettings.animationSpeed * 20;
-        
-        // Update positions for both sets
-        currentFloatParams.forEach((param, i) => {
-          let x = param.x;
-          let z = param.z;
-          
-          const speed = param.speed * baseSpeed;
-          let y = param.y + speed * currentTime;
-          
-          // Add slight horizontal movement
-          x += Math.sin(currentTime * 0.5 + i) * 2;
-          z += Math.cos(currentTime * 0.5 + i) * 2;
-          
-          // Reset when reaching max height
-          if (y > FLOAT_MAX_HEIGHT) {
-            y = FLOAT_MIN_HEIGHT;
-            param.y = FLOAT_MIN_HEIGHT;
-            param.x = (Math.random() - 0.5) * floorSize;
-            param.z = (Math.random() - 0.5) * floorSize;
-            x = param.x;
-            z = param.z;
-          }
-          
-          positions.push([x, y, z]);
-        });
         break;
       }
       
