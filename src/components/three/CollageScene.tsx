@@ -223,13 +223,12 @@ const PhotoWall: React.FC<{
     if (settings.animationPattern !== 'float') return [];
     
     const floorSize = settings.floorSize * 0.8;
-    const heightRange = FLOAT_MAX_HEIGHT;
     
     return Array(settings.photoCount).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      startY: -heightRange + (Math.random() * heightRange), // Start below floor
-      speed: 0.5 + Math.random() * 0.5 // More consistent speeds
+      startY: -FLOAT_MAX_HEIGHT, // All photos start at the bottom
+      speed: 0.8 + Math.random() * 0.4 // Tighter speed range for more consistent movement
     }));
     
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -290,28 +289,28 @@ const PhotoWall: React.FC<{
       
       case 'float': {
         const floorSize = currentSettings.floorSize * 0.8;
-        const maxHeight = FLOAT_MAX_HEIGHT;
         const baseSpeed = currentSettings.animationSpeed * 20;
-        const heightRange = maxHeight;
+        const heightRange = FLOAT_MAX_HEIGHT;
         
         for (let i = 0; i < totalPhotos; i++) {
           const param = currentFloatParams[i];
           let x = param.x;
           let z = param.z;
           
-          // Calculate y position with continuous upward movement
-          const y = param.startY + (currentTime * param.speed * baseSpeed);
+          // Calculate base y position with continuous upward movement
+          const baseY = param.startY + (currentTime * param.speed * baseSpeed);
           
           // Add slight horizontal movement
           x += Math.sin(currentTime * 0.5 + param.startY) * 2;
           z += Math.cos(currentTime * 0.5 + param.startY) * 2;
           
-          // Create two instances of each photo for seamless looping
-          const normalizedY = y % heightRange;
+          // Calculate positions for both instances
+          const y1 = baseY % heightRange;
+          const y2 = y1 + heightRange;
           
-          // Add the current position and one above to ensure continuous flow
-          positions.push([x, normalizedY, z]);
-          positions.push([x, normalizedY + heightRange, z]);
+          // Add both positions to create continuous flow
+          positions.push([x, y1, z]);
+          positions.push([x, y2, z]);
         }
         break;
       }
