@@ -37,31 +37,14 @@ type CollageState = {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
 };
 
-// Helper function to determine correct MIME type based on file extension
-const getMimeType = (fileName: string): string => {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  const mimeTypes: { [key: string]: string } = {
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'png': 'image/png',
-    'gif': 'image/gif',
-    'webp': 'image/webp',
-    'bmp': 'image/bmp',
-    'svg': 'image/svg+xml'
-  };
-  return mimeTypes[ext || ''] || 'application/octet-stream';
-};
-
 export const useCollageStore = create<CollageState>((set, get) => ({
   collages: [],
   currentCollage: null,
   photos: [],
   loading: false,
   error: null,
-  
+
   subscribeToPhotos: (collageId: string) => {
-    console.log(`Setting up real-time subscription for collage ${collageId}`);
-    
     const subscription = supabase
       .channel(`photos:${collageId}`)
       .on(
@@ -81,9 +64,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           }
         ],
         async (payload) => {
-          console.log('Photo change received:', payload);
-          
-          // Fetch the latest photos to ensure correct order
           const { data, error } = await supabase
             .from('photos')
             .select('*')
@@ -91,23 +71,17 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             .order('created_at', { ascending: false });
             
           if (!error && data) {
-            // Add cache busting to URLs
             const photosWithTimestamp = data.map(photo => ({
               ...photo,
               url: addCacheBustToUrl(normalizeFileExtension(photo.url))
             }));
-            
-            console.log(`Updated photos list received: ${data.length} photos`);
             set({ photos: photosWithTimestamp as Photo[] });
-          } else {
-            console.error('Error fetching updated photos:', error);
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log(`Unsubscribing from photos for collage ${collageId}`);
       subscription.unsubscribe();
     };
   },
@@ -115,7 +89,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   deletePhoto: async (photoId: string) => {
     set({ loading: true, error: null });
     try {
-      // First get the photo details to get the storage path
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
         .select('*')
@@ -124,33 +97,24 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (fetchError) throw fetchError;
 
-      // Extract storage path from URL
       let filePath = '';
       try {
         const url = new URL(photo.url);
         const pathParts = url.pathname.split('/');
         const publicIndex = pathParts.indexOf('public');
-        
         if (publicIndex !== -1 && publicIndex + 1 < pathParts.length) {
-          // The path should be everything after "public/bucket_name/"
           filePath = pathParts.slice(publicIndex + 2).join('/');
         }
       } catch (err) {
         console.warn('Failed to parse photo URL:', photo.url, err);
       }
 
-      // Delete from storage if we have a valid path
       if (filePath) {
-        const { error: storageError } = await supabase.storage
+        await supabase.storage
           .from('photos')
           .remove([filePath]);
-
-        if (storageError) {
-          console.warn('Failed to delete photo from storage:', storageError);
-        }
       }
 
-      // Delete from database
       const { error: deleteError } = await supabase
         .from('photos')
         .delete()
@@ -158,14 +122,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (deleteError) throw deleteError;
 
-      // Update local state
       set(state => ({
         photos: state.photos.filter(p => p.id !== photoId),
         loading: false,
         error: null
       }));
     } catch (error: any) {
-      console.error('Delete photo error:', error);
       set({ 
         error: error.message || 'Failed to delete photo',
         loading: false
@@ -192,7 +154,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   fetchCollageByCode: async (code: string) => {
     set({ loading: true, error: null });
     try {
-      // Fetch collage and its settings
       const { data: collage, error: collageError } = await supabase
         .from('collages')
         .select('*')
@@ -201,8 +162,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (collageError) throw collageError;
 
-      // Fetch settings
-      const { data: settings, error: settingsError } = await supabase
+      const { data: settings } = await supabase
         .from('collage_settings')
         .select('settings')
         .eq('collage_id', collage.id)
@@ -225,7 +185,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   fetchCollageById: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      // Fetch collage
       const { data: collage, error: collageError } = await supabase
         .from('collages')
         .select('*')
@@ -234,19 +193,20 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (collageError) throw collageError;
 
-      // Fetch settings
-      const { data: settings, error: settingsError } = await supabase
+      const { data: settings } = await supabase
         .from('collage_settings')
         .select('settings')
         .eq('collage_id', id)
         .single();
 
-      // If settings don't exist or there was an error, use default settings
-      collage.settings = settings?.settings || defaultSettings;
+      const collageWithSettings = {
+        ...collage,
+        settings: settings?.settings || defaultSettings
+      } as Collage;
 
-      set({ currentCollage: collage as Collage, loading: false });
+      set({ currentCollage: collageWithSettings, loading: false });
       await get().fetchPhotosByCollageId(collage.id);
-      return collage as Collage;
+      return collageWithSettings;
     } catch (error: any) {
       set({ error: error.message, loading: false });
       return null;
@@ -256,22 +216,16 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
-      // Generate a unique code
       const code = nanoid(6).toLowerCase();
       
-      // Create collage
       const { data: collage, error: collageError } = await supabase
         .from('collages')
-        .insert([{
-          name,
-          code
-        }])
+        .insert([{ name, code }])
         .select()
         .single();
 
       if (collageError) throw collageError;
 
-      // Settings will be created automatically via trigger
       const newCollage = { 
         ...collage,
         settings: defaultSettings 
@@ -291,26 +245,62 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     }
   },
 
-  updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
+  updateCollageSettings: async (collageId: string, newSettings: Partial<SceneSettings>) => {
     try {
-      // Get current settings
-      const { data: existingSettings } = await supabase
+      const { data: existingData } = await supabase
         .from('collage_settings')
         .select('settings')
         .eq('collage_id', collageId)
         .single();
 
-      // Merge settings
+      const currentSettings = existingData?.settings || defaultSettings;
+
+      // Handle pattern-specific settings
+      if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
+        // Store current pattern's settings
+        const currentPattern = currentSettings.animationPattern;
+        currentSettings.patterns[currentPattern].animationSpeed = currentSettings.animationSpeed / 50;
+
+        // Update enabled states
+        Object.keys(currentSettings.patterns).forEach(pattern => {
+          currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
+            pattern === newSettings.animationPattern;
+        });
+
+        // Load new pattern's settings
+        const newPattern = newSettings.animationPattern;
+        newSettings.animationSpeed = currentSettings.patterns[newPattern].animationSpeed * 50;
+      }
+
+      // Handle animation speed changes
+      if (newSettings.animationSpeed !== undefined) {
+        const normalizedSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
+        newSettings.animationSpeed = normalizedSpeed;
+        
+        // Update pattern-specific speed
+        if (currentSettings.patterns) {
+          currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
+            normalizedSpeed / 50;
+        }
+      }
+
       const mergedSettings = {
-        ...(existingSettings?.settings || defaultSettings),
-        ...settings
+        ...currentSettings,
+        ...newSettings,
+        patterns: {
+          ...currentSettings.patterns,
+          ...(newSettings.patterns || {})
+        }
       };
 
-      // Update settings
       const { data, error } = await supabase
         .from('collage_settings')
-        .update({ settings: mergedSettings })
-        .eq('collage_id', collageId)
+        .upsert({
+          collage_id: collageId,
+          settings: mergedSettings
+        }, {
+          onConflict: 'collage_id'
+        })
         .select()
         .single();
 
@@ -334,61 +324,39 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   uploadPhoto: async (collageId: string, file: File) => {
     set({ loading: true, error: null });
     try {
-      // Check file size (10MB limit)
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+      const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
         throw new Error('File size exceeds 10MB limit');
       }
 
-      // Validate file type
-      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml'];
-      let contentType = file.type;
-
-      // If content type is not valid or is application/json, infer from extension
-      if (!validImageTypes.includes(contentType) || contentType === 'application/json') {
-        contentType = getMimeType(file.name);
-        if (!validImageTypes.includes(contentType)) {
-          throw new Error('Invalid file type. Only images are supported.');
-        }
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Only images are supported.');
       }
 
-      // Ensure collage exists before proceeding
       const { data: collage, error: collageError } = await supabase
         .from('collages')
-        .select('id, code')
+        .select('code')
         .eq('id', collageId)
         .single();
 
-      if (collageError) {
-        throw new Error('Collage not found. Please try again or create a new collage.');
-      }
+      if (collageError) throw collageError;
 
-      if (!collage) {
-        throw new Error('Invalid collage ID');
-      }
-
-      // Format file extension to lowercase to prevent case sensitivity issues
       const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collage.code}/${fileName}`;
 
-      // Upload file to storage with the correct content type
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true,
-          contentType: contentType
+          upsert: true
         });
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      // Generate public URL using the helper
       const publicUrl = getFileUrl('photos', filePath);
 
-      // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -399,14 +367,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .single();
 
       if (insertError) {
-        // If insert fails, clean up the uploaded file
         await supabase.storage
           .from('photos')
           .remove([filePath]);
         throw insertError;
       }
 
-      // Update local state with the clean URL
       const newPhoto = photoData as Photo;
       
       set(state => ({ 
@@ -434,9 +400,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .eq('collage_id', collageId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
       
       set({ photos: data as Photo[], loading: false });
     } catch (error: any) {
