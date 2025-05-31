@@ -14,7 +14,7 @@ const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number 
 const FLOAT_MAX_HEIGHT = 50;
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
-const FLOAT_MIN_HEIGHT = -10; // Minimum height for floating photos
+const FLOAT_MIN_HEIGHT = -10;
 
 // Cleanup unused textures periodically
 setInterval(() => {
@@ -131,30 +131,36 @@ const PhotoFrame = React.memo(({
   position,
   rotation,
   url,
-  scale = 1,
+  scale,
   emptySlotColor,
   settings
 }: PhotoFrameProps) => {
   const { camera } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => loadTexture(url, emptySlotColor), [url, emptySlotColor]);
-  
+  const quaternion = useMemo(() => new THREE.Quaternion(), []);
+  const targetQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const meshPosition = useMemo(() => new THREE.Vector3(), []);
+  const direction = useMemo(() => new THREE.Vector3(), []);
+  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+
   useFrame(() => {
     if (meshRef.current && settings.photoRotation) {
       const mesh = meshRef.current;
-      const meshPosition = new THREE.Vector3();
+      
+      // Get current mesh position
       mesh.getWorldPosition(meshPosition);
       
       // Calculate direction to camera
-      const direction = new THREE.Vector3().subVectors(camera.position, meshPosition).normalize();
+      direction.subVectors(camera.position, meshPosition).normalize();
       
-      // Calculate rotation to face camera
-      const lookAtMatrix = new THREE.Matrix4();
-      lookAtMatrix.lookAt(meshPosition, camera.position, new THREE.Vector3(0, 1, 0));
-      const quaternion = new THREE.Quaternion();
-      quaternion.setFromRotationMatrix(lookAtMatrix);
+      // Create rotation matrix to face camera
+      const matrix = new THREE.Matrix4();
+      matrix.lookAt(meshPosition, camera.position, up);
+      targetQuaternion.setFromRotationMatrix(matrix);
       
-      // Apply rotation
+      // Smoothly interpolate current rotation to target
+      quaternion.slerpQuaternions(mesh.quaternion, targetQuaternion, 0.1);
       mesh.quaternion.copy(quaternion);
     }
   });
@@ -197,6 +203,7 @@ const PhotoFrame = React.memo(({
          prev.position[0] === next.position[0] &&
          prev.position[1] === next.position[1] &&
          prev.position[2] === next.position[2] &&
+         prev.settings.photoRotation === next.settings.photoRotation &&
          prev.settings.animationPattern === next.settings.animationPattern &&
          prev.settings.floorSize === next.settings.floorSize &&
          prev.settings.photoCount === next.settings.photoCount;
