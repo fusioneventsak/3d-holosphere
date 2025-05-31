@@ -36,29 +36,24 @@ export class FloatPattern extends BasePattern {
         x,
         z,
         y,
-        speed: 0.2 + Math.random() * 0.3,
+        speed: 0.5 + Math.random() * 0.5, // Normalized base speed
         phase: Math.random() * Math.PI * 2
       };
     });
   }
 
   generatePositions(time: number): PatternState {
-    if (!this.settings.animationEnabled) {
-      return {
-        positions: this.floatParams.map(param => [param.x, param.y, param.z])
-      };
-    }
-
     const positions: Position[] = [];
-    const speedMultiplier = this.settings.animationSpeed / 50;
+    
+    // Convert percentage to actual speed multiplier (0-100% → 0-2)
+    const speedMultiplier = (this.settings.animationSpeed / 50);
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
-      // Only update position if animation is enabled and speed > 0
       if (this.settings.animationEnabled && speedMultiplier > 0) {
         // Calculate vertical movement
-        const verticalSpeed = param.speed * speedMultiplier;
+        const verticalSpeed = param.speed * speedMultiplier * 0.5;
         param.y += verticalSpeed;
         
         // Reset position when reaching max height
@@ -68,9 +63,9 @@ export class FloatPattern extends BasePattern {
         
         // Calculate horizontal drift
         const driftScale = 2.0;
-        const driftSpeed = speedMultiplier * 0.5;
-        const xDrift = Math.sin(time * driftSpeed + param.phase) * driftScale;
-        const zDrift = Math.cos(time * driftSpeed + param.phase) * driftScale;
+        const driftSpeed = time * speedMultiplier;
+        const xDrift = Math.sin(driftSpeed + param.phase) * driftScale;
+        const zDrift = Math.cos(driftSpeed + param.phase) * driftScale;
         
         positions.push([
           param.x + xDrift,
@@ -78,7 +73,7 @@ export class FloatPattern extends BasePattern {
           param.z + zDrift
         ]);
       } else {
-        // If animation is disabled or speed is 0, keep current position
+        // If animation is disabled or speed is 0, maintain current position
         positions.push([param.x, param.y, param.z]);
       }
     }
