@@ -218,7 +218,7 @@ const PhotoWall: React.FC<{
 }> = React.memo(({ photos, settings }) => {
   const [positions, setPositions] = useState<[number, number, number][]>([]);
   const timeRef = useRef(0);
-  
+
   const floatParams = useMemo(() => {
     if (settings.animationPattern !== 'float') return [];
     
@@ -357,19 +357,16 @@ const PhotoWall: React.FC<{
   
   return (
     <group>
-      {positions.map((position, index) => {
-        const photo = index < photos.length ? photos[index] : null;
-        return (
-          <PhotoFrame
-            key={`photo-${index}`}
-            position={position}
-            url={photo?.url}
-            emptySlotColor={settings.emptySlotColor}
-            scale={settings.photoSize}
-            settings={settings}
-          />
-        );
-      }).slice(0, settings.photoCount)}
+      {positions.slice(0, settings.photoCount).map((position, index) => (
+        <PhotoFrame
+          key={`photo-${index}-${photos[index]?.id || 'empty'}`}
+          position={position}
+          url={photos[index]?.url}
+          emptySlotColor={settings.emptySlotColor}
+          scale={settings.photoSize}
+          settings={settings}
+        />
+      ))}
     </group>
   );
 });

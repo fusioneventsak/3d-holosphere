@@ -88,7 +88,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
             .from('photos')
             .select('*')
             .eq('collage_id', collageId)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: false });
             // Add cache busting to URLs
             const photosWithTimestamp = data.map(photo => ({
               ...photo,
@@ -480,7 +480,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .from('photos')
         .select('*')
         .eq('collage_id', collageId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
