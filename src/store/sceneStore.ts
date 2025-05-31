@@ -78,7 +78,7 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  animationSpeed: 50,
+  animationSpeed: 50, // Default to 50% speed
   animationEnabled: false,
   photoCount: 50,
   backgroundColor: '#000000',

@@ -36,42 +36,51 @@ export class FloatPattern extends BasePattern {
         x,
         z,
         y,
-        speed: 0.2 + Math.random() * 0.3, // Base speed range
+        speed: 0.2 + Math.random() * 0.3,
         phase: Math.random() * Math.PI * 2
       };
     });
   }
 
   generatePositions(time: number): PatternState {
+    if (!this.settings.animationEnabled) {
+      return {
+        positions: this.floatParams.map(param => [param.x, param.y, param.z])
+      };
+    }
+
     const positions: Position[] = [];
-    
-    // Convert animation speed from percentage (0-100) to a normalized value (0-1)
-    // 50% = normal speed (0.5), 0% = stopped, 100% = double speed
-    const normalizedSpeed = (this.settings.animationSpeed / 50);
+    const speedMultiplier = this.settings.animationSpeed / 50;
     
     for (let i = 0; i < this.floatParams.length; i++) {
       const param = this.floatParams[i];
       
-      // Apply normalized speed to vertical movement
-      const verticalSpeed = param.speed * normalizedSpeed * 0.1; // Reduced base speed
-      param.y += verticalSpeed;
-      
-      // Reset position when reaching max height
-      if (param.y > FLOAT_MAX_HEIGHT) {
-        param.y = FLOAT_MIN_HEIGHT;
+      // Only update position if animation is enabled and speed > 0
+      if (this.settings.animationEnabled && speedMultiplier > 0) {
+        // Calculate vertical movement
+        const verticalSpeed = param.speed * speedMultiplier;
+        param.y += verticalSpeed;
+        
+        // Reset position when reaching max height
+        if (param.y > FLOAT_MAX_HEIGHT) {
+          param.y = FLOAT_MIN_HEIGHT;
+        }
+        
+        // Calculate horizontal drift
+        const driftScale = 2.0;
+        const driftSpeed = speedMultiplier * 0.5;
+        const xDrift = Math.sin(time * driftSpeed + param.phase) * driftScale;
+        const zDrift = Math.cos(time * driftSpeed + param.phase) * driftScale;
+        
+        positions.push([
+          param.x + xDrift,
+          param.y,
+          param.z + zDrift
+        ]);
+      } else {
+        // If animation is disabled or speed is 0, keep current position
+        positions.push([param.x, param.y, param.z]);
       }
-      
-      // Calculate horizontal drift with normalized speed
-      const driftScale = 0.5;
-      const driftSpeed = normalizedSpeed * 0.05; // Reduced drift speed
-      const xDrift = Math.sin(time * driftSpeed + param.phase) * driftScale;
-      const zDrift = Math.cos(time * driftSpeed + param.phase) * driftScale;
-      
-      positions.push([
-        param.x + xDrift,
-        param.y,
-        param.z + zDrift
-      ]);
     }
 
     return { positions };
