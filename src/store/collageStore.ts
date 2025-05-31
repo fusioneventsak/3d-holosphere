@@ -37,6 +37,31 @@ type CollageState = {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
 };
 
+const BATCH_SIZE = 10;
+let photoUpdateQueue: Photo[] = [];
+let updateTimeout: NodeJS.Timeout | null = null;
+
+const processBatchUpdate = (set: any) => {
+  if (photoUpdateQueue.length === 0) return;
+  
+  const batch = photoUpdateQueue.splice(0, BATCH_SIZE);
+  
+  set((state: CollageState) => {
+    const existingIds = new Set(state.photos.map(p => p.id));
+    const newPhotos = batch.filter(p => !existingIds.has(p.id));
+    
+    return {
+      photos: [...state.photos, ...newPhotos].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+    };
+  });
+
+  if (photoUpdateQueue.length > 0) {
+    updateTimeout = setTimeout(() => processBatchUpdate(set), 100);
+  }
+};
+
 export const useCollageStore = create<CollageState>((set, get) => ({
   collages: [],
   currentCollage: null,
@@ -64,18 +89,24 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           }
         ],
         async (payload) => {
-          const { data, error } = await supabase
-            .from('photos')
-            .select('*')
-            .eq('collage_id', collageId)
-            .order('created_at', { ascending: false });
-            
-          if (!error && data) {
-            const photosWithTimestamp = data.map(photo => ({
-              ...photo,
-              url: addCacheBustToUrl(normalizeFileExtension(photo.url))
+          if (payload.eventType === 'DELETE') {
+            set((state) => ({
+              photos: state.photos.filter(p => p.id !== payload.old.id)
             }));
-            set({ photos: photosWithTimestamp as Photo[] });
+            return;
+          }
+
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const photo = {
+              ...payload.new,
+              url: addCacheBustToUrl(normalizeFileExtension(payload.new.url))
+            } as Photo;
+            
+            photoUpdateQueue.push(photo);
+            
+            if (!updateTimeout) {
+              updateTimeout = setTimeout(() => processBatchUpdate(set), 100);
+            }
           }
         }
       )
@@ -83,6 +114,11 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
     return () => {
       subscription.unsubscribe();
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+        updateTimeout = null;
+      }
+      photoUpdateQueue = [];
     };
   },
 
@@ -255,29 +291,23 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const currentSettings = existingData?.settings || defaultSettings;
 
-      // Handle pattern-specific settings
       if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-        // Store current pattern's settings
         const currentPattern = currentSettings.animationPattern;
         currentSettings.patterns[currentPattern].animationSpeed = currentSettings.animationSpeed / 50;
 
-        // Update enabled states
         Object.keys(currentSettings.patterns).forEach(pattern => {
           currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
             pattern === newSettings.animationPattern;
         });
 
-        // Load new pattern's settings
         const newPattern = newSettings.animationPattern;
         newSettings.animationSpeed = currentSettings.patterns[newPattern].animationSpeed * 50;
       }
 
-      // Handle animation speed changes
       if (newSettings.animationSpeed !== undefined) {
         const normalizedSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
         newSettings.animationSpeed = normalizedSpeed;
         
-        // Update pattern-specific speed
         if (currentSettings.patterns) {
           currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
             normalizedSpeed / 50;
@@ -306,7 +336,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (error) throw error;
 
-      // Update local state
       set(state => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
