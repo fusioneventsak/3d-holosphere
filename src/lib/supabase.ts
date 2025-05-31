@@ -1,16 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 
-// Ensure environment variables are available
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Get environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Please check your .env file.');
-}
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+  throw new Error(
+    'Missing Supabase environment variables. Please ensure VITE_SUPABASE_URL and ' +
+    'VITE_SUPABASE_ANON_KEY are set in your .env file and click "Connect to Supabase" ' +
+    'to configure your project.'
+  );
 }
 
 // Configure the Supabase client with additional options
@@ -24,7 +24,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     headers: {
       'x-client-info': 'photosphere@1.0.0'
     },
-    // Add fetch options to handle network errors gracefully
+    // Configure fetch with retries and better error handling
     fetch: (url, options = {}) => {
       // Add retry logic for failed requests
       const MAX_RETRIES = 3;
@@ -32,6 +32,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 
       const fetchWithRetry = async (attempt = 0): Promise<Response> => {
         try {
+          // Add credentials and cache control
           const response = await fetch(url, {
             ...options,
             credentials: 'include',
@@ -43,7 +44,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
             }
           });
 
-          if (!response.ok && attempt < MAX_RETRIES) {
+          if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
@@ -51,15 +52,21 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         } catch (error) {
           if (attempt < MAX_RETRIES) {
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (attempt + 1)));
+            console.log(`Retrying request (attempt ${attempt + 1} of ${MAX_RETRIES})...`);
             return fetchWithRetry(attempt + 1);
           }
           
-          console.error('Supabase fetch error after retries:', error);
+          console.error('Supabase request failed after retries:', error);
+          
           if (error instanceof Error && error.message.includes('Failed to fetch')) {
             throw new Error(
-              'Unable to connect to the server. Please check your internet connection and ensure ' +
-              'your Supabase project is configured correctly.'
+              'Unable to connect to Supabase. Please:\n' +
+              '1. Check your internet connection\n' +
+              '2. Ensure you\'ve clicked "Connect to Supabase" in the top right\n' +
+              '3. Verify your Supabase project is running'
             );
+          } else if (error instanceof Error) {
+            throw new Error(`Supabase request failed: ${error.message}`);
           }
           throw error;
         }
