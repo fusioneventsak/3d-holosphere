@@ -209,19 +209,19 @@ const PhotoWall: React.FC<{
     if (settings.animationPattern !== 'float') return [];
     
     const floorSize = settings.floorSize * 0.8;
-    const totalPhotos = settings.photoCount;
+    const gridSize = Math.ceil(Math.sqrt(settings.photoCount));
+    const cellSize = floorSize / gridSize;
     
-    // Create initial parameters for each photo with defined starting positions
-    return Array(totalPhotos).fill(0).map((_, index) => {
-      const angle = (index / totalPhotos) * Math.PI * 2;
-      const radius = (Math.random() * 0.5 + 0.5) * floorSize * 0.5;
+    return Array(settings.photoCount).fill(0).map((_, index) => {
+      const row = Math.floor(index / gridSize);
+      const col = index % gridSize;
       
       return {
-        x: Math.cos(angle) * radius,
-        z: Math.sin(angle) * radius,
-        y: FLOAT_MIN_HEIGHT + (index * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT) / totalPhotos),
+        x: (col - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize * 0.5,
+        z: (row - gridSize/2) * cellSize + (Math.random() - 0.5) * cellSize * 0.5,
+        y: FLOAT_MIN_HEIGHT,
         speed: 0.8 + Math.random() * 0.2,
-        startAngle: angle
+        resetY: FLOAT_MIN_HEIGHT
       };
     });
   }, [settings.animationPattern, settings.photoCount, settings.floorSize]);
@@ -234,30 +234,23 @@ const PhotoWall: React.FC<{
     const positions: [number, number, number][] = [];
     const totalPhotos = Math.min(currentSettings.photoCount, 500);
     const spacing = currentSettings.photoSize * (1 + currentSettings.photoSpacing);
-    const floorSize = currentSettings.floorSize * 0.8;
 
     switch (currentSettings.animationPattern) {
       case 'float': {
-        const baseSpeed = currentSettings.animationSpeed * 10;
+        const baseSpeed = currentSettings.animationSpeed * 5;
         
         currentFloatParams.forEach((param, i) => {
-          // Calculate smooth circular motion
-          const angle = param.startAngle + currentTime * 0.2;
-          const radius = floorSize * 0.4;
-          
-          let x = Math.cos(angle) * radius;
-          let z = Math.sin(angle) * radius;
           let y = param.y + (baseSpeed * param.speed);
           
           // Reset when reaching max height
           if (y > FLOAT_MAX_HEIGHT) {
-            param.y = FLOAT_MIN_HEIGHT;
-            y = FLOAT_MIN_HEIGHT;
+            param.y = param.resetY;
+            y = param.resetY;
           } else {
             param.y = y;
           }
           
-          positions.push([x, y, z]);
+          positions.push([param.x, y, param.z]);
         });
         break;
       }
