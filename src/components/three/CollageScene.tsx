@@ -1,4 +1,4 @@
-import { BasePattern, type PatternState, type Position } from './BasePattern';
+import { BasePattern, type PatternState, type Position } from './patterns/BasePattern';
 
 type FloatParams = {
   x: number;
