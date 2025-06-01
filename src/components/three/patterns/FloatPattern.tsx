@@ -21,11 +21,10 @@ export class FloatPattern extends BasePattern {
   private initializeFloatParams(): FloatParams[] {
     const floorSize = this.settings.floorSize * 0.8;
     const count = Math.min(this.settings.photoCount, 500);
-    
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      yOffset: (Math.random() - 0.5) * 40,
+      yOffset: -20 - Math.random() * 40, // Start below floor
       speed: 0.1 + Math.random() * 0.2,
       phase: Math.random() * Math.PI * 2,
       driftRadius: 5 + Math.random() * 10,
@@ -46,8 +45,15 @@ export class FloatPattern extends BasePattern {
       const param = this.floatParams[i];
       if (!param) continue;
 
-      // Calculate vertical floating motion with larger amplitude
-      const verticalMotion = Math.sin(animationTime * param.speed + param.phase) * 20;
+      // Calculate continuous upward motion with wrapping
+      const baseMotion = ((animationTime * param.speed + param.phase) % 10) * 10;
+      const verticalMotion = baseMotion;
+      
+      // Reset position when photo reaches certain height
+      if (verticalMotion > 100) {
+        param.phase = -animationTime * param.speed;
+      }
+      
       const y = this.settings.wallHeight + param.yOffset + verticalMotion;
       
       // Add horizontal drift with smooth circular motion
