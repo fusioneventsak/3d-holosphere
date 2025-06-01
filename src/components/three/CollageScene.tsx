@@ -1,3 +1,5 @@
+import React, { useMemo } from 'react';
+
 const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightPositions = useMemo(() => {
     const radius = settings.spotlightDistance;
