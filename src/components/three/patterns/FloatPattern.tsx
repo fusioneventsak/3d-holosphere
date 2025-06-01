@@ -19,28 +19,38 @@ export class FloatPattern extends BasePattern {
     const speed = this.settings.animationSpeed / 100;
     const animationTime = time * speed;
     
-    // Floor area configuration
+    // Floor area configuration - use the FULL floor area
     const floorSize = this.settings.floorSize || 100;
-    const floorArea = floorSize * 0.9; // Use 90% of floor area
+    const fullFloorArea = floorSize; // Use 100% of floor area
     const riseSpeed = 8; // Units per second rising speed
     const maxHeight = 60; // Maximum height before recycling
     const startHeight = -15; // Start well below the floor
     const totalRiseDistance = maxHeight - startHeight;
     
+    // Calculate grid-like distribution for better coverage
+    const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+    const cellSize = fullFloorArea / gridSize;
+    
     for (let i = 0; i < totalPhotos; i++) {
-      // Distribute photos evenly across the entire floor plane
-      // Use a pseudo-random but consistent distribution based on photo index
-      const seed1 = ((i * 73 + 17) % 1000) / 1000; // Pseudo-random X position (0-1)
-      const seed2 = ((i * 137 + 43) % 1000) / 1000; // Pseudo-random Z position (0-1)
-      const seed3 = ((i * 211 + 67) % 1000) / 1000; // Pseudo-random timing offset (0-1)
+      // Create a grid-based distribution with randomness within each cell
+      const gridX = i % gridSize;
+      const gridZ = Math.floor(i / gridSize);
       
-      // Convert to floor coordinates - spread across entire floor
-      const baseX = (seed1 - 0.5) * floorArea;
-      const baseZ = (seed2 - 0.5) * floorArea;
+      // Add randomness within each grid cell for natural distribution
+      const randomOffsetX = ((i * 73) % 1000) / 1000 - 0.5; // -0.5 to 0.5
+      const randomOffsetZ = ((i * 137) % 1000) / 1000 - 0.5; // -0.5 to 0.5
+      const timeOffset = ((i * 211) % 1000) / 1000; // 0 to 1
+      
+      // Calculate position within the grid cell
+      const cellCenterX = (gridX + 0.5) * cellSize - fullFloorArea / 2;
+      const cellCenterZ = (gridZ + 0.5) * cellSize - fullFloorArea / 2;
+      
+      // Add randomness within the cell (but keep it within cell bounds)
+      const baseX = cellCenterX + (randomOffsetX * cellSize * 0.8);
+      const baseZ = cellCenterZ + (randomOffsetZ * cellSize * 0.8);
       
       // Calculate rising motion - each photo has its own timing offset
-      const timeOffset = seed3 * (totalRiseDistance / riseSpeed); // Stagger timing
-      const adjustedTime = animationTime + timeOffset;
+      const adjustedTime = animationTime + (timeOffset * (totalRiseDistance / riseSpeed));
       
       // Calculate height based on continuous rising motion
       let y = startHeight + (adjustedTime * riseSpeed) % totalRiseDistance;
@@ -51,7 +61,7 @@ export class FloatPattern extends BasePattern {
       
       if (this.settings.animationEnabled) {
         // Gentle horizontal drift as photos rise (like wind effect)
-        const driftStrength = 2;
+        const driftStrength = 1.5; // Reduced to keep photos from drifting too far
         const driftSpeed = 0.3;
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
