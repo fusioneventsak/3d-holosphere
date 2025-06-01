@@ -291,27 +291,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const currentSettings = existingData?.settings || defaultSettings;
 
+      // Handle pattern changes
       if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-        const currentPattern = currentSettings.animationPattern;
-        currentSettings.patterns[currentPattern].animationSpeed = currentSettings.animationSpeed / 50;
-
         Object.keys(currentSettings.patterns).forEach(pattern => {
           currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
             pattern === newSettings.animationPattern;
         });
-
-        const newPattern = newSettings.animationPattern;
-        newSettings.animationSpeed = currentSettings.patterns[newPattern].animationSpeed * 50;
-      }
-
-      if (newSettings.animationSpeed !== undefined) {
-        const normalizedSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
-        newSettings.animationSpeed = normalizedSpeed;
-        
-        if (currentSettings.patterns) {
-          currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
-            normalizedSpeed / 50;
-        }
       }
 
       const mergedSettings = {

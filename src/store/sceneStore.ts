@@ -46,28 +46,24 @@ export type SceneSettings = {
   patterns: {
     grid: {
       enabled: boolean;
-      animationSpeed: number;
       spacing: number;
       aspectRatio: number;
       wallHeight: number;
     };
     float: {
       enabled: boolean;
-      animationSpeed: number;
       spacing: number;
       height: number;
       spread: number;
     };
     wave: {
       enabled: boolean;
-      animationSpeed: number;
       spacing: number;
       amplitude: number;
       frequency: number;
     };
     spiral: {
       enabled: boolean;
-      animationSpeed: number;
       spacing: number;
       radius: number;
       heightStep: number;
@@ -121,28 +117,24 @@ const defaultSettings: SceneSettings = {
   patterns: {
     grid: {
       enabled: true,
-      animationSpeed: 1.0,
       spacing: 0.1,
       aspectRatio: 1.77778,
       wallHeight: 0
     },
     float: {
       enabled: false,
-      animationSpeed: 1.0,
       spacing: 0.1,
       height: 30,
       spread: 25
     },
     wave: {
       enabled: false,
-      animationSpeed: 1.0,
       spacing: 0.15,
       amplitude: 5,
       frequency: 0.5
     },
     spiral: {
       enabled: false,
-      animationSpeed: 1.0,
       spacing: 0.1,
       radius: 15,
       heightStep: 0.5
@@ -170,29 +162,11 @@ export const useSceneStore = create<SceneState>()((set, get) => {
 
     // Handle pattern changes
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-      // Store current pattern's settings
-      const currentPattern = currentSettings.animationPattern;
-      currentSettings.patterns[currentPattern].animationSpeed = currentSettings.animationSpeed / 50;
-
-      // Update enabled states
+      // Update enabled states for patterns
       Object.keys(currentSettings.patterns).forEach(pattern => {
         currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
           pattern === newSettings.animationPattern;
       });
-
-      // Load new pattern's settings
-      const newPattern = newSettings.animationPattern;
-      newSettings.animationSpeed = currentSettings.patterns[newPattern].animationSpeed * 50;
-    }
-
-    // Handle animation speed changes
-    if (newSettings.animationSpeed !== undefined) {
-      const normalizedSpeed = Math.max(0, Math.min(100, newSettings.animationSpeed));
-      newSettings.animationSpeed = normalizedSpeed;
-      
-      // Update pattern-specific speed
-      currentSettings.patterns[currentSettings.animationPattern].animationSpeed = 
-        normalizedSpeed / 50;
     }
 
     // Handle photo count validation
