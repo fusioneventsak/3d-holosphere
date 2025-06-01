@@ -62,6 +62,7 @@ export class FloatPattern extends BasePattern {
 
       // Reset to bottom when reaching max height
       if (param.y > this.MAX_HEIGHT) {
+      }
       if (param.yOffset > this.MAX_HEIGHT) {
         param.yOffset = this.MIN_HEIGHT;
         param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
