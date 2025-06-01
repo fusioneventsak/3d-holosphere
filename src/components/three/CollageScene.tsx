@@ -6,14 +6,17 @@ import { type Photo } from './patterns/BasePattern';
 import { PatternFactory } from './patterns/PatternFactory';
 import * as THREE from 'three';
 
+// Constants for animation and texture management
+const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
+const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
+const ANIMATION_TRANSITION_DURATION = 1.0; // seconds
+const ROTATION_SMOOTHING = 0.1; // Lower = smoother
+const POSITION_SMOOTHING = 0.08; // Lower = smoother
+
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
 textureLoader.setCrossOrigin('anonymous');
 const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
-
-// Constants
-const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
-const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
 
 // Cleanup unused textures periodically
 setInterval(() => {
@@ -137,7 +140,9 @@ type Photo3D = {
   id: string;
   url: string;
   position: [number, number, number];
-  rotation?: [number, number, number];
+  targetPosition: [number, number, number];
+  rotation: [number, number, number];
+  targetRotation: [number, number, number];
   isEmpty?: boolean;
 };
 
@@ -181,6 +186,7 @@ const PhotoMesh: React.FC<{
   photo: Photo3D;
   settings: SceneSettings;
 }> = React.memo(({ photo, settings }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
   const texture = useMemo(() => {
     if (photo.isEmpty) {
       return createEmptySlotTexture(settings.emptySlotColor);
@@ -188,15 +194,30 @@ const PhotoMesh: React.FC<{
     return loadTexture(photo.url, settings.emptySlotColor);
   }, [photo.url, photo.isEmpty, settings.emptySlotColor]);
 
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+
+    // Smooth position interpolation
+    meshRef.current.position.x += (photo.targetPosition[0] - meshRef.current.position.x) * POSITION_SMOOTHING;
+    meshRef.current.position.y += (photo.targetPosition[1] - meshRef.current.position.y) * POSITION_SMOOTHING;
+    meshRef.current.position.z += (photo.targetPosition[2] - meshRef.current.position.z) * POSITION_SMOOTHING;
+
+    // Smooth rotation interpolation
+    meshRef.current.rotation.x += (photo.targetRotation[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
+    meshRef.current.rotation.y += (photo.targetRotation[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
+    meshRef.current.rotation.z += (photo.targetRotation[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+  });
+
   return (
     <mesh
+      ref={meshRef}
       position={photo.position}
-      rotation={photo.rotation || [0, 0, 0]}
+      rotation={photo.rotation}
     >
       <planeGeometry args={[settings.photoSize, settings.photoSize * (16/9)]} />
       <meshStandardMaterial
         map={texture}
-        transparent={false}
+        transparent={true}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -233,10 +254,18 @@ const Scene: React.FC<{
     
     // Add actual photos
     photos.slice(0, settings.photoCount).forEach((photo, i) => {
+      const targetPosition = positions[i] || [0, 0, 0];
+      const targetRotation = rotations?.[i] || [0, 0, 0];
+      
+      // Find existing photo to maintain animation state
+      const existingPhoto = photos3D.find(p => p.id === photo.id);
+      
       newPhotos3D.push({
         ...photo,
-        position: positions[i] || [0, 0, 0],
-        rotation: rotations?.[i] || [0, 0, 0],
+        position: existingPhoto?.position || targetPosition,
+        targetPosition,
+        rotation: existingPhoto?.rotation || targetRotation,
+        targetRotation,
         isEmpty: false
       });
     });
@@ -245,11 +274,19 @@ const Scene: React.FC<{
     const emptySlots = Math.max(0, settings.photoCount - photos.length);
     for (let i = 0; i < emptySlots; i++) {
       const index = photos.length + i;
+      const targetPosition = positions[index] || [0, 0, 0];
+      const targetRotation = rotations?.[index] || [0, 0, 0];
+      
+      // Find existing empty slot to maintain animation state
+      const existingSlot = photos3D.find(p => p.id === `empty-${i}`);
+      
       newPhotos3D.push({
         id: `empty-${i}`,
         url: '',
-        position: positions[index] || [0, 0, 0],
-        rotation: rotations?.[index] || [0, 0, 0],
+        position: existingSlot?.position || targetPosition,
+        targetPosition,
+        rotation: existingSlot?.rotation || targetRotation,
+        targetRotation,
         isEmpty: true
       });
     }
