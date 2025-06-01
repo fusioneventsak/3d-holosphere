@@ -12,7 +12,7 @@ export class WavePattern extends BasePattern {
     const rows = Math.ceil(totalPhotos / columns);
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
     const wavePhase = time * speedMultiplier;
     
     // Generate positions for all photos
@@ -26,7 +26,7 @@ export class WavePattern extends BasePattern {
       
       // Calculate wave height based on distance from center
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = 5;
+      const amplitude = 10;
       const frequency = 0.5;
       
       const y = this.settings.wallHeight + 

@@ -12,7 +12,7 @@ export class GridPattern extends BasePattern {
     const rows = Math.ceil(totalPhotos / columns);
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
     const animationTime = time * speedMultiplier;
     
     for (let i = 0; i < totalPhotos; i++) {
@@ -24,10 +24,10 @@ export class GridPattern extends BasePattern {
       
       if (this.settings.animationEnabled) {
         // Add wave motion
-        const waveX = Math.sin(animationTime + col * 0.5) * 0.5;
-        const waveY = Math.cos(animationTime + row * 0.5) * 0.5;
+        const waveX = Math.sin(animationTime + col * 0.3) * 2;
+        const waveY = Math.cos(animationTime + row * 0.3) * 2;
         y += waveX + waveY;
-        z += Math.sin(animationTime * 0.5 + (col + row) * 0.3) * 0.3;
+        z += Math.sin(animationTime * 0.3 + (col + row) * 0.2) * 2;
       }
       
       positions.push([x, y, z]);

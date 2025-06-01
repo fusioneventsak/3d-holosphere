@@ -25,11 +25,11 @@ export class FloatPattern extends BasePattern {
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      yOffset: (Math.random() - 0.5) * 20, // Increased range for more vertical spread
-      speed: 0.2 + Math.random() * 0.3, // Slower base speed for smoother motion
+      yOffset: (Math.random() - 0.5) * 40,
+      speed: 0.1 + Math.random() * 0.2,
       phase: Math.random() * Math.PI * 2,
-      driftRadius: 3 + Math.random() * 7, // Increased drift radius
-      rotationSpeed: 0.1 + Math.random() * 0.2 // Slower rotation for smoother motion
+      driftRadius: 5 + Math.random() * 10,
+      rotationSpeed: 0.05 + Math.random() * 0.1
     }));
   }
 
@@ -38,7 +38,7 @@ export class FloatPattern extends BasePattern {
     const rotations: [number, number, number][] = [];
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 25 : 0;
+    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
     const animationTime = time * speedMultiplier;
 
     // Generate positions for all slots (both photos and empty slots)
@@ -47,12 +47,12 @@ export class FloatPattern extends BasePattern {
       if (!param) continue;
 
       // Calculate vertical floating motion with larger amplitude
-      const verticalMotion = Math.sin(animationTime * param.speed + param.phase) * 10;
+      const verticalMotion = Math.sin(animationTime * param.speed + param.phase) * 20;
       const y = this.settings.wallHeight + param.yOffset + verticalMotion;
       
       // Add horizontal drift with smooth circular motion
-      const driftX = Math.sin(animationTime * 0.2 + param.phase) * param.driftRadius;
-      const driftZ = Math.cos(animationTime * 0.2 + param.phase + Math.PI/4) * param.driftRadius;
+      const driftX = Math.sin(animationTime * 0.1 + param.phase) * param.driftRadius;
+      const driftZ = Math.cos(animationTime * 0.1 + param.phase + Math.PI/4) * param.driftRadius;
 
       const x = param.x + driftX;
       const z = param.z + driftZ;

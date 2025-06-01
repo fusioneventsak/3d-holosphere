@@ -7,11 +7,11 @@ export class SpiralPattern extends BasePattern {
     const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
     const animationTime = time * speedMultiplier;
     
-    const radius = 15;
-    const heightStep = 0.5;
+    const radius = 20;
+    const heightStep = 1.0;
     const angleStep = (Math.PI * 2) / Math.max(1, totalPhotos / 3);
     
     for (let i = 0; i < totalPhotos; i++) {
@@ -19,7 +19,7 @@ export class SpiralPattern extends BasePattern {
         i * angleStep + animationTime : 
         i * angleStep;
         
-      const spiralRadius = radius * (1 - i / totalPhotos);
+      const spiralRadius = radius * Math.pow((1 - i / totalPhotos), 0.5);
       const x = Math.cos(angle) * spiralRadius;
       const y = this.settings.wallHeight + (i * heightStep);
       const z = Math.sin(angle) * spiralRadius;
