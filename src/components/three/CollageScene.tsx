@@ -27,14 +27,16 @@ type PhotoWithPosition = Photo & {
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 
-// PhotoMesh component with improved transition handling
+// PhotoMesh component with improved transition handling and camera facing
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
   pattern: string;
-}> = ({ photo, size, emptySlotColor, pattern }) => {
+  shouldFaceCamera: boolean;
+}> = ({ photo, size, emptySlotColor, pattern, shouldFaceCamera }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -73,13 +75,12 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Animation with improved pattern-specific handling
+  // Animation with improved pattern-specific handling and camera facing
   useFrame(() => {
     if (!meshRef.current) return;
 
     const currentPos = meshRef.current.position;
     const targetPos = photo.targetPosition;
-    const targetRot = photo.targetRotation;
 
     // Detect large position changes (like in float pattern) to prevent jarring transitions
     const yDistance = Math.abs(targetPos[1] - currentPos.y);
@@ -90,19 +91,47 @@ const PhotoMesh: React.FC<{
     // If large jump detected, teleport instead of interpolate
     if (yDistance > maxTeleportDistance || xDistance > maxTeleportDistance || zDistance > maxTeleportDistance) {
       meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
-      meshRef.current.rotation.set(targetRot[0], targetRot[1], targetRot[2]);
       prevPositionRef.current = [...targetPos];
-      return;
+    } else {
+      // Normal smooth interpolation for smaller movements
+      meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+      meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+      meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
     }
 
-    // Normal smooth interpolation for smaller movements
-    meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-    meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-    meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
-
-    meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
-    meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
-    meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+    // Rotation handling - face camera if enabled
+    if (shouldFaceCamera) {
+      // Calculate direction from photo to camera
+      const photoPos = meshRef.current.position;
+      const cameraPos = camera.position;
+      
+      const directionX = cameraPos.x - photoPos.x;
+      const directionZ = cameraPos.z - photoPos.z;
+      
+      // Calculate rotation to face camera
+      const targetRotationY = Math.atan2(directionX, directionZ);
+      
+      // Smooth rotation transition
+      const currentRotY = meshRef.current.rotation.y;
+      let rotationDiff = targetRotationY - currentRotY;
+      
+      // Handle rotation wrap-around (shortest path)
+      if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+      if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+      
+      meshRef.current.rotation.y += rotationDiff * ROTATION_SMOOTHING;
+      
+      // Apply any pattern-specific rotation offsets
+      const patternRot = photo.targetRotation;
+      meshRef.current.rotation.x += (patternRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
+      meshRef.current.rotation.z += (patternRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+    } else {
+      // Use pattern-defined rotation
+      const targetRot = photo.targetRotation;
+      meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
+      meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
+      meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+    }
     
     prevPositionRef.current = [currentPos.x, currentPos.y, currentPos.z];
   });
@@ -120,7 +149,7 @@ const PhotoMesh: React.FC<{
 
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow position={photo.targetPosition}>
-      <planeGeometry args={[size * (9/16), size]} />
+      <planeGeometry args={[size * (9/16), size]} /> {/* Portrait orientation */}
     </mesh>
   );
 };
@@ -235,11 +264,11 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Improved camera controller
+// Fixed camera controller with always-enabled mouse controls
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
-  const lastPositionRef = useRef({ x: 0, y: 0, z: 0 });
+  const autoRotationTimeRef = useRef(0);
 
   useFrame((state) => {
     if (!settings.cameraEnabled) return;
@@ -249,24 +278,30 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       const radius = settings.cameraDistance;
       const height = settings.cameraHeight;
       
-      // Target position
-      const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
-      const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
-      const targetY = height;
+      // Check if user is actively manipulating the camera
+      const isUserControlling = controlsRef.current && 
+        (controlsRef.current.getDistance() !== radius || 
+         Math.abs(controlsRef.current.object.position.y - height) > 1);
+
+      if (!isUserControlling) {
+        // Auto-rotation when user isn't controlling
+        const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
+        const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
+        const targetY = height;
+        
+        // Smooth camera movement
+        camera.position.x += (targetX - camera.position.x) * 0.02;
+        camera.position.y += (targetY - camera.position.y) * 0.02;
+        camera.position.z += (targetZ - camera.position.z) * 0.02;
+        
+        // Look at the center with slight elevation
+        camera.lookAt(0, height * 0.3, 0);
+      }
       
-      // Smooth camera movement
-      camera.position.x += (targetX - camera.position.x) * 0.05;
-      camera.position.y += (targetY - camera.position.y) * 0.05;
-      camera.position.z += (targetZ - camera.position.z) * 0.05;
-      
-      // Look at the center with slight elevation
-      camera.lookAt(0, height * 0.3, 0);
-      
-      lastPositionRef.current = { 
-        x: camera.position.x, 
-        y: camera.position.y, 
-        z: camera.position.z 
-      };
+      // Update orbit controls target
+      if (controlsRef.current) {
+        controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
+      }
     } else if (controlsRef.current) {
       // Update orbit controls target when camera height changes
       controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
@@ -297,18 +332,20 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
         position={[settings.cameraDistance, settings.cameraHeight, settings.cameraDistance]}
         fov={75}
       />
-      {!settings.cameraRotationEnabled && (
-        <OrbitControls
-          ref={controlsRef}
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          target={[0, settings.cameraHeight * 0.3, 0]}
-          maxPolarAngle={Math.PI / 1.5}
-          minDistance={5}
-          maxDistance={100}
-        />
-      )}
+      {/* ALWAYS enable OrbitControls for full mouse control */}
+      <OrbitControls
+        ref={controlsRef}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        target={[0, settings.cameraHeight * 0.3, 0]}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={5}
+        maxDistance={100}
+        enabled={true} // Always enabled for full mouse control
+        enableDamping={true}
+        dampingFactor={0.05}
+      />
     </>
   );
 };
@@ -382,6 +419,7 @@ const Scene: React.FC<{
           size={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
           pattern={settings.animationPattern}
+          shouldFaceCamera={settings.photoRotation} // Pass the face camera setting
         />
       ))}
     </>
