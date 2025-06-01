@@ -264,58 +264,11 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Fixed camera controller with improved auto-rotation
+// Fixed camera controller with continuous auto-rotation
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
-  const [isUserInteracting, setIsUserInteracting] = useState(false);
-  const [lastInteractionTime, setLastInteractionTime] = useState(0);
   const rotationTimeRef = useRef(0);
-
-  // Handle user interaction events
-  useEffect(() => {
-    const handleStart = () => {
-      setIsUserInteracting(true);
-      setLastInteractionTime(Date.now());
-    };
-
-    const handleEnd = () => {
-      setIsUserInteracting(false);
-      setLastInteractionTime(Date.now());
-    };
-
-    const handleMove = () => {
-      if (isUserInteracting) {
-        setLastInteractionTime(Date.now());
-      }
-    };
-
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      // Mouse events
-      canvas.addEventListener('mousedown', handleStart);
-      canvas.addEventListener('mouseup', handleEnd);
-      canvas.addEventListener('mousemove', handleMove);
-      canvas.addEventListener('wheel', handleStart);
-      
-      // Touch events
-      canvas.addEventListener('touchstart', handleStart);
-      canvas.addEventListener('touchend', handleEnd);
-      canvas.addEventListener('touchmove', handleMove);
-    }
-
-    return () => {
-      if (canvas) {
-        canvas.removeEventListener('mousedown', handleStart);
-        canvas.removeEventListener('mouseup', handleEnd);
-        canvas.removeEventListener('mousemove', handleMove);
-        canvas.removeEventListener('wheel', handleStart);
-        canvas.removeEventListener('touchstart', handleStart);
-        canvas.removeEventListener('touchend', handleEnd);
-        canvas.removeEventListener('touchmove', handleMove);
-      }
-    };
-  }, [isUserInteracting]);
 
   // Update camera position when settings change
   useEffect(() => {
@@ -343,53 +296,28 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       controlsRef.current.update();
     }
 
-    // Handle auto-rotation
+    // Handle auto-rotation - runs continuously when enabled
     if (settings.cameraRotationEnabled) {
-      const currentTime = Date.now();
-      const timeSinceInteraction = currentTime - lastInteractionTime;
+      // Always increment rotation time for continuous rotation
+      rotationTimeRef.current += delta * settings.cameraRotationSpeed;
       
-      // Start auto-rotation if no interaction for 2 seconds, or if never interacted
-      const shouldAutoRotate = !isUserInteracting && (timeSinceInteraction > 2000 || lastInteractionTime === 0);
+      const radius = settings.cameraDistance;
+      const height = settings.cameraHeight;
       
-      if (shouldAutoRotate) {
-        // Increment rotation time
-        rotationTimeRef.current += delta * settings.cameraRotationSpeed;
-        
-        const radius = settings.cameraDistance;
-        const height = settings.cameraHeight;
-        
-        // Calculate new camera position
-        const x = Math.cos(rotationTimeRef.current) * radius;
-        const z = Math.sin(rotationTimeRef.current) * radius;
-        
-        // Smoothly move camera to new position
-        camera.position.x += (x - camera.position.x) * 0.02;
-        camera.position.y += (height - camera.position.y) * 0.02;
-        camera.position.z += (z - camera.position.z) * 0.02;
-        
-        // Look at center with slight elevation
-        camera.lookAt(0, height * 0.3, 0);
-        
-        // Disable controls during auto-rotation to prevent conflicts
-        if (controlsRef.current) {
-          controlsRef.current.enabled = false;
-        }
-      } else {
-        // Re-enable controls when user interacts
-        if (controlsRef.current && !controlsRef.current.enabled) {
-          controlsRef.current.enabled = true;
-        }
-        
-        // Sync rotation time with current camera position when stopping auto-rotation
-        if (isUserInteracting || timeSinceInteraction <= 2000) {
-          rotationTimeRef.current = Math.atan2(camera.position.z, camera.position.x);
-        }
-      }
-    } else {
-      // Ensure controls are enabled when auto-rotation is off
-      if (controlsRef.current) {
-        controlsRef.current.enabled = true;
-      }
+      // Calculate the auto-rotation target position
+      const autoRotationX = Math.cos(rotationTimeRef.current) * radius;
+      const autoRotationZ = Math.sin(rotationTimeRef.current) * radius;
+      
+      // Apply auto-rotation as a gentle influence on the camera position
+      // This allows manual control while maintaining the rotation
+      const influenceStrength = 0.015; // How strong the auto-rotation influence is
+      
+      camera.position.x += (autoRotationX - camera.position.x) * influenceStrength;
+      camera.position.y += (height - camera.position.y) * influenceStrength;
+      camera.position.z += (autoRotationZ - camera.position.z) * influenceStrength;
+      
+      // Maintain the look-at behavior
+      camera.lookAt(0, height * 0.3, 0);
     }
   });
 
