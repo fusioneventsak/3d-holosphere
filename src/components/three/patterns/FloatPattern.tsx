@@ -9,87 +9,75 @@ type FloatParams = {
   y: number;
   speed: number;
   phase: number;
-  driftOffset: number;
-  currentSpeed: number;
 };
 
 export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
-  private lastTime: number;
-  private speedLerpFactor: number = 0.1;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
     this.floatParams = this.initializeFloatParams();
-    this.lastTime = 0;
   }
 
   private initializeFloatParams(): FloatParams[] {
     const floorSize = this.settings.floorSize * 0.8;
-    const gridSize = Math.ceil(Math.sqrt(this.settings.photoCount));
-    const spacing = floorSize / gridSize;
+    const count = Math.min(this.settings.photoCount, 500);
     
-    return Array(this.settings.photoCount).fill(0).map((_, index) => {
-      const row = Math.floor(index / gridSize);
-      const col = index % gridSize;
-      
-      const x = (col - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
-      const z = (row - gridSize/2) * spacing + (Math.random() - 0.5) * spacing * 0.3;
-      const y = FLOAT_MIN_HEIGHT - (Math.random() * Math.abs(FLOAT_MIN_HEIGHT));
-      
-      return {
-        x,
-        z,
-        y,
-        speed: 0.5 + Math.random() * 0.5,
-        phase: Math.random() * Math.PI * 2,
-        driftOffset: Math.random() * Math.PI * 2,
-        currentSpeed: this.settings.patterns.float.animationSpeed
-      };
-    });
+    return Array(count).fill(0).map(() => ({
+      x: (Math.random() - 0.5) * floorSize,
+      z: (Math.random() - 0.5) * floorSize,
+      y: FLOAT_MIN_HEIGHT + Math.random() * 10,
+      speed: 0.8 + Math.random() * 0.4,
+      phase: Math.random() * Math.PI * 2
+    }));
   }
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const deltaTime = Math.min(time - this.lastTime, 0.1);
-    this.lastTime = time;
+    const rotations: [number, number, number][] = [];
     
-    const targetSpeedMultiplier = this.settings.animationEnabled ? 
-      this.settings.patterns.float.animationSpeed : 0;
-    
-    for (let i = 0; i < this.floatParams.length; i++) {
-      const param = this.floatParams[i];
+    // Only animate if enabled
+    if (!this.settings.animationEnabled) {
+      return {
+        positions: this.floatParams.map(param => [param.x, param.y, param.z]),
+        rotations: this.floatParams.map(() => [0, 0, 0])
+      };
+    }
+
+    const normalizedSpeed = this.settings.animationSpeed / 50;
+    const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
+
+    for (const param of this.floatParams) {
+      // Calculate vertical position
+      let y = param.y + (time * normalizedSpeed * param.speed);
       
-      // Smoothly interpolate to target speed
-      param.currentSpeed += (targetSpeedMultiplier - param.currentSpeed) * this.speedLerpFactor;
+      // Wrap around when reaching the top
+      const heightCycle = Math.floor(y / totalHeight);
+      y = y - (heightCycle * totalHeight);
       
-      if (param.currentSpeed > 0.001) {
-        // Vertical movement
-        const verticalSpeed = param.speed * param.currentSpeed * 5;
-        param.y += verticalSpeed * deltaTime;
-        
-        if (param.y > FLOAT_MAX_HEIGHT) {
-          param.y = FLOAT_MIN_HEIGHT;
-        }
-        
-        // Horizontal drift
-        const driftAmplitude = 3.0;
-        const driftFrequency = param.currentSpeed * 0.5;
-        const driftTime = time * driftFrequency;
-        
-        const xDrift = Math.sin(driftTime + param.driftOffset) * driftAmplitude;
-        const zDrift = Math.cos(driftTime + param.driftOffset) * driftAmplitude;
-        
-        positions.push([
-          param.x + xDrift,
-          param.y,
-          param.z + zDrift
-        ]);
+      if (y > FLOAT_MAX_HEIGHT) {
+        y = FLOAT_MIN_HEIGHT + (y - FLOAT_MAX_HEIGHT);
+      }
+
+      // Add horizontal drift
+      const xOffset = Math.sin(time * 0.5 + param.phase) * 2;
+      const zOffset = Math.cos(time * 0.5 + param.phase) * 2;
+
+      positions.push([
+        param.x + xOffset,
+        y,
+        param.z + zOffset
+      ]);
+
+      // Calculate rotation to face camera if enabled
+      if (this.settings.photoRotation) {
+        const angle = Math.atan2(xOffset, zOffset);
+        rotations.push([0, angle, 0]);
       } else {
-        positions.push([param.x, param.y, param.z]);
+        rotations.push([0, 0, 0]);
       }
     }
 
-    return { positions };
+    return { positions, rotations };
   }
 }
