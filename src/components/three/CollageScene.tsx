@@ -154,10 +154,9 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Enhanced lighting component with proper spotlight setup
+// Enhanced lighting component with working spotlights
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const spotlightRefs = useRef<THREE.SpotLight[]>([]);
-  const targetRefs = useRef<THREE.Object3D[]>([]);
+  const groupRef = useRef<THREE.Group>(null);
 
   // Create spotlights based on settings
   const spotlights = useMemo(() => {
@@ -172,70 +171,54 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       lights.push({
         key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, settings.wallHeight / 2, 0] as [number, number, number],
+        target: [0, settings.wallHeight, 0] as [number, number, number],
       });
     }
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
 
   return (
-    <>
+    <group ref={groupRef}>
       {/* Ambient light for general scene illumination */}
       <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
       
-      {/* Directional light for overall scene lighting */}
+      {/* Main directional light */}
       <directionalLight
-        position={[10, 20, 10]}
-        intensity={0.3}
+        position={[20, 30, 20]}
+        intensity={0.5}
         color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-camera-far={100}
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
-        shadow-camera-top={50}
-        shadow-camera-bottom={-50}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
       />
       
-      {/* Dynamic spotlights */}
+      {/* Spotlights with proper setup */}
       {spotlights.map((light, index) => (
-        <group key={light.key}>
-          {/* Target object for spotlight to aim at */}
-          <object3D
-            ref={(el) => {
-              if (el) targetRefs.current[index] = el;
-            }}
-            position={light.target}
-          />
-          
-          <spotLight
-            ref={(el) => {
-              if (el) {
-                spotlightRefs.current[index] = el;
-                // Set target after both spotlight and target are created
-                if (targetRefs.current[index]) {
-                  el.target = targetRefs.current[index];
-                }
-              }
-            }}
-            position={light.position}
-            angle={settings.spotlightWidth}
-            penumbra={settings.spotlightPenumbra}
-            intensity={settings.spotlightIntensity / 100} // Convert from 0-100 to 0-1
-            color={settings.spotlightColor}
-            distance={settings.spotlightDistance * 2}
-            decay={1.5}
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-            shadow-camera-near={1}
-            shadow-camera-far={settings.spotlightDistance * 2}
-            shadow-bias={-0.0001}
-          />
-        </group>
+        <spotLight
+          key={light.key}
+          position={light.position}
+          target-position={light.target}
+          angle={settings.spotlightWidth}
+          penumbra={settings.spotlightPenumbra}
+          intensity={settings.spotlightIntensity * 0.01} // Convert from 0-100 to proper range
+          color={settings.spotlightColor}
+          distance={0} // No distance limit for better lighting
+          decay={2}
+          castShadow
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-camera-near={0.5}
+          shadow-camera-far={settings.spotlightDistance * 3}
+          shadow-bias={-0.0001}
+        />
       ))}
-    </>
+    </group>
   );
 };
 
@@ -418,22 +401,20 @@ const AnimationController: React.FC<{
   return null;
 };
 
-// Background component to handle gradient rendering
+// Background component that preserves gradients
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene, gl } = useThree();
   
   useEffect(() => {
+    // Always set scene background to null when using gradients
+    // This prevents Three.js from overriding the CSS background
     if (settings.backgroundGradient) {
-      // For gradients, we'll use CSS background on the canvas container
-      // and set the scene background to transparent
       scene.background = null;
+      gl.setClearColor('#000000', 0); // Transparent clear color
     } else {
-      // For solid colors, set the scene background directly
       scene.background = new THREE.Color(settings.backgroundColor);
+      gl.setClearColor(settings.backgroundColor, 1);
     }
-    
-    // Update the renderer clear color
-    gl.setClearColor(settings.backgroundGradient ? 'transparent' : settings.backgroundColor);
   }, [
     scene, 
     gl, 
@@ -510,13 +491,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         shadows
         gl={{ 
           antialias: true, 
-          alpha: settings.backgroundGradient, // Enable alpha for gradients
+          alpha: true, // Always enable alpha for transparency
           premultipliedAlpha: false,
+          preserveDrawingBuffer: false,
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
           gl.shadowMap.autoUpdate = true;
+          // Don't set clear color here - let BackgroundRenderer handle it
         }}
       >
         <BackgroundRenderer settings={settings} />
