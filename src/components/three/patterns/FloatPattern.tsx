@@ -3,17 +3,20 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 type FloatParams = {
   baseX: number;
   baseZ: number;
+  currentY: number; // Track current position for smooth movement
   speed: number;
   phase: number;
   driftRadius: number;
   rotationSpeed: number;
+  isActive: boolean;
 };
 
 export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
-  private readonly FLOOR_LEVEL = 0; // Floor level
-  private readonly MAX_HEIGHT = 60; // Maximum height photos can reach
-  private readonly SPAWN_INTERVAL = 0.5; // Time between photo spawns
+  private readonly FLOOR_LEVEL = 0;
+  private readonly MAX_HEIGHT = 50;
+  private readonly SPAWN_INTERVAL = 1.0; // Slower spawn rate
+  private lastTime: number = 0;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
@@ -21,16 +24,18 @@ export class FloatPattern extends BasePattern {
   }
 
   private initializeFloatParams(): FloatParams[] {
-    const floorSize = this.settings.floorSize * 0.7;
+    const floorSize = this.settings.floorSize * 0.6;
     const count = Math.min(this.settings.photoCount, 500);
     
     return Array(count).fill(0).map((_, index) => ({
       baseX: (Math.random() - 0.5) * floorSize,
       baseZ: (Math.random() - 0.5) * floorSize,
-      speed: 8 + Math.random() * 12, // Units per second upward speed
-      phase: index * this.SPAWN_INTERVAL, // Stagger spawn times
-      driftRadius: 1 + Math.random() * 3,
-      rotationSpeed: 0.2 + Math.random() * 0.3
+      currentY: this.FLOOR_LEVEL,
+      speed: 6 + Math.random() * 4, // Slower, more consistent speed
+      phase: index * this.SPAWN_INTERVAL,
+      driftRadius: 0.8 + Math.random() * 1.5, // Reduced drift for stability
+      rotationSpeed: 0.1 + Math.random() * 0.1,
+      isActive: false
     }));
   }
 
@@ -41,58 +46,57 @@ export class FloatPattern extends BasePattern {
     // Scale animation speed based on settings (0-100%)
     const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 100 : 0;
     const animationTime = time * speedMultiplier;
+    
+    // Calculate delta time for smooth movement
+    const deltaTime = this.lastTime > 0 ? animationTime - this.lastTime : 0;
+    this.lastTime = animationTime;
 
     for (let i = 0; i < this.settings.photoCount; i++) {
       const param = this.floatParams[i];
       if (!param) continue;
 
-      // Calculate how long this photo has been floating
-      const photoStartTime = param.phase;
-      const floatDuration = animationTime - photoStartTime;
-      
-      let y: number;
-      
-      if (floatDuration < 0) {
-        // Photo hasn't started floating yet - keep it below the floor
-        y = this.FLOOR_LEVEL - 10;
-      } else {
-        // Photo is floating upward
-        const baseHeight = this.settings.wallHeight + this.FLOOR_LEVEL;
-        const floatHeight = floatDuration * param.speed;
+      // Check if photo should start floating
+      if (!param.isActive && animationTime >= param.phase) {
+        param.isActive = true;
+        param.currentY = this.FLOOR_LEVEL + this.settings.wallHeight;
+      }
+
+      // Update position smoothly
+      if (param.isActive && speedMultiplier > 0) {
+        param.currentY += param.speed * deltaTime;
         
-        // If photo has reached max height, reset it to start over
-        if (floatHeight > this.MAX_HEIGHT) {
-          // Reset by updating the phase (restart time)
-          param.phase = animationTime;
-          // Randomize position for next cycle
-          const floorSize = this.settings.floorSize * 0.7;
+        // Reset when reaching max height
+        if (param.currentY > this.settings.wallHeight + this.MAX_HEIGHT) {
+          param.isActive = false;
+          param.phase = animationTime + Math.random() * 2; // Random delay before next cycle
+          param.currentY = this.FLOOR_LEVEL + this.settings.wallHeight;
+          
+          // New random position
+          const floorSize = this.settings.floorSize * 0.6;
           param.baseX = (Math.random() - 0.5) * floorSize;
           param.baseZ = (Math.random() - 0.5) * floorSize;
-          y = baseHeight;
-        } else {
-          y = baseHeight + floatHeight;
         }
       }
-      
-      // Add horizontal drift
-      const driftPhase = animationTime * 0.5 + i;
+
+      // Calculate final position with minimal drift
+      const driftPhase = animationTime * 0.3 + i * 0.5;
       const driftX = Math.sin(driftPhase) * param.driftRadius;
-      const driftZ = Math.cos(driftPhase + Math.PI/3) * param.driftRadius;
+      const driftZ = Math.cos(driftPhase) * param.driftRadius;
       
-      // Add gentle bobbing motion
-      const bobbing = Math.sin(animationTime * 3 + i) * 0.5;
+      // Very subtle bobbing
+      const bobbing = Math.sin(animationTime * 1.5 + i * 0.3) * 0.2;
 
       const x = param.baseX + driftX;
       const z = param.baseZ + driftZ;
-      const finalY = y + bobbing;
+      const y = param.isActive ? param.currentY + bobbing : -20; // Hide inactive photos
 
-      positions.push([x, finalY, z]);
+      positions.push([x, y, z]);
 
-      // Calculate rotation to face camera with gentle wobble
+      // Gentle rotation
       if (this.settings.photoRotation) {
         const rotationY = Math.atan2(x, z);
-        const wobbleX = Math.sin(animationTime * param.rotationSpeed + i) * 0.08;
-        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + i) * 0.08;
+        const wobbleX = Math.sin(animationTime * param.rotationSpeed + i) * 0.03;
+        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + i) * 0.03;
         rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {
         rotations.push([0, 0, 0]);
