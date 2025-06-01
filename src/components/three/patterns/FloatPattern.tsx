@@ -14,6 +14,8 @@ export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
   private readonly MAX_HEIGHT = 50;
   private readonly MIN_HEIGHT = -20;
+  private readonly MAX_HEIGHT = 50;
+  private readonly MIN_HEIGHT = -20;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
@@ -23,6 +25,8 @@ export class FloatPattern extends BasePattern {
   private initializeFloatParams(): FloatParams[] {
     const floorSize = this.settings.floorSize * 0.8;
     const count = Math.min(this.settings.photoCount, 500);
+    
+    // Distribute initial Y positions evenly
     
     // Distribute initial Y positions evenly
     return Array(count).fill(0).map(() => ({
@@ -55,12 +59,11 @@ export class FloatPattern extends BasePattern {
       // Reset to bottom when reaching max height
       if (param.y > this.MAX_HEIGHT) {
         param.y = this.MIN_HEIGHT;
-        param.x = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
         param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
         param.phase = Math.random() * Math.PI * 2;
       }
       
-      const y = this.settings.wallHeight + param.y;
+      const y = param.yOffset;
       
       // Add horizontal drift with smooth circular motion
       const driftX = Math.sin(animationTime * 0.1 + param.phase) * param.driftRadius;
@@ -71,9 +74,7 @@ export class FloatPattern extends BasePattern {
 
       positions.push([x, y, z]);
 
-      // Calculate rotation to face camera with smooth wobble
       if (this.settings.photoRotation) {
-        // Keep photos facing forward with slight rotation to face camera
         const rotationY = Math.atan2(x, z) * 0.5;
         rotations.push([0, rotationY, 0]);
       } else {
