@@ -4,6 +4,7 @@ import { SpotLight, OrbitControls } from '@react-three/drei';
 import { type SceneSettings } from '../../store/sceneStore';
 import { type Photo } from './patterns/BasePattern';
 import { PatternFactory } from './patterns/PatternFactory';
+import * as THREE from 'three';
 
 type Photo3D = {
   id: string;
