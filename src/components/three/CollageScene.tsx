@@ -120,7 +120,7 @@ const PhotoMesh: React.FC<{
 
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow position={photo.targetPosition}>
-      <planeGeometry args={[size, size * (9/16)]} />
+      <planeGeometry args={[size * (9/16), size]} /> />
     </mesh>
   );
 };
