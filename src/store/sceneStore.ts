@@ -75,7 +75,7 @@ const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
   animationSpeed: 50,
-  animationEnabled: false,
+  animationEnabled: true,
   photoCount: 50,
   backgroundColor: '#000000',
   backgroundGradient: false,
