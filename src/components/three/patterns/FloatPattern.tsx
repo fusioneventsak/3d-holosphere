@@ -87,12 +87,9 @@ export class FloatPattern extends BasePattern {
         param.y = this.MIN_HEIGHT + (0 * param.speed * speedMultiplier);
       }
       
-      // Add subtle horizontal drift
-      const driftX = Math.sin(animationTime * 0.2 + param.phase) * param.driftRadius * this.DRIFT_SCALE;
-      const driftZ = Math.cos(animationTime * 0.2 + param.phase + Math.PI/4) * param.driftRadius * this.DRIFT_SCALE;
-
-      const x = param.x + driftX;
-      const z = param.z + driftZ;
+      // Photos move straight up without horizontal drift
+      const x = param.x;
+      const z = param.z;
 
       positions.push([x, param.y, z]);
 
