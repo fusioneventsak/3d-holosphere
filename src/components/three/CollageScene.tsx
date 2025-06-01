@@ -1,3 +1,4 @@
+```tsx
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -27,7 +28,7 @@ type PhotoWithPosition = Photo & {
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 
-// VolumetricSpotlight component (as provided)
+// VolumetricSpotlight component with adjusted intensity
 const VolumetricSpotlight: React.FC<{
   position: [number, number, number];
   target: [number, number, number];
@@ -45,12 +46,12 @@ const VolumetricSpotlight: React.FC<{
     return new THREE.ConeGeometry(radius, height, 32, 1, true);
   }, [angle, distance]);
 
-  // Create volumetric material with transparency
+  // Create volumetric material with transparency, reduced intensity for subtler effect
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(color) },
-        intensity: { value: intensity * 0.001 },
+        intensity: { value: intensity * 0.0005 }, // Reduced from 0.001 to make volumetric effect subtler
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -99,7 +100,7 @@ const VolumetricSpotlight: React.FC<{
   return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
 };
 
-// New SceneLighting component with volumetric spotlights (as provided)
+// SceneLighting component with enhanced light casting
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
 
@@ -116,7 +117,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       lights.push({
         key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, settings.wallHeight, 0] as [number, number, number],
+        target: [0, settings.wallHeight / 2, 0] as [number, number, number], // Adjusted to hit photos/floor
       });
     }
     return lights;
@@ -127,8 +128,8 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       {/* Ambient light for general scene illumination */}
       <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
       
-      {/* Fog for haze effect */}
-      <fog attach="fog" args={['#000000', 10, 200]} />
+      {/* Fog adjusted for better light visibility */}
+      <fog attach="fog" args={['#000000', 20, 300]} /> {/* Increased near/far for less haze */}
       
       {/* Main directional light */}
       <directionalLight
@@ -146,41 +147,47 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
-      {/* Spotlights with proper setup */}
-      {spotlights.map((light) => (
-        <group key={light.key}>
-          <spotLight
-            position={light.position}
-            target-position={light.target}
-            angle={settings.spotlightWidth}
-            penumbra={settings.spotlightPenumbra}
-            intensity={settings.spotlightIntensity * 0.02} // Increased intensity
-            color={settings.spotlightColor}
-            distance={settings.spotlightDistance * 2}
-            decay={2}
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-            shadow-camera-near={0.5}
-            shadow-camera-far={settings.spotlightDistance * 3}
-            shadow-bias={-0.0001}
-          />
-          {/* Volumetric cone for visible beam */}
-          <VolumetricSpotlight
-            position={light.position}
-            target={light.target}
-            angle={settings.spotlightWidth}
-            color={settings.spotlightColor}
-            intensity={settings.spotlightIntensity}
-            distance={settings.spotlightDistance}
-          />
-        </group>
-      ))}
+      {/* Spotlights with proper setup and increased intensity */}
+      {spotlights.map((light) => {
+        const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
+        targetRef.current.position.set(...light.target);
+        
+        return (
+          <group key={light.key}>
+            <spotLight
+              position={light.position}
+              target={targetRef.current}
+              angle={settings.spotlightWidth}
+              penumbra={settings.spotlightPenumbra}
+              intensity={settings.spotlightIntensity * 0.1} // Increased from 0.02 for stronger light
+              color={settings.spotlightColor} // Ensure color affects scene
+              distance={settings.spotlightDistance * 2}
+              decay={1} // Reduced decay for stronger light reach
+              castShadow
+              shadow-mapSize-width={1024}
+              shadow-mapSize-height={1024}
+              shadow-camera-near={0.5}
+              shadow-camera-far={settings.spotlightDistance * 3}
+              shadow-bias={-0.0001}
+            />
+            {/* Volumetric cone for visible beam */}
+            <VolumetricSpotlight
+              position={light.position}
+              target={light.target}
+              angle={settings.spotlightWidth}
+              color={settings.spotlightColor}
+              intensity={settings.spotlightIntensity}
+              distance={settings.spotlightDistance}
+            />
+            <primitive object={targetRef.current} />
+          </group>
+        );
+      })}
     </group>
   );
 };
 
-// PhotoMesh component (unchanged from original)
+// PhotoMesh component (unchanged)
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -589,7 +596,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       >
         <BackgroundRenderer settings={settings} />
         <CameraController settings={settings} />
-        <SceneLighting settings={settings} /> {/* Using the new SceneLighting with volumetric effects */}
+        <SceneLighting settings={settings} />
         <Floor settings={settings} />
         <Grid settings={settings} />
         
@@ -617,3 +624,4 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 };
 
 export default CollageScene;
+```
