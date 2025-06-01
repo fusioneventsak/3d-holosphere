@@ -10,8 +10,8 @@ import * as THREE from 'three';
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
 const ANIMATION_TRANSITION_DURATION = 1.0; // seconds
-const ROTATION_SMOOTHING = 0.1; // Lower = smoother
-const POSITION_SMOOTHING = 0.08; // Lower = smoother
+const ROTATION_SMOOTHING = 0.3; // Increased from 0.1 for more responsive rotation
+const POSITION_SMOOTHING = 0.25; // Increased from 0.08 for more responsive movement
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
