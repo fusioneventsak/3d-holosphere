@@ -264,59 +264,64 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Fixed camera controller with always-enabled mouse controls
+// Fixed camera controller with improved auto-rotation
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
+  const lastInteractionTimeRef = useRef(0);
+  const isUserInteractingRef = useRef(false);
   const autoRotationTimeRef = useRef(0);
+  const autoRotationActiveRef = useRef(false);
 
-  useFrame((state) => {
-    if (!settings.cameraEnabled) return;
+  // Set up event listeners to track user interaction
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      lastInteractionTimeRef.current = Date.now();
+      isUserInteractingRef.current = true;
+      autoRotationActiveRef.current = false;
+    };
 
-    if (settings.cameraRotationEnabled) {
-      const time = state.clock.getElapsedTime();
-      const radius = settings.cameraDistance;
-      const height = settings.cameraHeight;
-      
-      // Check if user is actively manipulating the camera
-      const isUserControlling = controlsRef.current && 
-        (controlsRef.current.getDistance() !== radius || 
-         Math.abs(controlsRef.current.object.position.y - height) > 1);
+    const handleInteractionEnd = () => {
+      isUserInteractingRef.current = false;
+    };
 
-      if (!isUserControlling) {
-        // Auto-rotation when user isn't controlling
-        const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
-        const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
-        const targetY = height;
-        
-        // Smooth camera movement
-        camera.position.x += (targetX - camera.position.x) * 0.02;
-        camera.position.y += (targetY - camera.position.y) * 0.02;
-        camera.position.z += (targetZ - camera.position.z) * 0.02;
-        
-        // Look at the center with slight elevation
-        camera.lookAt(0, height * 0.3, 0);
-      }
-      
-      // Update orbit controls target
-      if (controlsRef.current) {
-        controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
-      }
-    } else if (controlsRef.current) {
-      // Update orbit controls target when camera height changes
-      controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
+    // Get the canvas element
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvas.addEventListener('mousedown', handleUserInteraction);
+      canvas.addEventListener('mouseup', handleInteractionEnd);
+      canvas.addEventListener('mousemove', handleUserInteraction);
+      canvas.addEventListener('wheel', handleUserInteraction);
+      canvas.addEventListener('touchstart', handleUserInteraction);
+      canvas.addEventListener('touchmove', handleUserInteraction);
+      canvas.addEventListener('touchend', handleInteractionEnd);
     }
-  });
+
+    return () => {
+      if (canvas) {
+        canvas.removeEventListener('mousedown', handleUserInteraction);
+        canvas.removeEventListener('mouseup', handleInteractionEnd);
+        canvas.removeEventListener('mousemove', handleUserInteraction);
+        canvas.removeEventListener('wheel', handleUserInteraction);
+        canvas.removeEventListener('touchstart', handleUserInteraction);
+        canvas.removeEventListener('touchmove', handleUserInteraction);
+        canvas.removeEventListener('touchend', handleInteractionEnd);
+      }
+    };
+  }, []);
 
   // Update camera position when settings change
   useEffect(() => {
-    if (!settings.cameraRotationEnabled && camera) {
-      camera.position.set(
-        settings.cameraDistance,
-        settings.cameraHeight,
-        settings.cameraDistance
-      );
-      camera.lookAt(0, settings.cameraHeight * 0.3, 0);
+    if (camera) {
+      // Initial position setup
+      if (!settings.cameraRotationEnabled) {
+        camera.position.set(
+          settings.cameraDistance,
+          settings.cameraHeight,
+          settings.cameraDistance
+        );
+        camera.lookAt(0, settings.cameraHeight * 0.3, 0);
+      }
     }
   }, [
     settings.cameraDistance,
@@ -325,6 +330,57 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     camera
   ]);
 
+  useFrame((state) => {
+    if (!settings.cameraEnabled) return;
+
+    // Update orbit controls target
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
+    }
+
+    // Only auto-rotate if enabled and user isn't interacting
+    if (settings.cameraRotationEnabled) {
+      const inactiveTime = Date.now() - lastInteractionTimeRef.current;
+      
+      // Resume auto rotation after 1.5 seconds of no interaction
+      if ((!isUserInteractingRef.current && inactiveTime > 1500) || lastInteractionTimeRef.current === 0) {
+        // If we're just starting auto rotation, capture current angle
+        if (!autoRotationActiveRef.current) {
+          // Get current angle from camera position
+          const currentAngle = Math.atan2(camera.position.z, camera.position.x);
+          // Set rotation time to match current position for smooth transition
+          autoRotationTimeRef.current = currentAngle / settings.cameraRotationSpeed;
+          autoRotationActiveRef.current = true;
+        } else {
+          // Increment rotation time
+          autoRotationTimeRef.current += state.clock.elapsedTime - state.clock.oldTime;
+        }
+        
+        const time = autoRotationTimeRef.current;
+        const radius = settings.cameraDistance;
+        const height = settings.cameraHeight;
+        
+        // Calculate target position based on rotation speed and time
+        const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
+        const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
+        const targetY = height;
+        
+        // Smooth camera movement with reduced interpolation factor for stability
+        camera.position.x += (targetX - camera.position.x) * 0.01;
+        camera.position.y += (targetY - camera.position.y) * 0.01;
+        camera.position.z += (targetZ - camera.position.z) * 0.01;
+        
+        // Look at the center with slight elevation
+        camera.lookAt(0, height * 0.3, 0);
+        
+        // Update controls to match new camera position
+        if (controlsRef.current) {
+          controlsRef.current.update();
+        }
+      }
+    }
+  });
+
   return (
     <>
       <PerspectiveCamera
@@ -332,7 +388,6 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
         position={[settings.cameraDistance, settings.cameraHeight, settings.cameraDistance]}
         fov={75}
       />
-      {/* ALWAYS enable OrbitControls for full mouse control */}
       <OrbitControls
         ref={controlsRef}
         enablePan={true}
@@ -342,208 +397,10 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
         maxPolarAngle={Math.PI / 1.5}
         minDistance={5}
         maxDistance={100}
-        enabled={true} // Always enabled for full mouse control
+        enabled={true}
         enableDamping={true}
         dampingFactor={0.05}
       />
     </>
   );
 };
-
-// Improved background component
-const Background: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const { scene } = useThree();
-
-  useEffect(() => {
-    if (settings.backgroundGradient) {
-      // Create gradient background
-      const canvas = document.createElement('canvas');
-      canvas.width = 512; // Higher resolution for better quality
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d');
-      
-      if (ctx) {
-        // Create gradient at specified angle
-        const angleInRadians = (settings.backgroundGradientAngle * Math.PI) / 180;
-        const x0 = 256 + Math.cos(angleInRadians) * 256;
-        const y0 = 256 + Math.sin(angleInRadians) * 256;
-        const x1 = 256 - Math.cos(angleInRadians) * 256;
-        const y1 = 256 - Math.sin(angleInRadians) * 256;
-        
-        const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-        gradient.addColorStop(0, settings.backgroundGradientStart);
-        gradient.addColorStop(1, settings.backgroundGradientEnd);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 512, 512);
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        scene.background = texture;
-        
-        return () => {
-          texture.dispose();
-        };
-      }
-    } else {
-      scene.background = new THREE.Color(settings.backgroundColor);
-    }
-  }, [
-    scene,
-    settings.backgroundColor,
-    settings.backgroundGradient,
-    settings.backgroundGradientStart,
-    settings.backgroundGradientEnd,
-    settings.backgroundGradientAngle
-  ]);
-
-  return null;
-};
-
-// Main scene component
-const Scene: React.FC<{
-  photosWithPositions: PhotoWithPosition[];
-  settings: SceneSettings;
-  animationTime: number;
-}> = ({ photosWithPositions, settings, animationTime }) => {
-  return (
-    <>
-      <Background settings={settings} />
-      <CameraController settings={settings} />
-      <SceneLighting settings={settings} />
-      <Floor settings={settings} />
-      <Grid settings={settings} />
-      
-      {photosWithPositions.map((photo) => (
-        <PhotoMesh
-          key={photo.id}
-          photo={photo}
-          size={settings.photoSize}
-          emptySlotColor={settings.emptySlotColor}
-          pattern={settings.animationPattern}
-          shouldFaceCamera={settings.photoRotation} // Pass the face camera setting
-        />
-      ))}
-    </>
-  );
-};
-
-// Main CollageScene component with improved animation handling
-const CollageScene: React.FC<CollageSceneProps> = ({
-  photos,
-  settings,
-  onSettingsChange,
-}) => {
-  const [animationTime, setAnimationTime] = useState(0);
-  const animationRef = useRef<number>();
-  const lastTimeRef = useRef<number>(0);
-  const frameRateRef = useRef<number[]>([]);
-
-  // Create pattern and generate positions with improved stability
-  const photosWithPositions = useMemo(() => {
-    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
-    const patternState = pattern.generatePositions(animationTime);
-    
-    const result: PhotoWithPosition[] = [];
-    
-    // Generate positions for both real photos and empty slots
-    for (let i = 0; i < settings.photoCount; i++) {
-      const position = patternState.positions[i] || [0, -100, 0];
-      const rotation = patternState.rotations?.[i] || [0, 0, 0];
-      
-      if (i < photos.length) {
-        // Real photo
-        result.push({
-          ...photos[i],
-          targetPosition: position,
-          targetRotation: rotation,
-        });
-      } else {
-        // Empty slot
-        result.push({
-          id: `empty-${i}`,
-          url: '',
-          targetPosition: position,
-          targetRotation: rotation,
-        });
-      }
-    }
-    
-    return result;
-  }, [photos, settings, animationTime]);
-
-  // Improved stable animation loop with frame rate monitoring
-  useEffect(() => {
-    if (!settings.animationEnabled) {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = undefined;
-      }
-      return;
-    }
-
-    const animate = (currentTime: number) => {
-      if (lastTimeRef.current === 0) {
-        lastTimeRef.current = currentTime;
-      }
-      
-      const deltaTime = (currentTime - lastTimeRef.current) / 1000;
-      lastTimeRef.current = currentTime;
-      
-      // Frame rate monitoring
-      const fps = 1 / deltaTime;
-      frameRateRef.current.push(fps);
-      if (frameRateRef.current.length > 60) {
-        frameRateRef.current.shift();
-      }
-      
-      // Smooth animation with frame rate consideration
-      // Use a fixed delta time if frame rate drops too low
-      const effectiveDelta = Math.min(deltaTime, 1/20); 
-      
-      setAnimationTime(prev => prev + effectiveDelta);
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    lastTimeRef.current = 0;
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [settings.animationEnabled]);
-
-  // Reset animation time when pattern changes
-  useEffect(() => {
-    setAnimationTime(0);
-    lastTimeRef.current = 0;
-    frameRateRef.current = [];
-  }, [settings.animationPattern]);
-
-  return (
-    <div className="w-full h-full">
-      <Canvas
-        shadows
-        camera={{ position: [25, 10, 25], fov: 75 }}
-        gl={{ 
-          antialias: true, 
-          alpha: false,
-          powerPreference: "high-performance"
-        }}
-        onCreated={(state) => {
-          state.gl.shadowMap.enabled = true;
-          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
-          state.gl.pixelRatio = Math.min(window.devicePixelRatio, 2); // Limit for better performance
-        }}
-      >
-        <Scene 
-          photosWithPositions={photosWithPositions}
-          settings={settings}
-          animationTime={animationTime}
-        />
-      </Canvas>
-    </div>
-  );
-};
-
-export default CollageScene;
