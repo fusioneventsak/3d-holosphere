@@ -23,17 +23,12 @@ type PhotoWithPosition = Photo & {
   targetRotation: [number, number, number];
 };
 
-// Reduced smoothing values for stability
-const POSITION_SMOOTHING = 0.08;
-const ROTATION_SMOOTHING = 0.05;
-
-// PhotoMesh component with teleport detection for float pattern
+// Simplified PhotoMesh component without teleport detection
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
-  pattern: string;
-}> = ({ photo, size, emptySlotColor, pattern }) => {
+}> = ({ photo, size, emptySlotColor }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +67,7 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Animation with pattern-specific handling
+  // Smooth animation with consistent smoothing
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -80,19 +75,10 @@ const PhotoMesh: React.FC<{
     const targetPos = photo.targetPosition;
     const targetRot = photo.targetRotation;
 
-    // Special handling for float pattern to prevent downward animation
-    if (pattern === 'float') {
-      const yDistance = Math.abs(targetPos[1] - currentPos.y);
-      
-      // If Y distance is large (teleport case), set position immediately
-      if (yDistance > 30) {
-        meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
-        meshRef.current.rotation.set(targetRot[0], targetRot[1], targetRot[2]);
-        return;
-      }
-    }
+    // Consistent smooth interpolation for all patterns
+    const POSITION_SMOOTHING = 0.1;
+    const ROTATION_SMOOTHING = 0.08;
 
-    // Normal smooth interpolation for all patterns
     meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
     meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
     meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
@@ -307,7 +293,6 @@ const Scene: React.FC<{
           photo={photo}
           size={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
-          pattern={settings.animationPattern}
         />
       ))}
     </>
