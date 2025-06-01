@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { SpotLight } from '@react-three/drei';
+import { type SceneSettings } from '../../store/sceneStore';
 
 const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightPositions = useMemo(() => {
