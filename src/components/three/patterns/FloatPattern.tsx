@@ -9,6 +9,7 @@ type FloatParams = {
   y: number;
   speed: number;
   phase: number;
+  driftRadius: number;
 };
 
 export class FloatPattern extends BasePattern {
@@ -26,9 +27,10 @@ export class FloatPattern extends BasePattern {
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      y: FLOAT_MIN_HEIGHT + Math.random() * 10,
-      speed: 0.8 + Math.random() * 0.4,
-      phase: Math.random() * Math.PI * 2
+      y: FLOAT_MIN_HEIGHT + Math.random() * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT),
+      speed: 0.5 + Math.random() * 0.5, // More consistent speed range
+      phase: Math.random() * Math.PI * 2,
+      driftRadius: 2 + Math.random() * 3 // Random drift radius for each photo
     }));
   }
 
@@ -36,32 +38,24 @@ export class FloatPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
-    // Only animate if enabled
-    if (!this.settings.animationEnabled) {
-      return {
-        positions: this.floatParams.map(param => [param.x, param.y, param.z]),
-        rotations: this.floatParams.map(() => [0, 0, 0])
-      };
-    }
-
-    const normalizedSpeed = this.settings.animationSpeed / 10;
-    const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
+    // Scale animation speed based on settings (0-100%)
+    const speedMultiplier = this.settings.animationSpeed / 50;
+    const animationTime = this.settings.animationEnabled ? time * speedMultiplier : 0;
 
     for (const param of this.floatParams) {
-      // Calculate vertical position with normalized speed
-      let y = param.y + (time * normalizedSpeed * param.speed);
+      // Calculate base vertical position
+      let y = param.y + (animationTime * param.speed);
       
       // Wrap around when reaching the top
-      while (y > FLOAT_MAX_HEIGHT) {
-        y = FLOAT_MIN_HEIGHT + (y - FLOAT_MAX_HEIGHT);
-      }
+      const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
+      y = ((y - FLOAT_MIN_HEIGHT) % totalHeight) + FLOAT_MIN_HEIGHT;
 
-      // Add horizontal drift
-      const xOffset = Math.sin(time * 0.2 + param.phase) * 2;
-      const zOffset = Math.cos(time * 0.2 + param.phase) * 2;
+      // Add horizontal drift using param.driftRadius
+      const driftX = Math.sin(animationTime * 0.5 + param.phase) * param.driftRadius;
+      const driftZ = Math.cos(animationTime * 0.5 + param.phase + Math.PI/4) * param.driftRadius;
 
-      const x = param.x + xOffset;
-      const z = param.z + zOffset;
+      const x = param.x + driftX;
+      const z = param.z + driftZ;
 
       positions.push([x, y, z]);
 
