@@ -154,62 +154,61 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Improved lighting component
+// Improved lighting component with proper spotlight setup
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightRefs = useRef<THREE.SpotLight[]>([]);
 
   // Create spotlights based on settings
   const spotlights = useMemo(() => {
     const lights = [];
-    for (let i = 0; i < settings.spotlightCount; i++) {
-      const angle = (i / settings.spotlightCount) * Math.PI * 2;
+    const count = Math.min(settings.spotlightCount, 4); // Max 4 spotlights
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
       const x = Math.cos(angle) * settings.spotlightDistance;
       const z = Math.sin(angle) * settings.spotlightDistance;
       
       lights.push({
-        key: i,
+        key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
+        target: [0, 0, 0] as [number, number, number], // All lights point to center
       });
     }
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight]);
 
-  // Update spotlight properties when settings change
-  useEffect(() => {
-    spotlightRefs.current.forEach(spotlight => {
-      if (spotlight) {
-        spotlight.intensity = settings.spotlightIntensity;
-        spotlight.angle = settings.spotlightAngle;
-        spotlight.penumbra = settings.spotlightPenumbra;
-        spotlight.color.set(settings.spotlightColor);
-      }
-    });
-  }, [
-    settings.spotlightIntensity,
-    settings.spotlightAngle,
-    settings.spotlightPenumbra,
-    settings.spotlightColor
-  ]);
-
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
       {spotlights.map((light, index) => (
-        <spotLight
-          key={light.key}
-          ref={(el) => {
-            if (el) spotlightRefs.current[index] = el;
-          }}
-          position={light.position}
-          angle={settings.spotlightAngle}
-          penumbra={settings.spotlightPenumbra}
-          intensity={settings.spotlightIntensity}
-          color={settings.spotlightColor}
-          castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-          shadow-bias={-0.0001}
-        />
+        <group key={light.key}>
+          <spotLight
+            ref={(el) => {
+              if (el) spotlightRefs.current[index] = el;
+            }}
+            position={light.position}
+            target-position={light.target}
+            angle={settings.spotlightWidth} // Use spotlightWidth for the cone angle
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity / 10} // Scale down intensity for realistic lighting
+            color={settings.spotlightColor}
+            distance={settings.spotlightDistance * 2}
+            decay={2}
+            castShadow
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 3}
+            shadow-bias={-0.0001}
+          />
+          {/* Optional: Add visible light helpers for debugging */}
+          {process.env.NODE_ENV === 'development' && (
+            <mesh position={light.position}>
+              <sphereGeometry args={[1, 8, 8]} />
+              <meshBasicMaterial color={settings.spotlightColor} />
+            </mesh>
+          )}
+        </group>
       ))}
     </>
   );
@@ -455,7 +454,18 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 
   return (
     <div style={backgroundStyle} className="w-full h-full">
-      <Canvas shadows>
+      <Canvas 
+        shadows
+        gl={{ 
+          antialias: true, 
+          alpha: false,
+          shadowMap: true,
+        }}
+        onCreated={({ gl }) => {
+          gl.shadowMap.enabled = true;
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
+        }}
+      >
         <CameraController settings={settings} />
         <SceneLighting settings={settings} />
         <Floor settings={settings} />
