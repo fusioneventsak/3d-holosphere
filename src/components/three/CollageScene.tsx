@@ -32,8 +32,26 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   canvas.width = 256;
   canvas.height = 456;
   const ctx = canvas.getContext('2d')!;
+  
+  // Fill background
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add a subtle border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+  
+  // Add a "+" symbol in the center
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 3;
+  const size = 40;
+  ctx.beginPath();
+  ctx.moveTo(canvas.width/2 - size, canvas.height/2);
+  ctx.lineTo(canvas.width/2 + size, canvas.height/2);
+  ctx.moveTo(canvas.width/2, canvas.height/2 - size);
+  ctx.lineTo(canvas.width/2, canvas.height/2 + size);
+  ctx.stroke();
   
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -120,6 +138,7 @@ type Photo3D = {
   url: string;
   position: [number, number, number];
   rotation?: [number, number, number];
+  isEmpty?: boolean;
 };
 
 interface CollageSceneProps {
@@ -162,7 +181,12 @@ const PhotoMesh: React.FC<{
   photo: Photo3D;
   settings: SceneSettings;
 }> = React.memo(({ photo, settings }) => {
-  const texture = useMemo(() => loadTexture(photo.url, settings.emptySlotColor), [photo.url, settings.emptySlotColor]);
+  const texture = useMemo(() => {
+    if (photo.isEmpty) {
+      return createEmptySlotTexture(settings.emptySlotColor);
+    }
+    return loadTexture(photo.url, settings.emptySlotColor);
+  }, [photo.url, photo.isEmpty, settings.emptySlotColor]);
 
   return (
     <mesh
@@ -173,6 +197,7 @@ const PhotoMesh: React.FC<{
       <meshStandardMaterial
         map={texture}
         transparent
+        opacity={photo.isEmpty ? 0.3 : 1}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -204,11 +229,31 @@ const Scene: React.FC<{
 
     const { positions, rotations } = patternRef.current.generatePositions(timeRef.current);
 
-    const newPhotos3D = photos.slice(0, settings.photoCount).map((photo, i) => ({
-      ...photo,
-      position: positions[i] || [0, 0, 0],
-      rotation: rotations?.[i] || [0, 0, 0]
-    }));
+    // Create array with both real photos and empty slots
+    const newPhotos3D: Photo3D[] = [];
+    
+    // Add actual photos
+    photos.slice(0, settings.photoCount).forEach((photo, i) => {
+      newPhotos3D.push({
+        ...photo,
+        position: positions[i] || [0, 0, 0],
+        rotation: rotations?.[i] || [0, 0, 0],
+        isEmpty: false
+      });
+    });
+    
+    // Add empty slots to fill up to photoCount
+    const emptySlots = Math.max(0, settings.photoCount - photos.length);
+    for (let i = 0; i < emptySlots; i++) {
+      const index = photos.length + i;
+      newPhotos3D.push({
+        id: `empty-${i}`,
+        url: '',
+        position: positions[index] || [0, 0, 0],
+        rotation: rotations?.[index] || [0, 0, 0],
+        isEmpty: true
+      });
+    }
 
     setPhotos3D(newPhotos3D);
   });
