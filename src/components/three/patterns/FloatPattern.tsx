@@ -44,34 +44,30 @@ export class FloatPattern extends BasePattern {
       };
     }
 
-    const normalizedSpeed = this.settings.animationSpeed / 50;
+    const normalizedSpeed = this.settings.animationSpeed / 10;
     const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
 
     for (const param of this.floatParams) {
-      // Calculate vertical position
+      // Calculate vertical position with normalized speed
       let y = param.y + (time * normalizedSpeed * param.speed);
       
       // Wrap around when reaching the top
-      const heightCycle = Math.floor(y / totalHeight);
-      y = y - (heightCycle * totalHeight);
-      
-      if (y > FLOAT_MAX_HEIGHT) {
+      while (y > FLOAT_MAX_HEIGHT) {
         y = FLOAT_MIN_HEIGHT + (y - FLOAT_MAX_HEIGHT);
       }
 
       // Add horizontal drift
-      const xOffset = Math.sin(time * 0.5 + param.phase) * 2;
-      const zOffset = Math.cos(time * 0.5 + param.phase) * 2;
+      const xOffset = Math.sin(time * 0.2 + param.phase) * 2;
+      const zOffset = Math.cos(time * 0.2 + param.phase) * 2;
 
-      positions.push([
-        param.x + xOffset,
-        y,
-        param.z + zOffset
-      ]);
+      const x = param.x + xOffset;
+      const z = param.z + zOffset;
+
+      positions.push([x, y, z]);
 
       // Calculate rotation to face camera if enabled
       if (this.settings.photoRotation) {
-        const angle = Math.atan2(xOffset, zOffset);
+        const angle = Math.atan2(x, z);
         rotations.push([0, angle, 0]);
       } else {
         rotations.push([0, 0, 0]);

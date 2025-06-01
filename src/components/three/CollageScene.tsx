@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { SpotLight, OrbitControls } from '@react-three/drei';
+import { SpotLight, OrbitControls, Grid } from '@react-three/drei';
 import { type SceneSettings } from '../../store/sceneStore';
 import { type Photo } from './patterns/BasePattern';
 import { PatternFactory } from './patterns/PatternFactory';
@@ -19,36 +19,33 @@ interface CollageSceneProps {
 }
 
 const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const spotlightPositions = useMemo(() => {
-    const radius = settings.floorSize / 2;
-    const height = settings.spotlightHeight;
-    
-    // Calculate positions for 4 corners
-    return [
-      [-radius, height, -radius], // Back Left
-      [radius, height, -radius],  // Back Right
-      [-radius, height, radius],  // Front Left
-      [radius, height, radius],   // Front Right
-    ];
-  }, [settings.floorSize, settings.spotlightHeight]);
-
+  const spotlightCount = settings.spotlightCount;
+  const radius = settings.spotlightDistance;
+  const height = settings.spotlightHeight;
+  
   return (
-    <group>
-      {spotlightPositions.map((position, index) => (
-        <SpotLight
-          key={index}
-          position={position}
-          angle={settings.spotlightAngle}
-          penumbra={settings.spotlightPenumbra}
-          intensity={settings.spotlightIntensity}
-          color={settings.spotlightColor}
-          distance={settings.spotlightDistance * 2}
-          attenuation={2}
-          anglePower={8}
-          target-position={[0, 0, 0]}
-        />
-      ))}
-    </group>
+    <>
+      {Array.from({ length: spotlightCount }).map((_, index) => {
+        const angle = (index / spotlightCount) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        return (
+          <SpotLight
+            key={index}
+            position={[x, height, z]}
+            angle={settings.spotlightAngle}
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity}
+            color={settings.spotlightColor}
+            distance={radius * 2}
+            attenuation={5}
+            anglePower={5}
+            target-position={[0, 0, 0]}
+          />
+        );
+      })}
+    </>
   );
 };
 
@@ -106,7 +103,7 @@ const Scene: React.FC<{
     if (!patternRef.current) return;
 
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta() * settings.animationSpeed;
+      timeRef.current += state.clock.getDelta();
     }
 
     const { positions, rotations } = patternRef.current.generatePositions(timeRef.current);
@@ -134,6 +131,21 @@ const Scene: React.FC<{
             roughness={settings.floorRoughness}
           />
         </mesh>
+      )}
+
+      {/* Grid */}
+      {settings.gridEnabled && (
+        <Grid
+          position={[0, -1.99, 0]}
+          args={[settings.gridSize, settings.gridSize]}
+          cellSize={settings.gridSize / settings.gridDivisions}
+          cellThickness={0.5}
+          cellColor={settings.gridColor}
+          sectionSize={Math.ceil(settings.gridDivisions / 10)}
+          fadeDistance={30}
+          fadeStrength={1}
+          infiniteGrid={false}
+        />
       )}
 
       {/* Photos */}
