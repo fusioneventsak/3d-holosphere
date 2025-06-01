@@ -10,6 +10,7 @@ type FloatParams = {
   speed: number;
   phase: number;
   driftRadius: number;
+  rotationSpeed: number;
 };
 
 export class FloatPattern extends BasePattern {
@@ -30,7 +31,8 @@ export class FloatPattern extends BasePattern {
       y: FLOAT_MIN_HEIGHT + Math.random() * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT),
       speed: 0.5 + Math.random() * 0.5,
       phase: Math.random() * Math.PI * 2,
-      driftRadius: 2 + Math.random() * 3
+      driftRadius: 2 + Math.random() * 3,
+      rotationSpeed: 0.2 + Math.random() * 0.3
     }));
   }
 
@@ -61,8 +63,10 @@ export class FloatPattern extends BasePattern {
 
       // Calculate rotation to face camera if enabled
       if (this.settings.photoRotation) {
-        const angle = Math.atan2(x, z);
-        rotations.push([0, angle, 0]);
+        const rotationY = Math.atan2(x, z);
+        const rotationX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.1;
+        const rotationZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.1;
+        rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
       }
