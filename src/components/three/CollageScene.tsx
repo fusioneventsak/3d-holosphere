@@ -23,15 +23,17 @@ type PhotoWithPosition = Photo & {
   targetRotation: [number, number, number];
 };
 
-const POSITION_SMOOTHING = 0.15;
-const ROTATION_SMOOTHING = 0.1;
+// Reduced smoothing values for stability
+const POSITION_SMOOTHING = 0.08;
+const ROTATION_SMOOTHING = 0.05;
 
-// PhotoMesh component with teleport detection
+// PhotoMesh component with teleport detection for float pattern
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
-}> = ({ photo, size, emptySlotColor }) => {
+  pattern: string;
+}> = ({ photo, size, emptySlotColor, pattern }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +41,10 @@ const PhotoMesh: React.FC<{
 
   // Load texture
   useEffect(() => {
-    if (!photo.url) return;
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
 
     const loader = new THREE.TextureLoader();
     setIsLoading(true);
@@ -67,7 +72,7 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Animation with teleport detection
+  // Animation with pattern-specific handling
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -75,23 +80,26 @@ const PhotoMesh: React.FC<{
     const targetPos = photo.targetPosition;
     const targetRot = photo.targetRotation;
 
-    // Calculate distance to detect teleports
-    const yDistance = Math.abs(targetPos[1] - currentPos.y);
-    
-    // If Y distance is large (>30 units), treat as teleport and set position immediately
-    if (yDistance > 30) {
-      meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
-      meshRef.current.rotation.set(targetRot[0], targetRot[1], targetRot[2]);
-    } else {
-      // Normal smooth interpolation
-      meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-      meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-      meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
-
-      meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
-      meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
-      meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+    // Special handling for float pattern to prevent downward animation
+    if (pattern === 'float') {
+      const yDistance = Math.abs(targetPos[1] - currentPos.y);
+      
+      // If Y distance is large (teleport case), set position immediately
+      if (yDistance > 30) {
+        meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
+        meshRef.current.rotation.set(targetRot[0], targetRot[1], targetRot[2]);
+        return;
+      }
     }
+
+    // Normal smooth interpolation for all patterns
+    meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+    meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+    meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
+
+    meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
+    meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
+    meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
   });
 
   // Create material based on state
@@ -106,7 +114,7 @@ const PhotoMesh: React.FC<{
   }, [texture, isLoading, hasError, emptySlotColor]);
 
   return (
-    <mesh ref={meshRef} material={material}>
+    <mesh ref={meshRef} material={material} castShadow>
       <planeGeometry args={[size, size * (9/16)]} />
     </mesh>
   );
@@ -149,7 +157,6 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           castShadow
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
-          target-position={[0, 0, 0]}
         />
       ))}
     </>
@@ -201,7 +208,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   const { camera } = useThree();
   const controlsRef = useRef<any>();
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     if (!settings.cameraEnabled) return;
 
     if (settings.cameraRotationEnabled) {
@@ -284,7 +291,8 @@ const Background: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 const Scene: React.FC<{
   photosWithPositions: PhotoWithPosition[];
   settings: SceneSettings;
-}> = ({ photosWithPositions, settings }) => {
+  animationTime: number;
+}> = ({ photosWithPositions, settings, animationTime }) => {
   return (
     <>
       <Background settings={settings} />
@@ -299,6 +307,7 @@ const Scene: React.FC<{
           photo={photo}
           size={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
+          pattern={settings.animationPattern}
         />
       ))}
     </>
@@ -311,12 +320,14 @@ const CollageScene: React.FC<CollageSceneProps> = ({
   settings,
   onSettingsChange,
 }) => {
-  const [time, setTime] = useState(0);
+  const [animationTime, setAnimationTime] = useState(0);
+  const animationRef = useRef<number>();
+  const lastTimeRef = useRef<number>(0);
 
   // Create pattern and generate positions
   const photosWithPositions = useMemo(() => {
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
-    const patternState = pattern.generatePositions(time);
+    const patternState = pattern.generatePositions(animationTime);
     
     const result: PhotoWithPosition[] = [];
     
@@ -340,18 +351,46 @@ const CollageScene: React.FC<CollageSceneProps> = ({
     }
     
     return result;
-  }, [photos, settings, time]);
+  }, [photos, settings, animationTime]);
 
-  // Animation loop
+  // Stable animation loop
   useEffect(() => {
-    if (!settings.animationEnabled) return;
+    if (!settings.animationEnabled) {
+      setAnimationTime(0);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = undefined;
+      }
+      return;
+    }
 
-    const interval = setInterval(() => {
-      setTime(prev => prev + 0.016); // ~60fps
-    }, 16);
+    const animate = (currentTime: number) => {
+      if (lastTimeRef.current === 0) {
+        lastTimeRef.current = currentTime;
+      }
+      
+      const deltaTime = (currentTime - lastTimeRef.current) / 1000;
+      lastTimeRef.current = currentTime;
+      
+      setAnimationTime(prev => prev + deltaTime);
+      animationRef.current = requestAnimationFrame(animate);
+    };
 
-    return () => clearInterval(interval);
+    lastTimeRef.current = 0;
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
   }, [settings.animationEnabled]);
+
+  // Reset animation time when pattern changes
+  useEffect(() => {
+    setAnimationTime(0);
+    lastTimeRef.current = 0;
+  }, [settings.animationPattern]);
 
   return (
     <div className="w-full h-full">
@@ -363,10 +402,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({
           alpha: false,
           powerPreference: "high-performance"
         }}
+        onCreated={(state) => {
+          state.gl.shadowMap.enabled = true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+        }}
       >
         <Scene 
           photosWithPositions={photosWithPositions}
           settings={settings}
+          animationTime={animationTime}
         />
       </Canvas>
     </div>
