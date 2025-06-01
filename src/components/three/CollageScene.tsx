@@ -154,9 +154,10 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Improved lighting component with actual lighting effects
+// Enhanced lighting component with proper spotlight setup
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightRefs = useRef<THREE.SpotLight[]>([]);
+  const targetRefs = useRef<THREE.Object3D[]>([]);
 
   // Create spotlights based on settings
   const spotlights = useMemo(() => {
@@ -171,91 +172,121 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       lights.push({
         key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, 0, 0] as [number, number, number],
+        target: [0, settings.wallHeight / 2, 0] as [number, number, number],
       });
     }
     return lights;
-  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight]);
+  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
 
   return (
     <>
-      <ambientLight intensity={settings.ambientLightIntensity} />
+      {/* Ambient light for general scene illumination */}
+      <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
+      
+      {/* Directional light for overall scene lighting */}
+      <directionalLight
+        position={[10, 20, 10]}
+        intensity={0.3}
+        color="#ffffff"
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-far={100}
+        shadow-camera-left={-50}
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
+      />
+      
+      {/* Dynamic spotlights */}
       {spotlights.map((light, index) => (
-        <spotLight
-          key={light.key}
-          ref={(el) => {
-            if (el) spotlightRefs.current[index] = el;
-          }}
-          position={light.position}
-          target-position={light.target}
-          angle={settings.spotlightWidth}
-          penumbra={settings.spotlightPenumbra}
-          intensity={settings.spotlightIntensity}
-          color={settings.spotlightColor}
-          distance={100}
-          decay={2}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-near={1}
-          shadow-camera-far={100}
-          shadow-bias={-0.0001}
-        />
+        <group key={light.key}>
+          {/* Target object for spotlight to aim at */}
+          <object3D
+            ref={(el) => {
+              if (el) targetRefs.current[index] = el;
+            }}
+            position={light.target}
+          />
+          
+          <spotLight
+            ref={(el) => {
+              if (el) {
+                spotlightRefs.current[index] = el;
+                // Set target after both spotlight and target are created
+                if (targetRefs.current[index]) {
+                  el.target = targetRefs.current[index];
+                }
+              }
+            }}
+            position={light.position}
+            angle={settings.spotlightWidth}
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity / 100} // Convert from 0-100 to 0-1
+            color={settings.spotlightColor}
+            distance={settings.spotlightDistance * 2}
+            decay={1.5}
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-near={1}
+            shadow-camera-far={settings.spotlightDistance * 2}
+            shadow-bias={-0.0001}
+          />
+        </group>
       ))}
     </>
   );
 };
 
-// Floor component with improved material
+// Enhanced floor component with reflection support
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
+  const floorMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: settings.floorColor,
+      transparent: settings.floorOpacity < 1,
+      opacity: settings.floorOpacity,
+      metalness: settings.floorMetalness,
+      roughness: settings.floorRoughness,
+      side: THREE.DoubleSide,
+    });
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
+
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow material={floorMaterial}>
       <planeGeometry args={[settings.floorSize, settings.floorSize]} />
-      <meshStandardMaterial
-        color={settings.floorColor}
-        transparent
-        opacity={settings.floorOpacity}
-        metalness={settings.floorMetalness}
-        roughness={settings.floorRoughness}
-        side={THREE.DoubleSide}
-      />
     </mesh>
   );
 };
 
-// Grid component with better visuals
+// Enhanced grid component
 const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.gridEnabled) return null;
 
-  const gridRef = useRef<THREE.Object3D>();
-  
-  useEffect(() => {
-    if (gridRef.current) {
-      const gridHelper = gridRef.current as THREE.GridHelper;
-      const material = gridHelper.material as THREE.LineBasicMaterial;
-      material.transparent = true;
-      material.opacity = settings.gridOpacity;
-      material.color = new THREE.Color(settings.gridColor);
-    }
-  }, [settings.gridOpacity, settings.gridColor]);
+  const gridHelper = useMemo(() => {
+    const helper = new THREE.GridHelper(
+      settings.gridSize,
+      settings.gridDivisions,
+      settings.gridColor,
+      settings.gridColor
+    );
+    
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.transparent = true;
+    material.opacity = settings.gridOpacity;
+    material.color = new THREE.Color(settings.gridColor);
+    
+    helper.position.y = 0.01; // Slightly above floor to prevent z-fighting
+    
+    return helper;
+  }, [settings.gridSize, settings.gridDivisions, settings.gridColor, settings.gridOpacity]);
 
-  return (
-    <gridHelper
-      ref={gridRef}
-      args={[
-        settings.gridSize,
-        settings.gridDivisions,
-        settings.gridColor,
-        settings.gridColor
-      ]}
-      position={[0, 0.01, 0]} // Slightly above floor to prevent z-fighting
-    />
-  );
+  return <primitive object={gridHelper} />;
 };
 
-// Fixed camera controller with continuous auto-rotation and dynamic zoom
+// Enhanced camera controller with smooth transitions
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
@@ -387,6 +418,35 @@ const AnimationController: React.FC<{
   return null;
 };
 
+// Background component to handle gradient rendering
+const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { scene, gl } = useThree();
+  
+  useEffect(() => {
+    if (settings.backgroundGradient) {
+      // For gradients, we'll use CSS background on the canvas container
+      // and set the scene background to transparent
+      scene.background = null;
+    } else {
+      // For solid colors, set the scene background directly
+      scene.background = new THREE.Color(settings.backgroundColor);
+    }
+    
+    // Update the renderer clear color
+    gl.setClearColor(settings.backgroundGradient ? 'transparent' : settings.backgroundColor);
+  }, [
+    scene, 
+    gl, 
+    settings.backgroundColor, 
+    settings.backgroundGradient,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
+  return null;
+};
+
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
@@ -426,25 +486,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     setPhotosWithPositions(initialPhotosWithPositions);
   }, [initialPhotosWithPositions]);
 
-  // Create background style
-  const backgroundStyle = useMemo(() => {
-    if (settings.backgroundGradient) {
-      return {
-        background: `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`
-      };
-    }
-    return {
-      background: settings.backgroundColor
-    };
-  }, [
-    settings.backgroundGradient,
-    settings.backgroundColor,
-    settings.backgroundGradientStart,
-    settings.backgroundGradientEnd,
-    settings.backgroundGradientAngle
-  ]);
-
-  // Create background style with proper gradient support
+  // Create background style for gradient support
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
       return {
@@ -468,14 +510,16 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         shadows
         gl={{ 
           antialias: true, 
-          alpha: false,
+          alpha: settings.backgroundGradient, // Enable alpha for gradients
+          premultipliedAlpha: false,
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
-          gl.setClearColor(settings.backgroundGradient ? '#000000' : settings.backgroundColor);
+          gl.shadowMap.autoUpdate = true;
         }}
       >
+        <BackgroundRenderer settings={settings} />
         <CameraController settings={settings} />
         <SceneLighting settings={settings} />
         <Floor settings={settings} />
