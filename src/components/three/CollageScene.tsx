@@ -459,7 +459,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         gl={{ 
           antialias: true, 
           alpha: false,
-          shadowMap: true,
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
