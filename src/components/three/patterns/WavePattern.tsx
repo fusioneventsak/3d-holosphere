@@ -6,28 +6,47 @@ export class WavePattern extends BasePattern {
     const totalPhotos = Math.min(this.settings.photoCount, 500);
     const spacing = this.settings.photoSize * (1 + this.settings.photoSpacing);
     
-    const patternSettings = this.settings.patterns.wave;
+    // Calculate grid dimensions based on total photos
     const columns = Math.ceil(Math.sqrt(totalPhotos));
     const rows = Math.ceil(totalPhotos / columns);
-    const frequency = patternSettings.frequency;
-    const amplitude = patternSettings.amplitude;
     
+    // Get wave parameters from settings
+    const amplitude = this.settings.patterns.wave.amplitude;
+    const frequency = this.settings.patterns.wave.frequency;
+    
+    // Scale animation speed based on settings (0-100%)
+    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    const wavePhase = time * speedMultiplier;
+    
+    // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
+      
+      // Calculate base grid position
       const x = (col - columns / 2) * spacing;
       const z = (row - rows / 2) * spacing;
-      let y = this.settings.wallHeight;
       
-      if (this.settings.animationEnabled) {
-        const wavePhase = time * patternSettings.animationSpeed;
-        const distanceFromCenter = Math.sqrt(x * x + z * z);
-        y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
-      }
+      // Calculate wave height based on distance from center
+      const distanceFromCenter = Math.sqrt(x * x + z * z);
+      const y = this.settings.wallHeight + 
+        (this.settings.animationEnabled 
+          ? Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude
+          : 0);
       
       positions.push([x, y, z]);
     }
 
-    return { positions };
+    // Calculate rotations if photo rotation is enabled
+    const rotations = this.settings.photoRotation ? positions.map(([x, y, z]) => {
+      const angle = Math.atan2(x, z);
+      return [
+        Math.sin(time * 0.5) * 0.1,
+        angle,
+        Math.cos(time * 0.5) * 0.1
+      ] as [number, number, number];
+    }) : undefined;
+
+    return { positions, rotations };
   }
 }
