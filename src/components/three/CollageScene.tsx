@@ -38,13 +38,13 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
   // Add a subtle border
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.lineWidth = 4;
   ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
   
   // Add a "+" symbol in the center
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = 6;
   const size = 40;
   ctx.beginPath();
   ctx.moveTo(canvas.width/2 - size, canvas.height/2);
@@ -197,7 +197,6 @@ const PhotoMesh: React.FC<{
       <meshStandardMaterial
         map={texture}
         transparent
-        opacity={photo.isEmpty ? 0.3 : 1}
         side={THREE.DoubleSide}
       />
     </mesh>
