@@ -264,11 +264,12 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Fixed camera controller with continuous auto-rotation
+// Fixed camera controller with continuous auto-rotation and dynamic zoom
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const rotationTimeRef = useRef(0);
+  const currentRadiusRef = useRef(settings.cameraDistance);
 
   // Update camera position when settings change
   useEffect(() => {
@@ -279,6 +280,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
         settings.cameraDistance
       );
       camera.lookAt(0, settings.cameraHeight * 0.3, 0);
+      currentRadiusRef.current = settings.cameraDistance;
     }
   }, [
     settings.cameraDistance,
@@ -301,12 +303,19 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       // Always increment rotation time for continuous rotation
       rotationTimeRef.current += delta * settings.cameraRotationSpeed;
       
-      const radius = settings.cameraDistance;
+      // Calculate current distance from center (accounting for user zoom)
+      const currentPos = camera.position;
+      const centerTarget = new THREE.Vector3(0, settings.cameraHeight * 0.3, 0);
+      const currentDistance = currentPos.distanceTo(centerTarget);
+      
+      // Update our tracked radius to match current zoom level
+      currentRadiusRef.current = currentDistance;
+      
       const height = settings.cameraHeight;
       
-      // Calculate the auto-rotation target position
-      const autoRotationX = Math.cos(rotationTimeRef.current) * radius;
-      const autoRotationZ = Math.sin(rotationTimeRef.current) * radius;
+      // Calculate the auto-rotation target position using current zoom distance
+      const autoRotationX = Math.cos(rotationTimeRef.current) * currentRadiusRef.current;
+      const autoRotationZ = Math.sin(rotationTimeRef.current) * currentRadiusRef.current;
       
       // Apply auto-rotation as a gentle influence on the camera position
       // This allows manual control while maintaining the rotation
