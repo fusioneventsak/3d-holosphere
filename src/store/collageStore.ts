@@ -62,6 +62,22 @@ const processBatchUpdate = (set: any) => {
   }
 };
 
+// Deep merge utility function
+const deepMerge = (target: any, source: any): any => {
+  if (!source) return target;
+  const output = { ...target };
+  
+  Object.keys(source).forEach(key => {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      output[key] = deepMerge(output[key] || {}, source[key]);
+    } else {
+      output[key] = source[key];
+    }
+  });
+  
+  return output;
+};
+
 export const useCollageStore = create<CollageState>((set, get) => ({
   collages: [],
   currentCollage: null,
@@ -206,7 +222,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const collageWithSettings = {
         ...collage,
-        settings: settings?.settings || defaultSettings
+        settings: settings?.settings ? deepMerge(defaultSettings, settings.settings) : defaultSettings
       } as Collage;
 
       set({ currentCollage: collageWithSettings, loading: false });
@@ -237,7 +253,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const collageWithSettings = {
         ...collage,
-        settings: settings?.settings || defaultSettings
+        settings: settings?.settings ? deepMerge(defaultSettings, settings.settings) : defaultSettings
       } as Collage;
 
       set({ currentCollage: collageWithSettings, loading: false });
@@ -289,24 +305,21 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .eq('collage_id', collageId)
         .single();
 
-      const currentSettings = existingData?.settings || defaultSettings;
+      // Initialize current settings by deep merging default settings with existing settings
+      const currentSettings = deepMerge(defaultSettings, existingData?.settings || {});
 
       // Handle pattern changes
       if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-        Object.keys(currentSettings.patterns).forEach(pattern => {
-          currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
-            pattern === newSettings.animationPattern;
+        Object.keys(currentSettings.patterns || {}).forEach(pattern => {
+          if (currentSettings.patterns[pattern as keyof typeof currentSettings.patterns]) {
+            currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
+              pattern === newSettings.animationPattern;
+          }
         });
       }
 
-      const mergedSettings = {
-        ...currentSettings,
-        ...newSettings,
-        patterns: {
-          ...currentSettings.patterns,
-          ...(newSettings.patterns || {})
-        }
-      };
+      // Deep merge the current settings with new settings
+      const mergedSettings = deepMerge(currentSettings, newSettings);
 
       const { data, error } = await supabase
         .from('collage_settings')
