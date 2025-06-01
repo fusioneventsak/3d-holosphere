@@ -93,15 +93,8 @@ export class FloatPattern extends BasePattern {
 
       positions.push([x, param.y, z]);
 
-      // Calculate rotation to face camera if enabled
-      if (this.settings.photoRotation) {
-        const rotationY = Math.atan2(x, z);
-        const wobbleX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.1;
-        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.1;
-        rotations.push([wobbleX, rotationY, wobbleZ]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
+      // Keep photos straight (no rotation)
+      rotations.push([0, 0, 0]);
     }
 
     return { positions, rotations };
