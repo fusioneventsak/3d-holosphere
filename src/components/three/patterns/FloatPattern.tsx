@@ -1,49 +1,92 @@
 import { BasePattern, type PatternState, type Position } from './BasePattern';
 
+type FloatParams = {
+  x: number;
+  z: number;
+  yOffset: number;
+  speed: number;
+  phase: number;
+  driftRadius: number;
+  rotationSpeed: number;
+};
+
 export class FloatPattern extends BasePattern {
-  private readonly CYCLE_HEIGHT = 60; // Total height of the cycle
-  private readonly VISIBLE_START = -10; // Where photos become visible
-  private readonly VISIBLE_END = 50; // Where photos become invisible
-  private readonly VERTICAL_SPEED = 2;
+  private floatParams: FloatParams[];
+  private readonly MAX_HEIGHT = 60;
+  private readonly MIN_HEIGHT = -5;
+
+  constructor(settings: any, photos: any[]) {
+    super(settings, photos);
+    this.floatParams = this.initializeFloatParams();
+  }
+
+  private initializeFloatParams(): FloatParams[] {
+    const floorSize = this.settings.floorSize * 0.8;
+    const count = Math.min(this.settings.photoCount, 500);
+    
+    return Array(count).fill(0).map(() => ({
+      x: (Math.random() - 0.5) * floorSize,
+      z: (Math.random() - 0.5) * floorSize,
+      yOffset: Math.random() * (this.MAX_HEIGHT - this.MIN_HEIGHT) + this.MIN_HEIGHT,
+      speed: 0.2 + Math.random() * 0.3,
+      phase: Math.random() * Math.PI * 2,
+      driftRadius: 3 + Math.random() * 7,
+      rotationSpeed: 0.1 + Math.random() * 0.2
+    }));
+  }
 
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
+    // Scale animation speed based on settings (0-100%)
+    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 25 : 0;
     const animationTime = time * speedMultiplier;
 
-    const floorSize = this.settings.floorSize * 0.8;
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
-
-    for (let i = 0; i < totalPhotos; i++) {
       // Each photo has a unique offset in the cycle based on its index
-      const cycleOffset = (i / totalPhotos) * this.CYCLE_HEIGHT;
       
       // Calculate the current position in the cycle
-      const cyclePosition = (animationTime * this.VERTICAL_SPEED + cycleOffset) % this.CYCLE_HEIGHT;
       
       // Convert cycle position to world Y coordinate
-      const y = this.VISIBLE_START + cyclePosition;
+    // Generate positions for all slots (both photos and empty slots)
+    for (let i = 0; i < this.settings.photoCount; i++) {
+      const param = this.floatParams[i];
+      if (!param) continue;
+
+      // Update vertical position
+      param.yOffset += param.speed * speedMultiplier * 8;
+
+      // Reset to bottom when reaching max height
+      if (param.yOffset > this.MAX_HEIGHT) {
+        param.yOffset = this.MIN_HEIGHT;
+        param.x = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
+        param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
+        param.phase = Math.random() * Math.PI * 2;
+      }
       
       // Only render photos that are in the visible range
-      if (y >= this.VISIBLE_START && y <= this.VISIBLE_END) {
         // Generate consistent but random-looking X and Z positions based on photo index
-        const seedX = Math.sin(i * 12.9898) * 43758.5453;
-        const seedZ = Math.sin(i * 78.233) * 43758.5453;
-        const x = (seedX - Math.floor(seedX) - 0.5) * floorSize;
-        const z = (seedZ - Math.floor(seedZ) - 0.5) * floorSize;
-        
-        positions.push([x, y, z]);
-        rotations.push([0, 0, 0]);
+      // Add horizontal drift with smooth circular motion
+      const driftX = Math.sin(animationTime * 0.2 + param.phase) * param.driftRadius;
+      const driftZ = Math.cos(animationTime * 0.2 + param.phase + Math.PI/4) * param.driftRadius;
+
+      const x = param.x + driftX;
+      const z = param.z + driftZ;
+
+      positions.push([x, param.yOffset, z]);
+
+      // Calculate rotation to face camera with smooth wobble
+      if (this.settings.photoRotation) {
+        const rotationY = Math.atan2(x, z);
+        const wobbleX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.15;
+        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.15;
+        rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {
         // Hide photos that are outside the visible range
-        positions.push([0, this.VISIBLE_START - 20, 0]);
         rotations.push([0, 0, 0]);
       }
     }
 
     return { positions, rotations };
   }
-}
