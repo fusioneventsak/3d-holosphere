@@ -404,3 +404,33 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     </>
   );
 };
+
+// Main CollageScene component
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+  // Create pattern positions for photos
+  const photosWithPositions = useMemo(() => {
+    const pattern = PatternFactory.createPattern(settings.pattern);
+    return pattern.calculatePositions(photos, settings);
+  }, [photos, settings]);
+
+  return (
+    <Canvas shadows>
+      <CameraController settings={settings} />
+      <SceneLighting settings={settings} />
+      <Floor settings={settings} />
+      <Grid settings={settings} />
+      {photosWithPositions.map((photo) => (
+        <PhotoMesh
+          key={photo.id}
+          photo={photo}
+          size={settings.photoSize}
+          emptySlotColor={settings.emptySlotColor}
+          pattern={settings.pattern}
+          shouldFaceCamera={settings.photosFaceCamera}
+        />
+      ))}
+    </Canvas>
+  );
+};
+
+export default CollageScene;
