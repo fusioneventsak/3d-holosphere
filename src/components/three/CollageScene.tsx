@@ -231,6 +231,7 @@ const Scene: React.FC<{
   const [photos3D, setPhotos3D] = useState<Photo3D[]>([]);
   const patternRef = useRef<any>(null);
   const timeRef = useRef(0);
+  const lastUpdateRef = useRef(Date.now());
 
   useEffect(() => {
     patternRef.current = PatternFactory.createPattern(
@@ -243,8 +244,12 @@ const Scene: React.FC<{
   useFrame((state) => {
     if (!patternRef.current) return;
 
+    const now = Date.now();
+    const deltaTime = (now - lastUpdateRef.current) / 1000; // Convert to seconds
+    lastUpdateRef.current = now;
+
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta() * (settings.animationSpeed / 50);
+      timeRef.current += deltaTime;
     }
 
     const { positions, rotations } = patternRef.current.generatePositions(timeRef.current);

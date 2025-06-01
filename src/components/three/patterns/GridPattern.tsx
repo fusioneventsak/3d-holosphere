@@ -10,10 +10,10 @@ export class GridPattern extends BasePattern {
     const aspectRatio = this.settings.gridAspectRatio;
     const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const rows = Math.ceil(totalPhotos / columns);
-    
-    // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
-    const animationTime = time * speedMultiplier;
+
+    // Base animation speed scaled by settings (0-100%)
+    const speed = this.settings.animationSpeed / 100;
+    const animationTime = time * speed;
     
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;

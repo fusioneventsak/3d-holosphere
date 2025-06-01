@@ -37,9 +37,9 @@ export class FloatPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
-    // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
-    const animationTime = time * speedMultiplier;
+    // Base animation speed scaled by settings (0-100%)
+    const speed = this.settings.animationSpeed / 100;
+    const animationTime = time * speed;
 
     // Generate positions for all slots (both photos and empty slots)
     for (let i = 0; i < this.settings.photoCount; i++) {

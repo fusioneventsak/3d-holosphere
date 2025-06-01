@@ -11,9 +11,9 @@ export class WavePattern extends BasePattern {
     const columns = Math.ceil(Math.sqrt(totalPhotos));
     const rows = Math.ceil(totalPhotos / columns);
     
-    // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationEnabled ? (this.settings.animationSpeed / 100) : 0;
-    const wavePhase = time * speedMultiplier;
+    // Base animation speed scaled by settings (0-100%)
+    const speed = this.settings.animationSpeed / 100;
+    const wavePhase = time * speed;
     
     // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
