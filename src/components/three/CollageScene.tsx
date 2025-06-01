@@ -154,7 +154,7 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Improved lighting component with visible light beams
+// Improved lighting component with actual lighting effects
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightRefs = useRef<THREE.SpotLight[]>([]);
 
@@ -177,82 +177,31 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight]);
 
-  // Create volumetric light beam geometry
-  const createLightBeam = (position: [number, number, number], target: [number, number, number]) => {
-    const beamGeometry = new THREE.ConeGeometry(
-      Math.tan(settings.spotlightWidth / 2) * settings.spotlightHeight, // radius at base
-      settings.spotlightHeight, // height
-      16, // radial segments
-      1, // height segments
-      true // open ended
-    );
-
-    const beamMaterial = new THREE.MeshBasicMaterial({
-      color: settings.spotlightColor,
-      transparent: true,
-      opacity: 0.1 + (settings.spotlightIntensity / 1000), // Very subtle visibility
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    return { geometry: beamGeometry, material: beamMaterial };
-  };
-
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
-      {spotlights.map((light, index) => {
-        const beamData = createLightBeam(light.position, light.target);
-        
-        return (
-          <group key={light.key}>
-            {/* Invisible spotlight for actual lighting */}
-            <spotLight
-              ref={(el) => {
-                if (el) spotlightRefs.current[index] = el;
-              }}
-              position={light.position}
-              target-position={light.target}
-              angle={settings.spotlightWidth}
-              penumbra={settings.spotlightPenumbra}
-              intensity={settings.spotlightIntensity / 10}
-              color={settings.spotlightColor}
-              distance={settings.spotlightDistance * 2}
-              decay={2}
-              castShadow
-              shadow-mapSize-width={2048}
-              shadow-mapSize-height={2048}
-              shadow-camera-near={0.5}
-              shadow-camera-far={settings.spotlightDistance * 3}
-              shadow-bias={-0.0001}
-            />
-            
-            {/* Visible light beam cone */}
-            <mesh
-              position={light.position}
-              rotation={[-Math.PI / 2, 0, Math.atan2(light.target[0] - light.position[0], light.target[2] - light.position[2])]}
-              geometry={beamData.geometry}
-              material={beamData.material}
-            />
-            
-            {/* Additional fog/atmosphere effect around the beam */}
-            <mesh position={light.position}>
-              <sphereGeometry args={[2, 16, 16]} />
-              <meshBasicMaterial
-                color={settings.spotlightColor}
-                transparent
-                opacity={0.05}
-                blending={THREE.AdditiveBlending}
-                depthWrite={false}
-              />
-            </mesh>
-          </group>
-        );
-      })}
-      
-      {/* Add some atmospheric fog for better light beam visibility */}
-      <fog attach="fog" args={[settings.backgroundColor, 20, settings.spotlightDistance * 2]} />
+      {spotlights.map((light, index) => (
+        <spotLight
+          key={light.key}
+          ref={(el) => {
+            if (el) spotlightRefs.current[index] = el;
+          }}
+          position={light.position}
+          target-position={light.target}
+          angle={settings.spotlightWidth}
+          penumbra={settings.spotlightPenumbra}
+          intensity={settings.spotlightIntensity}
+          color={settings.spotlightColor}
+          distance={100}
+          decay={2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-near={1}
+          shadow-camera-far={100}
+          shadow-bias={-0.0001}
+        />
+      ))}
     </>
   );
 };
@@ -495,6 +444,24 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     settings.backgroundGradientAngle
   ]);
 
+  // Create background style with proper gradient support
+  const backgroundStyle = useMemo(() => {
+    if (settings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`
+      };
+    }
+    return {
+      background: settings.backgroundColor
+    };
+  }, [
+    settings.backgroundGradient,
+    settings.backgroundColor,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
   return (
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas 
@@ -506,6 +473,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          gl.setClearColor(settings.backgroundGradient ? '#000000' : settings.backgroundColor);
         }}
       >
         <CameraController settings={settings} />
