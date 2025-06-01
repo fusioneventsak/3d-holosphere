@@ -1,78 +1,62 @@
 import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 export class FloatPattern extends BasePattern {
-  private params: Array<{
-    startX: number;
-    startZ: number;
-    heightOffset: number;
-    speed: number;
-    amplitude: number;
-    phaseX: number;
-    phaseZ: number;
-  }>;
-
-  constructor(settings: any, photos: any[]) {
-    super(settings, photos);
-    this.params = this.initializeParams();
-  }
-
-  private initializeParams() {
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
-    const areaSize = this.settings.floorSize * 0.8;
-    
-    return Array(totalPhotos).fill(0).map(() => ({
-      startX: (Math.random() - 0.5) * areaSize,
-      startZ: (Math.random() - 0.5) * areaSize,
-      heightOffset: Math.random() * 10, // Height variation
-      speed: 0.5 + Math.random() * 0.5, // Varied speed
-      amplitude: 1 + Math.random() * 2, // Movement amplitude
-      phaseX: Math.random() * Math.PI * 2, // Random phase for X movement
-      phaseZ: Math.random() * Math.PI * 2  // Random phase for Z movement
-    }));
-  }
-
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     const totalPhotos = Math.min(this.settings.photoCount, 500);
     
-    // Scale animation speed by settings (0-100%)
+    // Base animation speed scaled by settings (0-100%)
     const speed = this.settings.animationSpeed / 100;
     const animationTime = time * speed;
     
-    // Base height and spacing
-    const baseHeight = 10;
-    const minHeight = 3; // Minimum height above the floor
-    const maxHeight = 40; // Maximum height
+    // Area configuration for spawning photos
+    const spawnRadius = 15; // Radius of the area where photos spawn
+    const riseSpeed = 3; // Base upward speed
+    const maxHeight = 50; // Maximum height before recycling
+    const cycleTime = 20; // Time for one complete cycle
     
     for (let i = 0; i < totalPhotos; i++) {
-      const param = this.params[i] || this.initializeParams()[0];
+      // Create consistent spawn positions based on photo index
+      const angle = (i / totalPhotos) * Math.PI * 2;
+      const radiusVariation = (i % 3) * 2; // Create 3 concentric rings
+      const baseX = Math.cos(angle) * (spawnRadius - radiusVariation);
+      const baseZ = Math.sin(angle) * (spawnRadius - radiusVariation);
       
-      // Calculate floating height with a sine wave
-      const height = baseHeight + minHeight + (param.heightOffset * 2) + 
-        (this.settings.animationEnabled ? 
-          Math.sin(animationTime * param.speed + param.phaseX) * param.amplitude * 3 : 0);
+      // Calculate the photo's position in its rise cycle
+      const photoOffset = (i / totalPhotos) * cycleTime; // Stagger start times
+      const cyclePosition = (animationTime + photoOffset) % cycleTime;
       
-      // Calculate drifting X and Z positions with sine/cosine
-      const driftX = this.settings.animationEnabled ? 
-        Math.sin(animationTime * param.speed * 0.3 + param.phaseX) * param.amplitude * 2 : 0;
+      // Calculate height - photos rise from below floor to max height
+      const heightProgress = cyclePosition / cycleTime;
+      let y = this.settings.wallHeight - 5 + (heightProgress * (maxHeight + 10));
       
-      const driftZ = this.settings.animationEnabled ? 
-        Math.cos(animationTime * param.speed * 0.3 + param.phaseZ) * param.amplitude * 2 : 0;
+      // Add gentle floating motion if animation is enabled
+      let x = baseX;
+      let z = baseZ;
       
-      // Combine base position with drift
-      const x = param.startX + driftX;
-      const y = Math.min(maxHeight, Math.max(minHeight, height));
-      const z = param.startZ + driftZ;
+      if (this.settings.animationEnabled) {
+        // Gentle horizontal drift as photos rise
+        const driftAmount = 2;
+        x += Math.sin(animationTime * 0.5 + i * 0.3) * driftAmount;
+        z += Math.cos(animationTime * 0.3 + i * 0.5) * driftAmount;
+        
+        // Add slight bobbing motion
+        y += Math.sin(animationTime * 2 + i * 0.1) * 0.5;
+      } else {
+        // If animations are disabled, just place them in a static rising pattern
+        y = this.settings.wallHeight + (i * 2) % maxHeight;
+      }
       
       positions.push([x, y, z]);
       
       // Calculate rotation to face camera if enabled
       if (this.settings.photoRotation) {
         const rotationY = Math.atan2(x, z);
-        const wobbleX = Math.sin(animationTime * 0.5 + i * 0.1) * 0.1;
-        const wobbleZ = Math.cos(animationTime * 0.5 + i * 0.1) * 0.1;
-        rotations.push([wobbleX, rotationY, wobbleZ]);
+        // Add gentle rotation as photos float up
+        const rotationX = Math.sin(animationTime * 0.3 + i * 0.1) * 0.05;
+        const rotationZ = Math.cos(animationTime * 0.3 + i * 0.1) * 0.05;
+        rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
       }
