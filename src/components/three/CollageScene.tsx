@@ -27,7 +27,160 @@ type PhotoWithPosition = Photo & {
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 
-// PhotoMesh component with improved transition handling and camera facing
+// VolumetricSpotlight component (as provided)
+const VolumetricSpotlight: React.FC<{
+  position: [number, number, number];
+  target: [number, number, number];
+  angle: number;
+  color: string;
+  intensity: number;
+  distance: number;
+}> = ({ position, target, angle, color, intensity, distance }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  // Calculate cone geometry based on spotlight parameters
+  const coneGeometry = useMemo(() => {
+    const height = distance * 1.5;
+    const radius = Math.tan(angle) * height;
+    return new THREE.ConeGeometry(radius, height, 32, 1, true);
+  }, [angle, distance]);
+
+  // Create volumetric material with transparency
+  const material = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(color) },
+        intensity: { value: intensity * 0.001 },
+      },
+      vertexShader: `
+        varying vec3 vPosition;
+        void main() {
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 color;
+        uniform float intensity;
+        varying vec3 vPosition;
+        
+        void main() {
+          // Create gradient from tip to base
+          float gradient = 1.0 - (vPosition.y + 0.5);
+          gradient = pow(gradient, 2.0);
+          
+          // Create radial fade
+          float radialFade = 1.0 - length(vPosition.xz) * 2.0;
+          radialFade = clamp(radialFade, 0.0, 1.0);
+          
+          float alpha = gradient * radialFade * intensity;
+          gl_FragColor = vec4(color, alpha);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+  }, [color, intensity]);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+    
+    // Position cone at spotlight position
+    meshRef.current.position.set(...position);
+    
+    // Point cone towards target
+    const direction = new THREE.Vector3(...target).sub(new THREE.Vector3(...position));
+    meshRef.current.lookAt(new THREE.Vector3(...position).add(direction));
+    meshRef.current.rotateX(-Math.PI / 2);
+  });
+
+  return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
+};
+
+// New SceneLighting component with volumetric spotlights (as provided)
+const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Create spotlights based on settings
+  const spotlights = useMemo(() => {
+    const lights = [];
+    const count = Math.min(settings.spotlightCount, 4); // Max 4 spotlights
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const x = Math.cos(angle) * settings.spotlightDistance;
+      const z = Math.sin(angle) * settings.spotlightDistance;
+      
+      lights.push({
+        key: `spotlight-${i}`,
+        position: [x, settings.spotlightHeight, z] as [number, number, number],
+        target: [0, settings.wallHeight, 0] as [number, number, number],
+      });
+    }
+    return lights;
+  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
+
+  return (
+    <group ref={groupRef}>
+      {/* Ambient light for general scene illumination */}
+      <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
+      
+      {/* Fog for haze effect */}
+      <fog attach="fog" args={['#000000', 10, 200]} />
+      
+      {/* Main directional light */}
+      <directionalLight
+        position={[20, 30, 20]}
+        intensity={0.5}
+        color="#ffffff"
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
+      />
+      
+      {/* Spotlights with proper setup */}
+      {spotlights.map((light) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target-position={light.target}
+            angle={settings.spotlightWidth}
+            penumbra={settings.spotlightPenumbra}
+            intensity={settings.spotlightIntensity * 0.02} // Increased intensity
+            color={settings.spotlightColor}
+            distance={settings.spotlightDistance * 2}
+            decay={2}
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 3}
+            shadow-bias={-0.0001}
+          />
+          {/* Volumetric cone for visible beam */}
+          <VolumetricSpotlight
+            position={light.position}
+            target={light.target}
+            angle={settings.spotlightWidth}
+            color={settings.spotlightColor}
+            intensity={settings.spotlightIntensity}
+            distance={settings.spotlightDistance}
+          />
+        </group>
+      ))}
+    </group>
+  );
+};
+
+// PhotoMesh component (unchanged from original)
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -154,75 +307,7 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Enhanced lighting component with working spotlights
-const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const groupRef = useRef<THREE.Group>(null);
-
-  // Create spotlights based on settings
-  const spotlights = useMemo(() => {
-    const lights = [];
-    const count = Math.min(settings.spotlightCount, 4); // Max 4 spotlights
-    
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle) * settings.spotlightDistance;
-      const z = Math.sin(angle) * settings.spotlightDistance;
-      
-      lights.push({
-        key: `spotlight-${i}`,
-        position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, settings.wallHeight, 0] as [number, number, number],
-      });
-    }
-    return lights;
-  }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
-
-  return (
-    <group ref={groupRef}>
-      {/* Ambient light for general scene illumination */}
-      <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
-      
-      {/* Main directional light */}
-      <directionalLight
-        position={[20, 30, 20]}
-        intensity={0.5}
-        color="#ffffff"
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-far={200}
-        shadow-camera-left={-100}
-        shadow-camera-right={100}
-        shadow-camera-top={100}
-        shadow-camera-bottom={-100}
-        shadow-bias={-0.0001}
-      />
-      
-      {/* Spotlights with proper setup */}
-      {spotlights.map((light, index) => (
-        <spotLight
-          key={light.key}
-          position={light.position}
-          target-position={light.target}
-          angle={settings.spotlightWidth}
-          penumbra={settings.spotlightPenumbra}
-          intensity={settings.spotlightIntensity * 0.01} // Convert from 0-100 to proper range
-          color={settings.spotlightColor}
-          distance={0} // No distance limit for better lighting
-          decay={2}
-          castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-          shadow-camera-near={0.5}
-          shadow-camera-far={settings.spotlightDistance * 3}
-          shadow-bias={-0.0001}
-        />
-      ))}
-    </group>
-  );
-};
-
-// Enhanced floor component with reflection support
+// Floor component (unchanged)
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -244,7 +329,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Enhanced grid component
+// Grid component (unchanged)
 const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.gridEnabled) return null;
 
@@ -269,7 +354,7 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return <primitive object={gridHelper} />;
 };
 
-// Enhanced camera controller with smooth transitions
+// CameraController component (unchanged)
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
@@ -358,7 +443,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// Animation component to handle time-based pattern updates
+// AnimationController component (unchanged)
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
@@ -401,7 +486,7 @@ const AnimationController: React.FC<{
   return null;
 };
 
-// Background component that preserves gradients
+// BackgroundRenderer component (unchanged)
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene, gl } = useThree();
   
@@ -504,7 +589,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       >
         <BackgroundRenderer settings={settings} />
         <CameraController settings={settings} />
-        <SceneLighting settings={settings} />
+        <SceneLighting settings={settings} /> {/* Using the new SceneLighting with volumetric effects */}
         <Floor settings={settings} />
         <Grid settings={settings} />
         
