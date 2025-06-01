@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { SpotLight, OrbitControls, Grid } from '@react-three/drei';
 import { type SceneSettings } from '../../store/sceneStore';
@@ -183,8 +183,8 @@ const Scene: React.FC<{
   photos: Photo[];
   settings: SceneSettings;
 }> = ({ photos, settings }) => {
+  const [photos3D, setPhotos3D] = useState<Photo3D[]>([]);
   const patternRef = useRef<any>(null);
-  const photosRef = useRef<Photo3D[]>([]);
   const timeRef = useRef(0);
 
   useEffect(() => {
@@ -204,11 +204,13 @@ const Scene: React.FC<{
 
     const { positions, rotations } = patternRef.current.generatePositions(timeRef.current);
 
-    photosRef.current = photos.slice(0, settings.photoCount).map((photo, i) => ({
+    const newPhotos3D = photos.slice(0, settings.photoCount).map((photo, i) => ({
       ...photo,
       position: positions[i] || [0, 0, 0],
       rotation: rotations?.[i] || [0, 0, 0]
     }));
+
+    setPhotos3D(newPhotos3D);
   });
 
   return (
@@ -245,7 +247,7 @@ const Scene: React.FC<{
       )}
 
       {/* Photos */}
-      {photosRef.current.map((photo) => (
+      {photos3D.map((photo) => (
         <PhotoMesh
           key={photo.id}
           photo={photo}
