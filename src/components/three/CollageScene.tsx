@@ -23,16 +23,22 @@ type PhotoWithPosition = Photo & {
   targetRotation: [number, number, number];
 };
 
-// Improved PhotoMesh component with better smoothing and photo display
+// Improve smoothing values for better animation
+const POSITION_SMOOTHING = 0.1;
+const ROTATION_SMOOTHING = 0.1;
+
+// PhotoMesh component with improved transition handling
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
-}> = ({ photo, size, emptySlotColor }) => {
+  pattern: string;
+}> = ({ photo, size, emptySlotColor, pattern }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const prevPositionRef = useRef<[number, number, number]>([0, 0, 0]);
 
   // Load texture
   useEffect(() => {
@@ -49,8 +55,6 @@ const PhotoMesh: React.FC<{
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
-      loadedTexture.wrapS = THREE.ClampToEdgeWrap;
-      loadedTexture.wrapT = THREE.ClampToEdgeWrap;
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -69,7 +73,7 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Smoother animation with higher smoothing values
+  // Animation with improved pattern-specific handling
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -77,10 +81,21 @@ const PhotoMesh: React.FC<{
     const targetPos = photo.targetPosition;
     const targetRot = photo.targetRotation;
 
-    // Higher smoothing values for less jitter
-    const POSITION_SMOOTHING = 0.15;
-    const ROTATION_SMOOTHING = 0.12;
+    // Detect large position changes (like in float pattern) to prevent jarring transitions
+    const yDistance = Math.abs(targetPos[1] - currentPos.y);
+    const xDistance = Math.abs(targetPos[0] - currentPos.x);
+    const zDistance = Math.abs(targetPos[2] - currentPos.z);
+    const maxTeleportDistance = 20;
+    
+    // If large jump detected, teleport instead of interpolate
+    if (yDistance > maxTeleportDistance || xDistance > maxTeleportDistance || zDistance > maxTeleportDistance) {
+      meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
+      meshRef.current.rotation.set(targetRot[0], targetRot[1], targetRot[2]);
+      prevPositionRef.current = [...targetPos];
+      return;
+    }
 
+    // Normal smooth interpolation for smaller movements
     meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
     meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
     meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
@@ -88,6 +103,8 @@ const PhotoMesh: React.FC<{
     meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
     meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
     meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
+    
+    prevPositionRef.current = [currentPos.x, currentPos.y, currentPos.z];
   });
 
   // Create material based on state
@@ -98,25 +115,17 @@ const PhotoMesh: React.FC<{
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ color: emptySlotColor });
     }
-    return new THREE.MeshStandardMaterial({ 
-      map: texture,
-      transparent: false,
-      side: THREE.FrontSide
-    });
+    return new THREE.MeshStandardMaterial({ map: texture });
   }, [texture, isLoading, hasError, emptySlotColor]);
 
-  // Calculate photo dimensions to maintain aspect ratio
-  const photoWidth = size;
-  const photoHeight = size * 0.75; // 4:3 aspect ratio, adjust as needed
-
   return (
-    <mesh ref={meshRef} material={material} castShadow>
-      <planeGeometry args={[photoWidth, photoHeight]} />
+    <mesh ref={meshRef} material={material} castShadow receiveShadow position={photo.targetPosition}>
+      <planeGeometry args={[size, size * (9/16)]} />
     </mesh>
   );
 };
 
-// Lighting component
+// Improved lighting component
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightRefs = useRef<THREE.SpotLight[]>([]);
 
@@ -136,6 +145,23 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight]);
 
+  // Update spotlight properties when settings change
+  useEffect(() => {
+    spotlightRefs.current.forEach(spotlight => {
+      if (spotlight) {
+        spotlight.intensity = settings.spotlightIntensity;
+        spotlight.angle = settings.spotlightAngle;
+        spotlight.penumbra = settings.spotlightPenumbra;
+        spotlight.color.set(settings.spotlightColor);
+      }
+    });
+  }, [
+    settings.spotlightIntensity,
+    settings.spotlightAngle,
+    settings.spotlightPenumbra,
+    settings.spotlightColor
+  ]);
+
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
@@ -153,13 +179,14 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
           castShadow
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
+          shadow-bias={-0.0001}
         />
       ))}
     </>
   );
 };
 
-// Floor component
+// Floor component with improved material
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -172,37 +199,47 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         opacity={settings.floorOpacity}
         metalness={settings.floorMetalness}
         roughness={settings.floorRoughness}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
 };
 
-// Grid component
+// Grid component with better visuals
 const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.gridEnabled) return null;
 
-  const gridHelper = useMemo(() => {
-    return new THREE.GridHelper(
-      settings.gridSize,
-      settings.gridDivisions,
-      settings.gridColor,
-      settings.gridColor
-    );
-  }, [settings.gridSize, settings.gridDivisions, settings.gridColor]);
-
+  const gridRef = useRef<THREE.Object3D>();
+  
   useEffect(() => {
-    const material = gridHelper.material as THREE.LineBasicMaterial;
-    material.transparent = true;
-    material.opacity = settings.gridOpacity;
-  }, [settings.gridOpacity, gridHelper]);
+    if (gridRef.current) {
+      const gridHelper = gridRef.current as THREE.GridHelper;
+      const material = gridHelper.material as THREE.LineBasicMaterial;
+      material.transparent = true;
+      material.opacity = settings.gridOpacity;
+      material.color = new THREE.Color(settings.gridColor);
+    }
+  }, [settings.gridOpacity, settings.gridColor]);
 
-  return <primitive object={gridHelper} />;
+  return (
+    <gridHelper
+      ref={gridRef}
+      args={[
+        settings.gridSize,
+        settings.gridDivisions,
+        settings.gridColor,
+        settings.gridColor
+      ]}
+      position={[0, 0.01, 0]} // Slightly above floor to prevent z-fighting
+    />
+  );
 };
 
-// Camera controller
+// Improved camera controller
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
+  const lastPositionRef = useRef({ x: 0, y: 0, z: 0 });
 
   useFrame((state) => {
     if (!settings.cameraEnabled) return;
@@ -212,13 +249,46 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       const radius = settings.cameraDistance;
       const height = settings.cameraHeight;
       
-      camera.position.x = Math.cos(time * settings.cameraRotationSpeed) * radius;
-      camera.position.z = Math.sin(time * settings.cameraRotationSpeed) * radius;
-      camera.position.y = height;
+      // Target position
+      const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
+      const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
+      const targetY = height;
       
-      camera.lookAt(0, height * 0.5, 0);
+      // Smooth camera movement
+      camera.position.x += (targetX - camera.position.x) * 0.05;
+      camera.position.y += (targetY - camera.position.y) * 0.05;
+      camera.position.z += (targetZ - camera.position.z) * 0.05;
+      
+      // Look at the center with slight elevation
+      camera.lookAt(0, height * 0.3, 0);
+      
+      lastPositionRef.current = { 
+        x: camera.position.x, 
+        y: camera.position.y, 
+        z: camera.position.z 
+      };
+    } else if (controlsRef.current) {
+      // Update orbit controls target when camera height changes
+      controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
     }
   });
+
+  // Update camera position when settings change
+  useEffect(() => {
+    if (!settings.cameraRotationEnabled && camera) {
+      camera.position.set(
+        settings.cameraDistance,
+        settings.cameraHeight,
+        settings.cameraDistance
+      );
+      camera.lookAt(0, settings.cameraHeight * 0.3, 0);
+    }
+  }, [
+    settings.cameraDistance,
+    settings.cameraHeight,
+    settings.cameraRotationEnabled,
+    camera
+  ]);
 
   return (
     <>
@@ -233,8 +303,8 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
           enablePan={true}
           enableZoom={true}
           enableRotate={true}
-          target={[0, settings.cameraHeight * 0.5, 0]}
-          maxPolarAngle={Math.PI / 2.1}
+          target={[0, settings.cameraHeight * 0.3, 0]}
+          maxPolarAngle={Math.PI / 1.5}
           minDistance={5}
           maxDistance={100}
         />
@@ -243,7 +313,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// Background component
+// Improved background component
 const Background: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { scene } = useThree();
 
@@ -251,16 +321,23 @@ const Background: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     if (settings.backgroundGradient) {
       // Create gradient background
       const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
+      canvas.width = 512; // Higher resolution for better quality
+      canvas.height = 512;
       const ctx = canvas.getContext('2d');
       
       if (ctx) {
-        const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+        // Create gradient at specified angle
+        const angleInRadians = (settings.backgroundGradientAngle * Math.PI) / 180;
+        const x0 = 256 + Math.cos(angleInRadians) * 256;
+        const y0 = 256 + Math.sin(angleInRadians) * 256;
+        const x1 = 256 - Math.cos(angleInRadians) * 256;
+        const y1 = 256 - Math.sin(angleInRadians) * 256;
+        
+        const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
         gradient.addColorStop(0, settings.backgroundGradientStart);
         gradient.addColorStop(1, settings.backgroundGradientEnd);
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 256, 256);
+        ctx.fillRect(0, 0, 512, 512);
         
         const texture = new THREE.CanvasTexture(canvas);
         scene.background = texture;
@@ -278,6 +355,7 @@ const Background: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     settings.backgroundGradient,
     settings.backgroundGradientStart,
     settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
   ]);
 
   return null;
@@ -303,13 +381,14 @@ const Scene: React.FC<{
           photo={photo}
           size={settings.photoSize}
           emptySlotColor={settings.emptySlotColor}
+          pattern={settings.animationPattern}
         />
       ))}
     </>
   );
 };
 
-// Main CollageScene component
+// Main CollageScene component with improved animation handling
 const CollageScene: React.FC<CollageSceneProps> = ({
   photos,
   settings,
@@ -318,29 +397,34 @@ const CollageScene: React.FC<CollageSceneProps> = ({
   const [animationTime, setAnimationTime] = useState(0);
   const animationRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
+  const frameRateRef = useRef<number[]>([]);
 
-  // Create pattern and generate positions
+  // Create pattern and generate positions with improved stability
   const photosWithPositions = useMemo(() => {
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
     const patternState = pattern.generatePositions(animationTime);
     
     const result: PhotoWithPosition[] = [];
     
+    // Generate positions for both real photos and empty slots
     for (let i = 0; i < settings.photoCount; i++) {
+      const position = patternState.positions[i] || [0, -100, 0];
+      const rotation = patternState.rotations?.[i] || [0, 0, 0];
+      
       if (i < photos.length) {
         // Real photo
         result.push({
           ...photos[i],
-          targetPosition: patternState.positions[i] || [0, -100, 0],
-          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          targetPosition: position,
+          targetRotation: rotation,
         });
       } else {
         // Empty slot
         result.push({
           id: `empty-${i}`,
           url: '',
-          targetPosition: patternState.positions[i] || [0, -100, 0],
-          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          targetPosition: position,
+          targetRotation: rotation,
         });
       }
     }
@@ -348,10 +432,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({
     return result;
   }, [photos, settings, animationTime]);
 
-  // Stable animation loop
+  // Improved stable animation loop with frame rate monitoring
   useEffect(() => {
     if (!settings.animationEnabled) {
-      setAnimationTime(0);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = undefined;
@@ -367,7 +450,18 @@ const CollageScene: React.FC<CollageSceneProps> = ({
       const deltaTime = (currentTime - lastTimeRef.current) / 1000;
       lastTimeRef.current = currentTime;
       
-      setAnimationTime(prev => prev + deltaTime);
+      // Frame rate monitoring
+      const fps = 1 / deltaTime;
+      frameRateRef.current.push(fps);
+      if (frameRateRef.current.length > 60) {
+        frameRateRef.current.shift();
+      }
+      
+      // Smooth animation with frame rate consideration
+      // Use a fixed delta time if frame rate drops too low
+      const effectiveDelta = Math.min(deltaTime, 1/20); 
+      
+      setAnimationTime(prev => prev + effectiveDelta);
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -385,6 +479,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({
   useEffect(() => {
     setAnimationTime(0);
     lastTimeRef.current = 0;
+    frameRateRef.current = [];
   }, [settings.animationPattern]);
 
   return (
@@ -400,6 +495,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({
         onCreated={(state) => {
           state.gl.shadowMap.enabled = true;
           state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.pixelRatio = Math.min(window.devicePixelRatio, 2); // Limit for better performance
         }}
       >
         <Scene 
