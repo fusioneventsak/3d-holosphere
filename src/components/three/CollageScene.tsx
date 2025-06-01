@@ -1,4 +1,3 @@
-```tsx
 import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -624,4 +623,3 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 };
 
 export default CollageScene;
-```
