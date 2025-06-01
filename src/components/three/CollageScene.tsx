@@ -6,6 +6,115 @@ import { type Photo } from './patterns/BasePattern';
 import { PatternFactory } from './patterns/PatternFactory';
 import * as THREE from 'three';
 
+// Create a shared texture loader with memory management
+const textureLoader = new THREE.TextureLoader();
+textureLoader.setCrossOrigin('anonymous');
+const textureCache = new Map<string, { texture: THREE.Texture; lastUsed: number }>();
+
+// Constants
+const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
+const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
+
+// Cleanup unused textures periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of textureCache.entries()) {
+    if (now - entry.lastUsed > TEXTURE_CACHE_MAX_AGE) {
+      entry.texture.dispose();
+      textureCache.delete(key);
+    }
+  }
+}, TEXTURE_CLEANUP_INTERVAL);
+
+// Helper function to create an empty slot texture
+const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 456;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Helper function to create an error texture
+const createErrorTexture = (): THREE.Texture => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 456;
+  const ctx = canvas.getContext('2d')!;
+  
+  ctx.fillStyle = '#222222';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = '#ff4444';
+  ctx.font = '20px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('Error Loading Image', canvas.width/2, canvas.height/2);
+  
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+};
+
+// Enhanced loadTexture function with better error handling
+const loadTexture = (url: string, emptySlotColor: string = '#1A1A1A'): THREE.Texture => {
+  if (!url) {
+    return createEmptySlotTexture(emptySlotColor);
+  }
+  
+  // Add cache busting to URL to prevent stale images
+  const cacheBustedUrl = `${url}?_t=${Date.now()}`;
+  
+  // Check texture cache
+  if (textureCache.has(cacheBustedUrl)) {
+    const entry = textureCache.get(cacheBustedUrl)!;
+    entry.lastUsed = Date.now();
+    return entry.texture;
+  }
+  
+  // Create placeholder texture
+  const placeholderTexture = createEmptySlotTexture(emptySlotColor);
+  textureCache.set(cacheBustedUrl, {
+    texture: placeholderTexture,
+    lastUsed: Date.now()
+  });
+  
+  // Load actual texture
+  textureLoader.load(
+    cacheBustedUrl,
+    (loadedTexture) => {
+      loadedTexture.minFilter = THREE.LinearFilter;
+      loadedTexture.magFilter = THREE.LinearFilter;
+      loadedTexture.generateMipmaps = false;
+      
+      if (textureCache.has(cacheBustedUrl)) {
+        const entry = textureCache.get(cacheBustedUrl)!;
+        entry.texture = loadedTexture;
+        entry.lastUsed = Date.now();
+      }
+      
+      placeholderTexture.image = loadedTexture.image;
+      placeholderTexture.needsUpdate = true;
+    },
+    undefined,
+    () => {
+      const errorTexture = createErrorTexture();
+      placeholderTexture.image = errorTexture.image;
+      placeholderTexture.needsUpdate = true;
+    }
+  );
+  
+  return placeholderTexture;
+};
+
 type Photo3D = {
   id: string;
   url: string;
@@ -53,20 +162,7 @@ const PhotoMesh: React.FC<{
   photo: Photo3D;
   settings: SceneSettings;
 }> = React.memo(({ photo, settings }) => {
-  const textureRef = useRef<THREE.Texture | null>(null);
-
-  useEffect(() => {
-    const texture = new THREE.TextureLoader().load(photo.url);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    textureRef.current = texture;
-
-    return () => {
-      if (textureRef.current) {
-        textureRef.current.dispose();
-      }
-    };
-  }, [photo.url]);
+  const texture = useMemo(() => loadTexture(photo.url, settings.emptySlotColor), [photo.url, settings.emptySlotColor]);
 
   return (
     <mesh
@@ -75,7 +171,7 @@ const PhotoMesh: React.FC<{
     >
       <planeGeometry args={[settings.photoSize, settings.photoSize * (16/9)]} />
       <meshStandardMaterial
-        map={textureRef.current}
+        map={texture}
         transparent
         side={THREE.DoubleSide}
       />
@@ -103,7 +199,7 @@ const Scene: React.FC<{
     if (!patternRef.current) return;
 
     if (settings.animationEnabled) {
-      timeRef.current += state.clock.getDelta();
+      timeRef.current += state.clock.getDelta() * (settings.animationSpeed / 50);
     }
 
     const { positions, rotations } = patternRef.current.generatePositions(timeRef.current);
