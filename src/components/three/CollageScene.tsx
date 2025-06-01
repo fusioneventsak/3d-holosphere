@@ -23,7 +23,7 @@ type PhotoWithPosition = Photo & {
   targetRotation: [number, number, number];
 };
 
-// Simplified PhotoMesh component without teleport detection
+// Improved PhotoMesh component with better smoothing and photo display
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -49,6 +49,8 @@ const PhotoMesh: React.FC<{
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
+      loadedTexture.wrapS = THREE.ClampToEdgeWrap;
+      loadedTexture.wrapT = THREE.ClampToEdgeWrap;
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -67,7 +69,7 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Smooth animation with consistent smoothing
+  // Smoother animation with higher smoothing values
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -75,9 +77,9 @@ const PhotoMesh: React.FC<{
     const targetPos = photo.targetPosition;
     const targetRot = photo.targetRotation;
 
-    // Consistent smooth interpolation for all patterns
-    const POSITION_SMOOTHING = 0.1;
-    const ROTATION_SMOOTHING = 0.08;
+    // Higher smoothing values for less jitter
+    const POSITION_SMOOTHING = 0.15;
+    const ROTATION_SMOOTHING = 0.12;
 
     meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
     meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
@@ -96,12 +98,20 @@ const PhotoMesh: React.FC<{
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ color: emptySlotColor });
     }
-    return new THREE.MeshStandardMaterial({ map: texture });
+    return new THREE.MeshStandardMaterial({ 
+      map: texture,
+      transparent: false,
+      side: THREE.FrontSide
+    });
   }, [texture, isLoading, hasError, emptySlotColor]);
+
+  // Calculate photo dimensions to maintain aspect ratio
+  const photoWidth = size;
+  const photoHeight = size * 0.75; // 4:3 aspect ratio, adjust as needed
 
   return (
     <mesh ref={meshRef} material={material} castShadow>
-      <planeGeometry args={[size, size * (9/16)]} />
+      <planeGeometry args={[photoWidth, photoHeight]} />
     </mesh>
   );
 };
