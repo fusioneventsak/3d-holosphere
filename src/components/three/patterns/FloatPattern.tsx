@@ -24,7 +24,7 @@ export class FloatPattern extends BasePattern {
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      yOffset: -20 - Math.random() * 40, // Start below floor
+      yOffset: -20, // Fixed starting height below floor
       speed: 0.1 + Math.random() * 0.2,
       phase: Math.random() * Math.PI * 2,
       driftRadius: 5 + Math.random() * 10,
@@ -45,13 +45,15 @@ export class FloatPattern extends BasePattern {
       const param = this.floatParams[i];
       if (!param) continue;
 
-      // Calculate continuous upward motion with wrapping
-      const baseMotion = ((animationTime * param.speed + param.phase) % 10) * 10;
-      const verticalMotion = baseMotion;
+      // Calculate continuous upward motion
+      const verticalMotion = (animationTime * param.speed + param.phase) * 10;
       
       // Reset position when photo reaches certain height
       if (verticalMotion > 100) {
-        param.phase = -animationTime * param.speed;
+        // Respawn at bottom with new horizontal position
+        param.phase = 0;
+        param.x = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
+        param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
       }
       
       const y = this.settings.wallHeight + param.yOffset + verticalMotion;
@@ -67,10 +69,9 @@ export class FloatPattern extends BasePattern {
 
       // Calculate rotation to face camera with smooth wobble
       if (this.settings.photoRotation) {
-        const rotationY = Math.atan2(x, z);
-        const wobbleX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.15;
-        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.15;
-        rotations.push([wobbleX, rotationY, wobbleZ]);
+        // Keep photos facing forward with slight rotation to face camera
+        const rotationY = Math.atan2(x, z) * 0.5;
+        rotations.push([0, rotationY, 0]);
       } else {
         rotations.push([0, 0, 0]);
       }
