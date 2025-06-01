@@ -9,6 +9,7 @@ type FloatParams = {
   driftRadius: number;
   rotationSpeed: number;
   spawnTime: number; // When this photo was last spawned
+  justRespawned: boolean; // Flag to prevent smooth interpolation
 };
 
 export class FloatPattern extends BasePattern {
@@ -40,7 +41,8 @@ export class FloatPattern extends BasePattern {
         phase: Math.random() * Math.PI * 2,
         driftRadius: 2 + Math.random() * 3,
         rotationSpeed: 0.05 + Math.random() * 0.1,
-        spawnTime: -index * this.SPAWN_INTERVAL // Stagger initial spawn times
+        spawnTime: -index * this.SPAWN_INTERVAL, // Stagger initial spawn times
+        justRespawned: false
       };
     });
   }
@@ -52,6 +54,7 @@ export class FloatPattern extends BasePattern {
     param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
     param.phase = Math.random() * Math.PI * 2;
     param.spawnTime = currentTime;
+    param.justRespawned = true;
   }
 
   generatePositions(time: number): PatternState {
@@ -80,11 +83,18 @@ export class FloatPattern extends BasePattern {
       // Update vertical position based on time since spawn
       param.y = this.MIN_HEIGHT + (timeSinceSpawn * param.speed * speedMultiplier);
 
-      // If photo has reached max height, respawn it
+      // If photo has reached max height, hide it completely until next spawn
       if (param.y > this.MAX_HEIGHT) {
         this.spawnPhoto(param, animationTime);
-        // Use the new position immediately
-        param.y = this.MIN_HEIGHT + (0 * param.speed * speedMultiplier);
+        // Keep it hidden below the floor for one frame to prevent interpolation
+        positions.push([param.x, this.MIN_HEIGHT - 10, param.z]);
+        rotations.push([0, 0, 0]);
+        continue;
+      }
+
+      // Reset respawn flag after first frame
+      if (param.justRespawned && timeSinceSpawn > 0.1) {
+        param.justRespawned = false;
       }
       
       // Photos move straight up without horizontal drift
