@@ -9,9 +9,12 @@ import * as THREE from 'three';
 // Constants for animation and texture management
 const TEXTURE_CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TEXTURE_CLEANUP_INTERVAL = 30000; // 30 seconds
-const ANIMATION_TRANSITION_DURATION = 1.0; // seconds
 const ROTATION_SMOOTHING = 0.3; // Increased from 0.1 for more responsive rotation
 const POSITION_SMOOTHING = 0.25; // Increased from 0.08 for more responsive movement
+
+// Power of 2 texture dimensions to avoid WebGL warnings
+const TEXTURE_WIDTH = 512; // 2^9
+const TEXTURE_HEIGHT = 512; // 2^9
 
 // Create a shared texture loader with memory management
 const textureLoader = new THREE.TextureLoader();
@@ -32,8 +35,8 @@ setInterval(() => {
 // Helper function to create an empty slot texture
 const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 456;
+  canvas.width = TEXTURE_WIDTH;
+  canvas.height = TEXTURE_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   
   // Fill background
@@ -66,8 +69,8 @@ const createEmptySlotTexture = (color: string = '#1A1A1A'): THREE.Texture => {
 // Helper function to create an error texture
 const createErrorTexture = (): THREE.Texture => {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 456;
+  canvas.width = TEXTURE_WIDTH;
+  canvas.height = TEXTURE_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   
   ctx.fillStyle = '#222222';
@@ -351,13 +354,20 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
   return (
     <Canvas
       camera={{
-        position: [0, settings.cameraHeight, settings.cameraDistance],
-        fov: 75
+        position: [0, settings.cameraHeight, settings.cameraDistance], 
+        fov: 75,
+        near: 0.1,
+        far: 1000
       }}
       style={{
         background: settings.backgroundGradient
           ? `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`
           : settings.backgroundColor
+      }}
+      gl={{
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
       }}
     >
       <Scene photos={photos} settings={settings} />
