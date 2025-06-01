@@ -405,31 +405,99 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
+// Animation component to handle time-based pattern updates
+const AnimationController: React.FC<{
+  settings: SceneSettings;
+  photos: Photo[];
+  onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
+}> = ({ settings, photos, onPositionsUpdate }) => {
+  useFrame((state) => {
+    if (!settings.animationEnabled) return;
+
+    // Create pattern and generate positions
+    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
+    const patternState = pattern.generatePositions(state.clock.elapsedTime);
+    
+    // Combine photos with their positions
+    const photosWithPositions: PhotoWithPosition[] = photos.slice(0, settings.photoCount).map((photo, index) => ({
+      ...photo,
+      targetPosition: patternState.positions[index] || [0, 0, 0],
+      targetRotation: patternState.rotations?.[index] || [0, 0, 0],
+    }));
+
+    onPositionsUpdate(photosWithPositions);
+  });
+
+  return null;
+};
+
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
-  // Create pattern positions for photos
-  const photosWithPositions = useMemo(() => {
-    const pattern = PatternFactory.createPattern(settings.pattern);
-    return pattern.calculatePositions(photos, settings);
-  }, [photos, settings]);
+  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+
+  // Create initial pattern positions for photos
+  const initialPhotosWithPositions = useMemo(() => {
+    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
+    const patternState = pattern.generatePositions(0); // Start at time 0
+    
+    return photos.slice(0, settings.photoCount).map((photo, index) => ({
+      ...photo,
+      targetPosition: patternState.positions[index] || [0, 0, 0] as [number, number, number],
+      targetRotation: patternState.rotations?.[index] || [0, 0, 0] as [number, number, number],
+    }));
+  }, [photos, settings.animationPattern, settings.photoCount]);
+
+  // Update photos with positions when initial data changes
+  useEffect(() => {
+    setPhotosWithPositions(initialPhotosWithPositions);
+  }, [initialPhotosWithPositions]);
+
+  // Create background style
+  const backgroundStyle = useMemo(() => {
+    if (settings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`
+      };
+    }
+    return {
+      background: settings.backgroundColor
+    };
+  }, [
+    settings.backgroundGradient,
+    settings.backgroundColor,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
 
   return (
-    <Canvas shadows>
-      <CameraController settings={settings} />
-      <SceneLighting settings={settings} />
-      <Floor settings={settings} />
-      <Grid settings={settings} />
-      {photosWithPositions.map((photo) => (
-        <PhotoMesh
-          key={photo.id}
-          photo={photo}
-          size={settings.photoSize}
-          emptySlotColor={settings.emptySlotColor}
-          pattern={settings.pattern}
-          shouldFaceCamera={settings.photosFaceCamera}
+    <div style={backgroundStyle} className="w-full h-full">
+      <Canvas shadows>
+        <CameraController settings={settings} />
+        <SceneLighting settings={settings} />
+        <Floor settings={settings} />
+        <Grid settings={settings} />
+        
+        {/* Animation controller for dynamic updates */}
+        <AnimationController
+          settings={settings}
+          photos={photos}
+          onPositionsUpdate={setPhotosWithPositions}
         />
-      ))}
-    </Canvas>
+        
+        {/* Render photos */}
+        {photosWithPositions.map((photo) => (
+          <PhotoMesh
+            key={photo.id}
+            photo={photo}
+            size={settings.photoSize}
+            emptySlotColor={settings.emptySlotColor}
+            pattern={settings.animationPattern}
+            shouldFaceCamera={settings.photoRotation}
+          />
+        ))}
+      </Canvas>
+    </div>
   );
 };
 
