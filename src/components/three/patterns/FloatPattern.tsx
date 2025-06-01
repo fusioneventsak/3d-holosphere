@@ -3,7 +3,7 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 type FloatParams = {
   x: number;
   z: number;
-  y: number;
+  yOffset: number;
   speed: number;
   phase: number;
   driftRadius: number;
@@ -12,12 +12,8 @@ type FloatParams = {
 
 export class FloatPattern extends BasePattern {
   private floatParams: FloatParams[];
-  private readonly MAX_HEIGHT = 50;
-  private readonly MIN_HEIGHT = -20;
-  private readonly MAX_HEIGHT = 50;
-  private readonly MIN_HEIGHT = -20;
-  private readonly MAX_HEIGHT = 50;
-  private readonly MIN_HEIGHT = -20;
+  private readonly MAX_HEIGHT = 60;
+  private readonly MIN_HEIGHT = -5;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
@@ -28,19 +24,14 @@ export class FloatPattern extends BasePattern {
     const floorSize = this.settings.floorSize * 0.8;
     const count = Math.min(this.settings.photoCount, 500);
     
-    // Distribute initial Y positions evenly
-    
-    // Distribute initial Y positions evenly
-    
-    // Distribute initial Y positions evenly
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      y: Math.random() * (this.MAX_HEIGHT - this.MIN_HEIGHT) + this.MIN_HEIGHT,
-      speed: 0.1 + Math.random() * 0.2,
+      yOffset: Math.random() * (this.MAX_HEIGHT - this.MIN_HEIGHT) + this.MIN_HEIGHT,
+      speed: 0.2 + Math.random() * 0.3,
       phase: Math.random() * Math.PI * 2,
-      driftRadius: 5 + Math.random() * 10,
-      rotationSpeed: 0.05 + Math.random() * 0.1
+      driftRadius: 3 + Math.random() * 7,
+      rotationSpeed: 0.1 + Math.random() * 0.2
     }));
   }
 
@@ -48,9 +39,9 @@ export class FloatPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
-    // Base animation speed scaled by settings (0-100%)
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = time * speed;
+    // Scale animation speed based on settings (0-100%)
+    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 25 : 0;
+    const animationTime = time * speedMultiplier;
 
     // Generate positions for all slots (both photos and empty slots)
     for (let i = 0; i < this.settings.photoCount; i++) {
@@ -58,30 +49,31 @@ export class FloatPattern extends BasePattern {
       if (!param) continue;
 
       // Update vertical position
-      param.y += param.speed * speed * 5;
+      param.yOffset += param.speed * speedMultiplier * 8;
 
       // Reset to bottom when reaching max height
-      if (param.y > this.MAX_HEIGHT) {
-      }
       if (param.yOffset > this.MAX_HEIGHT) {
         param.yOffset = this.MIN_HEIGHT;
-        param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
         param.x = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
+        param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
         param.phase = Math.random() * Math.PI * 2;
       }
       
       // Add horizontal drift with smooth circular motion
-      const driftX = Math.sin(animationTime * 0.1 + param.phase) * param.driftRadius;
-      const driftZ = Math.cos(animationTime * 0.1 + param.phase + Math.PI/4) * param.driftRadius;
+      const driftX = Math.sin(animationTime * 0.2 + param.phase) * param.driftRadius;
+      const driftZ = Math.cos(animationTime * 0.2 + param.phase + Math.PI/4) * param.driftRadius;
 
       const x = param.x + driftX;
       const z = param.z + driftZ;
 
       positions.push([x, param.yOffset, z]);
 
+      // Calculate rotation to face camera with smooth wobble
       if (this.settings.photoRotation) {
         const rotationY = Math.atan2(x, z);
-        rotations.push([0, rotationY, 0]);
+        const wobbleX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.15;
+        const wobbleZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.15;
+        rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {
         rotations.push([0, 0, 0]);
       }
