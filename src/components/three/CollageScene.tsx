@@ -268,60 +268,64 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
-  const lastInteractionTimeRef = useRef(0);
-  const isUserInteractingRef = useRef(false);
-  const autoRotationTimeRef = useRef(0);
-  const autoRotationActiveRef = useRef(false);
+  const [isUserInteracting, setIsUserInteracting] = useState(false);
+  const [lastInteractionTime, setLastInteractionTime] = useState(0);
+  const rotationTimeRef = useRef(0);
 
-  // Set up event listeners to track user interaction
+  // Handle user interaction events
   useEffect(() => {
-    const handleUserInteraction = () => {
-      lastInteractionTimeRef.current = Date.now();
-      isUserInteractingRef.current = true;
-      autoRotationActiveRef.current = false;
+    const handleStart = () => {
+      setIsUserInteracting(true);
+      setLastInteractionTime(Date.now());
     };
 
-    const handleInteractionEnd = () => {
-      isUserInteractingRef.current = false;
+    const handleEnd = () => {
+      setIsUserInteracting(false);
+      setLastInteractionTime(Date.now());
     };
 
-    // Get the canvas element
+    const handleMove = () => {
+      if (isUserInteracting) {
+        setLastInteractionTime(Date.now());
+      }
+    };
+
     const canvas = document.querySelector('canvas');
     if (canvas) {
-      canvas.addEventListener('mousedown', handleUserInteraction);
-      canvas.addEventListener('mouseup', handleInteractionEnd);
-      canvas.addEventListener('mousemove', handleUserInteraction);
-      canvas.addEventListener('wheel', handleUserInteraction);
-      canvas.addEventListener('touchstart', handleUserInteraction);
-      canvas.addEventListener('touchmove', handleUserInteraction);
-      canvas.addEventListener('touchend', handleInteractionEnd);
+      // Mouse events
+      canvas.addEventListener('mousedown', handleStart);
+      canvas.addEventListener('mouseup', handleEnd);
+      canvas.addEventListener('mousemove', handleMove);
+      canvas.addEventListener('wheel', handleStart);
+      
+      // Touch events
+      canvas.addEventListener('touchstart', handleStart);
+      canvas.addEventListener('touchend', handleEnd);
+      canvas.addEventListener('touchmove', handleMove);
     }
 
     return () => {
       if (canvas) {
-        canvas.removeEventListener('mousedown', handleUserInteraction);
-        canvas.removeEventListener('mouseup', handleInteractionEnd);
-        canvas.removeEventListener('mousemove', handleUserInteraction);
-        canvas.removeEventListener('wheel', handleUserInteraction);
-        canvas.removeEventListener('touchstart', handleUserInteraction);
-        canvas.removeEventListener('touchmove', handleUserInteraction);
-        canvas.removeEventListener('touchend', handleInteractionEnd);
+        canvas.removeEventListener('mousedown', handleStart);
+        canvas.removeEventListener('mouseup', handleEnd);
+        canvas.removeEventListener('mousemove', handleMove);
+        canvas.removeEventListener('wheel', handleStart);
+        canvas.removeEventListener('touchstart', handleStart);
+        canvas.removeEventListener('touchend', handleEnd);
+        canvas.removeEventListener('touchmove', handleMove);
       }
     };
-  }, []);
+  }, [isUserInteracting]);
 
   // Update camera position when settings change
   useEffect(() => {
-    if (camera) {
-      // Initial position setup
-      if (!settings.cameraRotationEnabled) {
-        camera.position.set(
-          settings.cameraDistance,
-          settings.cameraHeight,
-          settings.cameraDistance
-        );
-        camera.lookAt(0, settings.cameraHeight * 0.3, 0);
-      }
+    if (camera && !settings.cameraRotationEnabled) {
+      camera.position.set(
+        settings.cameraDistance,
+        settings.cameraHeight,
+        settings.cameraDistance
+      );
+      camera.lookAt(0, settings.cameraHeight * 0.3, 0);
     }
   }, [
     settings.cameraDistance,
@@ -330,53 +334,61 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     camera
   ]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!settings.cameraEnabled) return;
 
     // Update orbit controls target
     if (controlsRef.current) {
       controlsRef.current.target.set(0, settings.cameraHeight * 0.3, 0);
+      controlsRef.current.update();
     }
 
-    // Only auto-rotate if enabled and user isn't interacting
+    // Handle auto-rotation
     if (settings.cameraRotationEnabled) {
-      const inactiveTime = Date.now() - lastInteractionTimeRef.current;
+      const currentTime = Date.now();
+      const timeSinceInteraction = currentTime - lastInteractionTime;
       
-      // Resume auto rotation after 1.5 seconds of no interaction
-      if ((!isUserInteractingRef.current && inactiveTime > 1500) || lastInteractionTimeRef.current === 0) {
-        // If we're just starting auto rotation, capture current angle
-        if (!autoRotationActiveRef.current) {
-          // Get current angle from camera position
-          const currentAngle = Math.atan2(camera.position.z, camera.position.x);
-          // Set rotation time to match current position for smooth transition
-          autoRotationTimeRef.current = currentAngle / settings.cameraRotationSpeed;
-          autoRotationActiveRef.current = true;
-        } else {
-          // Increment rotation time
-          autoRotationTimeRef.current += state.clock.elapsedTime - state.clock.oldTime;
-        }
+      // Start auto-rotation if no interaction for 2 seconds, or if never interacted
+      const shouldAutoRotate = !isUserInteracting && (timeSinceInteraction > 2000 || lastInteractionTime === 0);
+      
+      if (shouldAutoRotate) {
+        // Increment rotation time
+        rotationTimeRef.current += delta * settings.cameraRotationSpeed;
         
-        const time = autoRotationTimeRef.current;
         const radius = settings.cameraDistance;
         const height = settings.cameraHeight;
         
-        // Calculate target position based on rotation speed and time
-        const targetX = Math.cos(time * settings.cameraRotationSpeed) * radius;
-        const targetZ = Math.sin(time * settings.cameraRotationSpeed) * radius;
-        const targetY = height;
+        // Calculate new camera position
+        const x = Math.cos(rotationTimeRef.current) * radius;
+        const z = Math.sin(rotationTimeRef.current) * radius;
         
-        // Smooth camera movement with reduced interpolation factor for stability
-        camera.position.x += (targetX - camera.position.x) * 0.01;
-        camera.position.y += (targetY - camera.position.y) * 0.01;
-        camera.position.z += (targetZ - camera.position.z) * 0.01;
+        // Smoothly move camera to new position
+        camera.position.x += (x - camera.position.x) * 0.02;
+        camera.position.y += (height - camera.position.y) * 0.02;
+        camera.position.z += (z - camera.position.z) * 0.02;
         
-        // Look at the center with slight elevation
+        // Look at center with slight elevation
         camera.lookAt(0, height * 0.3, 0);
         
-        // Update controls to match new camera position
+        // Disable controls during auto-rotation to prevent conflicts
         if (controlsRef.current) {
-          controlsRef.current.update();
+          controlsRef.current.enabled = false;
         }
+      } else {
+        // Re-enable controls when user interacts
+        if (controlsRef.current && !controlsRef.current.enabled) {
+          controlsRef.current.enabled = true;
+        }
+        
+        // Sync rotation time with current camera position when stopping auto-rotation
+        if (isUserInteracting || timeSinceInteraction <= 2000) {
+          rotationTimeRef.current = Math.atan2(camera.position.z, camera.position.x);
+        }
+      }
+    } else {
+      // Ensure controls are enabled when auto-rotation is off
+      if (controlsRef.current) {
+        controlsRef.current.enabled = true;
       }
     }
   });
@@ -397,7 +409,6 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
         maxPolarAngle={Math.PI / 1.5}
         minDistance={5}
         maxDistance={100}
-        enabled={true}
         enableDamping={true}
         dampingFactor={0.05}
       />
@@ -412,18 +423,35 @@ const AnimationController: React.FC<{
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   useFrame((state) => {
-    if (!settings.animationEnabled) return;
-
+    // Always update positions, but only use time for animation if enabled
+    const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
+    
     // Create pattern and generate positions
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
-    const patternState = pattern.generatePositions(state.clock.elapsedTime);
+    const patternState = pattern.generatePositions(time);
     
-    // Combine photos with their positions
-    const photosWithPositions: PhotoWithPosition[] = photos.slice(0, settings.photoCount).map((photo, index) => ({
-      ...photo,
-      targetPosition: patternState.positions[index] || [0, 0, 0],
-      targetRotation: patternState.rotations?.[index] || [0, 0, 0],
-    }));
+    // Create array with the correct number of photos based on settings
+    const photosToShow = photos.slice(0, settings.photoCount);
+    const photosWithPositions: PhotoWithPosition[] = [];
+    
+    // Fill with actual photos first
+    for (let i = 0; i < photosToShow.length; i++) {
+      photosWithPositions.push({
+        ...photosToShow[i],
+        targetPosition: patternState.positions[i] || [0, 0, 0],
+        targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+      });
+    }
+    
+    // Fill remaining slots with placeholder photos if we need more
+    for (let i = photosToShow.length; i < settings.photoCount; i++) {
+      photosWithPositions.push({
+        id: `placeholder-${i}`,
+        url: '', // Empty URL will show as colored placeholder
+        targetPosition: patternState.positions[i] || [0, 0, 0],
+        targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+      });
+    }
 
     onPositionsUpdate(photosWithPositions);
   });
@@ -440,11 +468,29 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
     const patternState = pattern.generatePositions(0); // Start at time 0
     
-    return photos.slice(0, settings.photoCount).map((photo, index) => ({
-      ...photo,
-      targetPosition: patternState.positions[index] || [0, 0, 0] as [number, number, number],
-      targetRotation: patternState.rotations?.[index] || [0, 0, 0] as [number, number, number],
-    }));
+    const photosToShow = photos.slice(0, settings.photoCount);
+    const result: PhotoWithPosition[] = [];
+    
+    // Fill with actual photos first
+    for (let i = 0; i < photosToShow.length; i++) {
+      result.push({
+        ...photosToShow[i],
+        targetPosition: patternState.positions[i] || [0, 0, 0] as [number, number, number],
+        targetRotation: patternState.rotations?.[i] || [0, 0, 0] as [number, number, number],
+      });
+    }
+    
+    // Fill remaining slots with placeholder photos if we need more
+    for (let i = photosToShow.length; i < settings.photoCount; i++) {
+      result.push({
+        id: `placeholder-${i}`,
+        url: '', // Empty URL will show as colored placeholder
+        targetPosition: patternState.positions[i] || [0, 0, 0] as [number, number, number],
+        targetRotation: patternState.rotations?.[i] || [0, 0, 0] as [number, number, number],
+      });
+    }
+    
+    return result;
   }, [photos, settings.animationPattern, settings.photoCount]);
 
   // Update photos with positions when initial data changes
