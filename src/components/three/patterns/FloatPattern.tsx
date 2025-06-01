@@ -16,6 +16,8 @@ export class FloatPattern extends BasePattern {
   private readonly MIN_HEIGHT = -20;
   private readonly MAX_HEIGHT = 50;
   private readonly MIN_HEIGHT = -20;
+  private readonly MAX_HEIGHT = 50;
+  private readonly MIN_HEIGHT = -20;
 
   constructor(settings: any, photos: any[]) {
     super(settings, photos);
@@ -25,6 +27,8 @@ export class FloatPattern extends BasePattern {
   private initializeFloatParams(): FloatParams[] {
     const floorSize = this.settings.floorSize * 0.8;
     const count = Math.min(this.settings.photoCount, 500);
+    
+    // Distribute initial Y positions evenly
     
     // Distribute initial Y positions evenly
     
@@ -58,12 +62,12 @@ export class FloatPattern extends BasePattern {
 
       // Reset to bottom when reaching max height
       if (param.y > this.MAX_HEIGHT) {
-        param.y = this.MIN_HEIGHT;
+      if (param.yOffset > this.MAX_HEIGHT) {
+        param.yOffset = this.MIN_HEIGHT;
         param.z = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
+        param.x = (Math.random() - 0.5) * this.settings.floorSize * 0.8;
         param.phase = Math.random() * Math.PI * 2;
       }
-      
-      const y = param.yOffset;
       
       // Add horizontal drift with smooth circular motion
       const driftX = Math.sin(animationTime * 0.1 + param.phase) * param.driftRadius;
@@ -72,10 +76,10 @@ export class FloatPattern extends BasePattern {
       const x = param.x + driftX;
       const z = param.z + driftZ;
 
-      positions.push([x, y, z]);
+      positions.push([x, param.yOffset, z]);
 
       if (this.settings.photoRotation) {
-        const rotationY = Math.atan2(x, z) * 0.5;
+        const rotationY = Math.atan2(x, z);
         rotations.push([0, rotationY, 0]);
       } else {
         rotations.push([0, 0, 0]);
