@@ -28,9 +28,9 @@ export class FloatPattern extends BasePattern {
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
       y: FLOAT_MIN_HEIGHT + Math.random() * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT),
-      speed: 0.5 + Math.random() * 0.5, // More consistent speed range
+      speed: 0.5 + Math.random() * 0.5,
       phase: Math.random() * Math.PI * 2,
-      driftRadius: 2 + Math.random() * 3 // Random drift radius for each photo
+      driftRadius: 2 + Math.random() * 3
     }));
   }
 
@@ -39,18 +39,18 @@ export class FloatPattern extends BasePattern {
     const rotations: [number, number, number][] = [];
     
     // Scale animation speed based on settings (0-100%)
-    const speedMultiplier = this.settings.animationSpeed / 50;
-    const animationTime = this.settings.animationEnabled ? time * speedMultiplier : 0;
+    const speedMultiplier = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    const animationTime = time * speedMultiplier;
 
-    for (const param of this.floatParams) {
-      // Calculate base vertical position
-      let y = param.y + (animationTime * param.speed);
+    // Generate positions for all slots (both photos and empty slots)
+    for (let i = 0; i < this.settings.photoCount; i++) {
+      const param = this.floatParams[i];
+      if (!param) continue;
+
+      // Calculate base vertical position with continuous motion
+      let y = param.y + Math.sin(animationTime * param.speed + param.phase) * 5;
       
-      // Wrap around when reaching the top
-      const totalHeight = FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT;
-      y = ((y - FLOAT_MIN_HEIGHT) % totalHeight) + FLOAT_MIN_HEIGHT;
-
-      // Add horizontal drift using param.driftRadius
+      // Add horizontal drift
       const driftX = Math.sin(animationTime * 0.5 + param.phase) * param.driftRadius;
       const driftZ = Math.cos(animationTime * 0.5 + param.phase + Math.PI/4) * param.driftRadius;
 
