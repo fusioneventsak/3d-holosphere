@@ -196,7 +196,7 @@ const PhotoMesh: React.FC<{
       <planeGeometry args={[settings.photoSize, settings.photoSize * (16/9)]} />
       <meshStandardMaterial
         map={texture}
-        transparent
+        transparent={false}
         side={THREE.DoubleSide}
       />
     </mesh>
