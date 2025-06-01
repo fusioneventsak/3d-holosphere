@@ -90,3 +90,4 @@ export class FloatPattern extends BasePattern {
 
     return { positions, rotations };
   }
+}
