@@ -1,12 +1,9 @@
 import { BasePattern, type PatternState, type Position } from './BasePattern';
 
-const FLOAT_MAX_HEIGHT = 50;
-const FLOAT_MIN_HEIGHT = -10;
-
 type FloatParams = {
   x: number;
   z: number;
-  y: number;
+  yOffset: number;
   speed: number;
   phase: number;
   driftRadius: number;
@@ -28,10 +25,10 @@ export class FloatPattern extends BasePattern {
     return Array(count).fill(0).map(() => ({
       x: (Math.random() - 0.5) * floorSize,
       z: (Math.random() - 0.5) * floorSize,
-      y: FLOAT_MIN_HEIGHT + Math.random() * (FLOAT_MAX_HEIGHT - FLOAT_MIN_HEIGHT),
+      yOffset: (Math.random() - 0.5) * 10,
       speed: 0.5 + Math.random() * 0.5,
       phase: Math.random() * Math.PI * 2,
-      driftRadius: 2 + Math.random() * 3,
+      driftRadius: 5 + Math.random() * 5,
       rotationSpeed: 0.2 + Math.random() * 0.3
     }));
   }
@@ -49,8 +46,8 @@ export class FloatPattern extends BasePattern {
       const param = this.floatParams[i];
       if (!param) continue;
 
-      // Calculate base vertical position with continuous motion
-      let y = param.y + Math.sin(animationTime * param.speed + param.phase) * 5;
+      // Calculate vertical floating motion
+      let y = this.settings.wallHeight + param.yOffset + Math.sin(animationTime * param.speed + param.phase) * 15;
       
       // Add horizontal drift
       const driftX = Math.sin(animationTime * 0.5 + param.phase) * param.driftRadius;
@@ -64,8 +61,8 @@ export class FloatPattern extends BasePattern {
       // Calculate rotation to face camera if enabled
       if (this.settings.photoRotation) {
         const rotationY = Math.atan2(x, z);
-        const rotationX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.1;
-        const rotationZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.1;
+        const rotationX = Math.sin(animationTime * param.rotationSpeed + param.phase) * 0.2;
+        const rotationZ = Math.cos(animationTime * param.rotationSpeed + param.phase) * 0.2;
         rotations.push([rotationX, rotationY, rotationZ]);
       } else {
         rotations.push([0, 0, 0]);
