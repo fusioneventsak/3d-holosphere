@@ -154,7 +154,7 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Improved lighting component with proper spotlight setup
+// Improved lighting component with visible light beams
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const spotlightRefs = useRef<THREE.SpotLight[]>([]);
 
@@ -171,45 +171,88 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       lights.push({
         key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, 0, 0] as [number, number, number], // All lights point to center
+        target: [0, 0, 0] as [number, number, number],
       });
     }
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight]);
 
+  // Create volumetric light beam geometry
+  const createLightBeam = (position: [number, number, number], target: [number, number, number]) => {
+    const beamGeometry = new THREE.ConeGeometry(
+      Math.tan(settings.spotlightWidth / 2) * settings.spotlightHeight, // radius at base
+      settings.spotlightHeight, // height
+      16, // radial segments
+      1, // height segments
+      true // open ended
+    );
+
+    const beamMaterial = new THREE.MeshBasicMaterial({
+      color: settings.spotlightColor,
+      transparent: true,
+      opacity: 0.1 + (settings.spotlightIntensity / 1000), // Very subtle visibility
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    return { geometry: beamGeometry, material: beamMaterial };
+  };
+
   return (
     <>
       <ambientLight intensity={settings.ambientLightIntensity} />
-      {spotlights.map((light, index) => (
-        <group key={light.key}>
-          <spotLight
-            ref={(el) => {
-              if (el) spotlightRefs.current[index] = el;
-            }}
-            position={light.position}
-            target-position={light.target}
-            angle={settings.spotlightWidth} // Use spotlightWidth for the cone angle
-            penumbra={settings.spotlightPenumbra}
-            intensity={settings.spotlightIntensity / 10} // Scale down intensity for realistic lighting
-            color={settings.spotlightColor}
-            distance={settings.spotlightDistance * 2}
-            decay={2}
-            castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-            shadow-camera-near={0.5}
-            shadow-camera-far={settings.spotlightDistance * 3}
-            shadow-bias={-0.0001}
-          />
-          {/* Optional: Add visible light helpers for debugging */}
-          {process.env.NODE_ENV === 'development' && (
+      {spotlights.map((light, index) => {
+        const beamData = createLightBeam(light.position, light.target);
+        
+        return (
+          <group key={light.key}>
+            {/* Invisible spotlight for actual lighting */}
+            <spotLight
+              ref={(el) => {
+                if (el) spotlightRefs.current[index] = el;
+              }}
+              position={light.position}
+              target-position={light.target}
+              angle={settings.spotlightWidth}
+              penumbra={settings.spotlightPenumbra}
+              intensity={settings.spotlightIntensity / 10}
+              color={settings.spotlightColor}
+              distance={settings.spotlightDistance * 2}
+              decay={2}
+              castShadow
+              shadow-mapSize-width={2048}
+              shadow-mapSize-height={2048}
+              shadow-camera-near={0.5}
+              shadow-camera-far={settings.spotlightDistance * 3}
+              shadow-bias={-0.0001}
+            />
+            
+            {/* Visible light beam cone */}
+            <mesh
+              position={light.position}
+              rotation={[-Math.PI / 2, 0, Math.atan2(light.target[0] - light.position[0], light.target[2] - light.position[2])]}
+              geometry={beamData.geometry}
+              material={beamData.material}
+            />
+            
+            {/* Additional fog/atmosphere effect around the beam */}
             <mesh position={light.position}>
-              <sphereGeometry args={[1, 8, 8]} />
-              <meshBasicMaterial color={settings.spotlightColor} />
+              <sphereGeometry args={[2, 16, 16]} />
+              <meshBasicMaterial
+                color={settings.spotlightColor}
+                transparent
+                opacity={0.05}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+              />
             </mesh>
-          )}
-        </group>
-      ))}
+          </group>
+        );
+      })}
+      
+      {/* Add some atmospheric fog for better light beam visibility */}
+      <fog attach="fog" args={[settings.backgroundColor, 20, settings.spotlightDistance * 2]} />
     </>
   );
 };
