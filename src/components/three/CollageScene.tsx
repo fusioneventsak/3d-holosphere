@@ -309,10 +309,10 @@ const Spotlights: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             penumbra={settings.spotlightPenumbra}
             intensity={settings.spotlightIntensity}
             color={settings.spotlightColor}
-            distance={radius * 2}
-            attenuation={5}
-            anglePower={5}
-            lookAt={[0, 0, 0]}
+            distance={radius * 3}
+            attenuation={2}
+            anglePower={8}
+            target-position={[0, -2, 0]}
           />
         );
       })}
