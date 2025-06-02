@@ -43,6 +43,7 @@ export type SceneSettings = {
   photoSpacing: number;
   wallHeight: number;
   gridAspectRatio: number;
+  photoBrightness: number; // NEW: Photo brightness control
   patterns: {
     grid: {
       enabled: boolean;
@@ -94,8 +95,8 @@ const defaultSettings: SceneSettings = {
   spotlightAngle: Math.PI / 4,
   spotlightWidth: 0.6,
   spotlightPenumbra: 0.4,
-  ambientLightIntensity: 0.2,
-  spotlightIntensity: 100.0,
+  ambientLightIntensity: 0.5, // Restored to original higher value
+  spotlightIntensity: 100.0, // Restored to original higher value
   spotlightColor: '#ffffff',
   floorEnabled: true,
   floorColor: '#1A1A1A',
@@ -114,6 +115,7 @@ const defaultSettings: SceneSettings = {
   photoSpacing: 0,
   wallHeight: 0,
   gridAspectRatio: 1.77778,
+  photoBrightness: 1.0, // NEW: Default photo brightness (100%)
   patterns: {
     grid: {
       enabled: true,
@@ -176,6 +178,16 @@ export const useSceneStore = create<SceneState>()((set, get) => {
         newSettings.photoCount = count;
       } else {
         delete newSettings.photoCount;
+      }
+    }
+
+    // Handle photo brightness validation
+    if (newSettings.photoBrightness !== undefined) {
+      const brightness = Math.min(Math.max(0.1, Number(newSettings.photoBrightness)), 3);
+      if (!isNaN(brightness)) {
+        newSettings.photoBrightness = brightness;
+      } else {
+        delete newSettings.photoBrightness;
       }
     }
 
