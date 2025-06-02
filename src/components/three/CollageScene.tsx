@@ -10,6 +10,7 @@ type Photo = {
   id: string;
   url: string;
   collage_id?: string;
+  created_at?: string;
 };
 
 type CollageSceneProps = {
@@ -372,60 +373,62 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return <primitive object={gridHelper} />;
 };
 
-// CameraController component
+// CameraController component - Updated to persist camera position during auto-rotation
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const rotationTimeRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
   
-  const cameraStateRef = useRef({
-    position: new THREE.Vector3(settings.cameraDistance, settings.cameraHeight, settings.cameraDistance),
-    target: new THREE.Vector3(0, settings.cameraHeight * 0.3, 0),
-    distance: settings.cameraDistance,
-    spherical: new THREE.Spherical(settings.cameraDistance, Math.PI / 3, Math.PI / 4)
-  });
-
+  // Initialize camera position
   useEffect(() => {
     if (camera && controlsRef.current) {
-      camera.position.copy(cameraStateRef.current.position);
-      controlsRef.current.target.copy(cameraStateRef.current.target);
+      const initialDistance = settings.cameraDistance;
+      const initialHeight = settings.cameraHeight;
+      const initialPosition = new THREE.Vector3(
+        initialDistance,
+        initialHeight,
+        initialDistance
+      );
+      camera.position.copy(initialPosition);
+      
+      // Set target based on camera height
+      const target = new THREE.Vector3(0, settings.cameraHeight * 0.3, 0);
+      controlsRef.current.target.copy(target);
       controlsRef.current.update();
     }
-  }, [camera]);
-
-  useEffect(() => {
-    if (controlsRef.current) {
-      const newTarget = new THREE.Vector3(0, settings.cameraHeight * 0.3, 0);
-      cameraStateRef.current.target.copy(newTarget);
-      controlsRef.current.target.copy(newTarget);
-      controlsRef.current.update();
-    }
-  }, [settings.cameraHeight]);
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
 
   useFrame((state, delta) => {
     if (!settings.cameraEnabled || !controlsRef.current) return;
 
-    cameraStateRef.current.position.copy(camera.position);
-    cameraStateRef.current.target.copy(controlsRef.current.target);
+    // Check if user is interacting
+    const isInteracting = controlsRef.current.getAzimuthalAngle !== undefined && 
+                        (controlsRef.current.getAzimuthalAngle() !== 0 || 
+                         controlsRef.current.getPolarAngle() !== Math.PI / 2);
     
-    const currentDistance = camera.position.distanceTo(controlsRef.current.target);
-    cameraStateRef.current.distance = currentDistance;
+    if (isInteracting) {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    } else if (Date.now() - lastInteractionTimeRef.current > 100) {
+      userInteractingRef.current = false;
+    }
 
-    if (settings.cameraRotationEnabled) {
-      rotationTimeRef.current += delta * settings.cameraRotationSpeed;
-      
+    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
+      // Get current camera position relative to target
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      spherical.theta = rotationTimeRef.current;
-      spherical.radius = currentDistance;
+      // Increment rotation
+      rotationTimeRef.current += delta * settings.cameraRotationSpeed;
       
+      // Apply rotation while maintaining current radius and polar angle
+      spherical.theta += delta * settings.cameraRotationSpeed;
+      
+      // Convert back to cartesian coordinates
       const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
-      
-      const autoRotationInfluence = 0.02;
-      camera.position.lerp(newPosition, autoRotationInfluence);
-      
-      cameraStateRef.current.spherical = spherical;
+      camera.position.copy(newPosition);
     }
 
     controlsRef.current.update();
@@ -466,21 +469,69 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// AnimationController
+// AnimationController - Updated with new photo placement logic
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
+  const [photoSlotMap, setPhotoSlotMap] = useState<Map<number, Photo>>(new Map());
   const cycleIndexRef = useRef(0);
   const lastCycleTimeRef = useRef(Date.now());
   const photoCycleInterval = 5000;
   const previousPhotosRef = useRef<Photo[]>([]);
 
-  // Handle photo updates smoothly
+  // Handle photo updates with random slot placement
   useEffect(() => {
     if (photos.length <= settings.photoCount) {
+      // When we have fewer photos than slots
+      const newPhotos = photos.filter(p => !previousPhotosRef.current.some(prev => prev.id === p.id));
+      
+      if (newPhotos.length > 0) {
+        setPhotoSlotMap(prevMap => {
+          const newMap = new Map(prevMap);
+          
+          // Remove photos that are no longer in the photos array
+          for (const [slot, photo] of prevMap) {
+            if (!photos.some(p => p.id === photo.id)) {
+              newMap.delete(slot);
+            }
+          }
+          
+          // Add new photos to random empty slots
+          for (const newPhoto of newPhotos) {
+            // Find all empty slots
+            const emptySlots: number[] = [];
+            for (let i = 0; i < settings.photoCount; i++) {
+              if (!newMap.has(i)) {
+                emptySlots.push(i);
+              }
+            }
+            
+            if (emptySlots.length > 0) {
+              // Choose a random empty slot
+              const randomIndex = Math.floor(Math.random() * emptySlots.length);
+              const chosenSlot = emptySlots[randomIndex];
+              newMap.set(chosenSlot, newPhoto);
+            }
+          }
+          
+          return newMap;
+        });
+      } else {
+        // Just update the map to reflect removed photos
+        setPhotoSlotMap(prevMap => {
+          const newMap = new Map(prevMap);
+          for (const [slot, photo] of prevMap) {
+            if (!photos.some(p => p.id === photo.id)) {
+              newMap.delete(slot);
+            }
+          }
+          return newMap;
+        });
+      }
+      
       setDisplayPhotos(photos);
     } else {
       // When there are more photos than slots, prioritize newest
@@ -495,20 +546,14 @@ const AnimationController: React.FC<{
         // Seamlessly integrate new photos
         setDisplayPhotos(prev => {
           const updated = [...prev];
-          let replaceIndex = 0;
           
           for (const newPhoto of newPhotos) {
-            if (updated.length < settings.photoCount) {
-              // Add to empty slots first
-              updated.push(newPhoto);
-            } else {
-              // Replace oldest photos with new ones
-              const oldestIndex = updated.findIndex(p => 
-                !newPhotos.some(np => np.id === p.id)
-              );
-              if (oldestIndex !== -1) {
-                updated[oldestIndex] = newPhoto;
-              }
+            // Replace oldest photos with new ones
+            const oldestIndex = updated.findIndex(p => 
+              !newPhotos.some(np => np.id === p.id)
+            );
+            if (oldestIndex !== -1) {
+              updated[oldestIndex] = newPhoto;
             }
           }
           
@@ -554,25 +599,49 @@ const AnimationController: React.FC<{
     
     const photosWithPositions: PhotoWithPosition[] = [];
     
-    // Add real photos with their positions
-    for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
-      photosWithPositions.push({
-        ...displayPhotos[i],
-        targetPosition: patternState.positions[i] || [0, 0, 0],
-        targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-        displayIndex: i,
-      });
-    }
-    
-    // Add placeholders for empty slots
-    for (let i = displayPhotos.length; i < settings.photoCount; i++) {
-      photosWithPositions.push({
-        id: `placeholder-${i}`,
-        url: '',
-        targetPosition: patternState.positions[i] || [0, 0, 0],
-        targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-        displayIndex: i,
-      });
+    if (photos.length <= settings.photoCount) {
+      // Use the slot map for positioning when we have fewer photos than slots
+      for (let i = 0; i < settings.photoCount; i++) {
+        const photo = photoSlotMap.get(i);
+        if (photo) {
+          photosWithPositions.push({
+            ...photo,
+            targetPosition: patternState.positions[i] || [0, 0, 0],
+            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+            displayIndex: i,
+          });
+        } else {
+          // Add placeholder for empty slot
+          photosWithPositions.push({
+            id: `placeholder-${i}`,
+            url: '',
+            targetPosition: patternState.positions[i] || [0, 0, 0],
+            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+            displayIndex: i,
+          });
+        }
+      }
+    } else {
+      // When cycling through more photos than slots
+      for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
+        photosWithPositions.push({
+          ...displayPhotos[i],
+          targetPosition: patternState.positions[i] || [0, 0, 0],
+          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          displayIndex: i,
+        });
+      }
+      
+      // Add placeholders for any remaining empty slots
+      for (let i = displayPhotos.length; i < settings.photoCount; i++) {
+        photosWithPositions.push({
+          id: `placeholder-${i}`,
+          url: '',
+          targetPosition: patternState.positions[i] || [0, 0, 0],
+          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          displayIndex: i,
+        });
+      }
     }
     
     onPositionsUpdate(photosWithPositions);
