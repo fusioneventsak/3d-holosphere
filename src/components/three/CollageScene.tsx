@@ -188,8 +188,7 @@ const PhotoMesh: React.FC<{
 
       const innerMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color(emptySlotColor),
-        transparent: true,
-        opacity: 0.15,
+        transparent: false,
         roughness: 0.9,
         metalness: 0.1,
         side: THREE.DoubleSide
