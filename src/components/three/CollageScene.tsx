@@ -21,7 +21,7 @@ type CollageSceneProps = {
 type PhotoWithPosition = Photo & {
   targetPosition: [number, number, number];
   targetRotation: [number, number, number];
-  displayIndex?: number; // Track which slot this photo is displayed in
+  displayIndex?: number;
 };
 
 // Improve smoothing values for better animation
@@ -39,19 +39,17 @@ const VolumetricSpotlight: React.FC<{
 }> = ({ position, target, angle, color, intensity, distance }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
-  // Calculate cone geometry based on spotlight parameters
   const coneGeometry = useMemo(() => {
     const height = distance * 1.5;
     const radius = Math.tan(angle) * height;
     return new THREE.ConeGeometry(radius, height, 32, 1, true);
   }, [angle, distance]);
 
-  // Create volumetric material with transparency, reduced intensity for subtler effect
   const material = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(color) },
-        intensity: { value: intensity * 0.0005 }, // Reduced from 0.001 to make volumetric effect subtler
+        intensity: { value: intensity * 0.0005 },
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -66,11 +64,9 @@ const VolumetricSpotlight: React.FC<{
         varying vec3 vPosition;
         
         void main() {
-          // Create gradient from tip to base
           float gradient = 1.0 - (vPosition.y + 0.5);
           gradient = pow(gradient, 2.0);
           
-          // Create radial fade
           float radialFade = 1.0 - length(vPosition.xz) * 2.0;
           radialFade = clamp(radialFade, 0.0, 1.0);
           
@@ -88,10 +84,8 @@ const VolumetricSpotlight: React.FC<{
   useFrame(() => {
     if (!meshRef.current) return;
     
-    // Position cone at spotlight position
     meshRef.current.position.set(...position);
     
-    // Point cone towards target
     const direction = new THREE.Vector3(...target).sub(new THREE.Vector3(...position));
     meshRef.current.lookAt(new THREE.Vector3(...position).add(direction));
     meshRef.current.rotateX(-Math.PI / 2);
@@ -100,14 +94,13 @@ const VolumetricSpotlight: React.FC<{
   return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
 };
 
-// SceneLighting component with enhanced light casting
+// SceneLighting component
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
 
-  // Create spotlights based on settings
   const spotlights = useMemo(() => {
     const lights = [];
-    const count = Math.min(settings.spotlightCount, 4); // Max 4 spotlights
+    const count = Math.min(settings.spotlightCount, 4);
     
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
@@ -117,7 +110,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       lights.push({
         key: `spotlight-${i}`,
         position: [x, settings.spotlightHeight, z] as [number, number, number],
-        target: [0, settings.wallHeight / 2, 0] as [number, number, number], // Adjusted to hit photos/floor
+        target: [0, settings.wallHeight / 2, 0] as [number, number, number],
       });
     }
     return lights;
@@ -125,13 +118,9 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <group ref={groupRef}>
-      {/* Ambient light for general scene illumination */}
       <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
+      <fog attach="fog" args={['#000000', 20, 300]} />
       
-      {/* Fog adjusted for better light visibility */}
-      <fog attach="fog" args={['#000000', 20, 300]} /> {/* Increased near/far for less haze */}
-      
-      {/* Main directional light */}
       <directionalLight
         position={[20, 30, 20]}
         intensity={0.5}
@@ -147,7 +136,6 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
-      {/* Spotlights with proper setup and increased intensity */}
       {spotlights.map((light) => {
         const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
         targetRef.current.position.set(...light.target);
@@ -159,10 +147,10 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               target={targetRef.current}
               angle={settings.spotlightWidth}
               penumbra={settings.spotlightPenumbra}
-              intensity={settings.spotlightIntensity * 0.1} // Increased from 0.02 for stronger light
-              color={settings.spotlightColor} // Ensure color affects scene
+              intensity={settings.spotlightIntensity * 0.1}
+              color={settings.spotlightColor}
               distance={settings.spotlightDistance * 2}
-              decay={1} // Reduced decay for stronger light reach
+              decay={1}
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
@@ -170,7 +158,6 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               shadow-camera-far={settings.spotlightDistance * 3}
               shadow-bias={-0.0001}
             />
-            {/* Volumetric cone for visible beam */}
             <VolumetricSpotlight
               position={light.position}
               target={light.target}
@@ -187,7 +174,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// PhotoMesh component with optimized loading
+// PhotoMesh component
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -202,7 +189,6 @@ const PhotoMesh: React.FC<{
   const [hasError, setHasError] = useState(false);
   const prevPositionRef = useRef<[number, number, number]>([0, 0, 0]);
 
-  // Load texture with improved caching and error handling
   useEffect(() => {
     if (!photo.url) {
       setIsLoading(false);
@@ -217,7 +203,7 @@ const PhotoMesh: React.FC<{
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
-      loadedTexture.generateMipmaps = false; // Optimize for performance
+      loadedTexture.generateMipmaps = false;
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -227,7 +213,6 @@ const PhotoMesh: React.FC<{
       setIsLoading(false);
     };
 
-    // Add cache-busting but with a longer cache duration for better performance
     const imageUrl = photo.url.includes('?') 
       ? photo.url 
       : addCacheBustToUrl(photo.url);
@@ -241,58 +226,47 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
-  // Animation with improved pattern-specific handling and camera facing
   useFrame(() => {
     if (!meshRef.current) return;
 
     const currentPos = meshRef.current.position;
     const targetPos = photo.targetPosition;
 
-    // Detect large position changes (like in float pattern) to prevent jarring transitions
     const yDistance = Math.abs(targetPos[1] - currentPos.y);
     const xDistance = Math.abs(targetPos[0] - currentPos.x);
     const zDistance = Math.abs(targetPos[2] - currentPos.z);
     const maxTeleportDistance = 20;
     
-    // If large jump detected, teleport instead of interpolate
     if (yDistance > maxTeleportDistance || xDistance > maxTeleportDistance || zDistance > maxTeleportDistance) {
       meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
       prevPositionRef.current = [...targetPos];
     } else {
-      // Normal smooth interpolation for smaller movements
       meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
       meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
       meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
     }
 
-    // Rotation handling - face camera if enabled
     if (shouldFaceCamera) {
-      // Calculate direction from photo to camera
       const photoPos = meshRef.current.position;
       const cameraPos = camera.position;
       
       const directionX = cameraPos.x - photoPos.x;
       const directionZ = cameraPos.z - photoPos.z;
       
-      // Calculate rotation to face camera
       const targetRotationY = Math.atan2(directionX, directionZ);
       
-      // Smooth rotation transition
       const currentRotY = meshRef.current.rotation.y;
       let rotationDiff = targetRotationY - currentRotY;
       
-      // Handle rotation wrap-around (shortest path)
       if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
       if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
       
       meshRef.current.rotation.y += rotationDiff * ROTATION_SMOOTHING;
       
-      // Apply any pattern-specific rotation offsets
       const patternRot = photo.targetRotation;
       meshRef.current.rotation.x += (patternRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
       meshRef.current.rotation.z += (patternRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
     } else {
-      // Use pattern-defined rotation
       const targetRot = photo.targetRotation;
       meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
       meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
@@ -302,18 +276,17 @@ const PhotoMesh: React.FC<{
     prevPositionRef.current = [currentPos.x, currentPos.y, currentPos.z];
   });
 
-  // Create material based on state with optimized settings - REMOVED TRANSPARENCY FROM EMPTY SLOTS
   const material = useMemo(() => {
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: '#ff4444',
-        transparent: false // Removed transparency
+        transparent: false
       });
     }
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: emptySlotColor,
-        transparent: false // Removed transparency - empty slots are now solid
+        transparent: false
       });
     }
     return new THREE.MeshStandardMaterial({ 
@@ -324,7 +297,7 @@ const PhotoMesh: React.FC<{
 
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow position={photo.targetPosition}>
-      <planeGeometry args={[size * (9/16), size]} /> {/* Portrait orientation */}
+      <planeGeometry args={[size * (9/16), size]} />
     </mesh>
   );
 };
@@ -368,7 +341,7 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     material.opacity = settings.gridOpacity;
     material.color = new THREE.Color(settings.gridColor);
     
-    helper.position.y = 0.01; // Slightly above floor to prevent z-fighting
+    helper.position.y = 0.01;
     
     return helper;
   }, [settings.gridSize, settings.gridDivisions, settings.gridColor, settings.gridOpacity]);
@@ -376,13 +349,12 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return <primitive object={gridHelper} />;
 };
 
-// Improved CameraController with persistent position and better zoom handling
+// CameraController component
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
   const rotationTimeRef = useRef(0);
   
-  // Store camera state persistently
   const cameraStateRef = useRef({
     position: new THREE.Vector3(settings.cameraDistance, settings.cameraHeight, settings.cameraDistance),
     target: new THREE.Vector3(0, settings.cameraHeight * 0.3, 0),
@@ -390,17 +362,14 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     spherical: new THREE.Spherical(settings.cameraDistance, Math.PI / 3, Math.PI / 4)
   });
 
-  // Initialize camera position only once
   useEffect(() => {
     if (camera && controlsRef.current) {
-      // Set initial position from stored state
       camera.position.copy(cameraStateRef.current.position);
       controlsRef.current.target.copy(cameraStateRef.current.target);
       controlsRef.current.update();
     }
   }, [camera]);
 
-  // Update target height when settings change, but preserve position
   useEffect(() => {
     if (controlsRef.current) {
       const newTarget = new THREE.Vector3(0, settings.cameraHeight * 0.3, 0);
@@ -413,42 +382,29 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   useFrame((state, delta) => {
     if (!settings.cameraEnabled || !controlsRef.current) return;
 
-    // Store current camera state for persistence
     cameraStateRef.current.position.copy(camera.position);
     cameraStateRef.current.target.copy(controlsRef.current.target);
     
-    // Calculate current distance from target
     const currentDistance = camera.position.distanceTo(controlsRef.current.target);
     cameraStateRef.current.distance = currentDistance;
 
-    // Handle auto-rotation if enabled
     if (settings.cameraRotationEnabled) {
-      // Increment rotation time continuously
       rotationTimeRef.current += delta * settings.cameraRotationSpeed;
       
-      // Get current spherical coordinates relative to target
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      // Apply auto-rotation to the azimuth angle only
       spherical.theta = rotationTimeRef.current;
-      
-      // Keep current distance (zoom level) and polar angle
       spherical.radius = currentDistance;
-      // Don't modify spherical.phi (polar angle) to preserve user's vertical position
       
-      // Convert back to position
       const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
       
-      // Smoothly interpolate to auto-rotation position
-      const autoRotationInfluence = 0.02; // How strongly auto-rotation affects manual control
+      const autoRotationInfluence = 0.02;
       camera.position.lerp(newPosition, autoRotationInfluence);
       
-      // Store updated spherical coordinates
       cameraStateRef.current.spherical = spherical;
     }
 
-    // Always update controls
     controlsRef.current.update();
   });
 
@@ -462,18 +418,17 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       <OrbitControls
         ref={controlsRef}
         enablePan={true}
-        enableZoom={true} // Always allow zoom
+        enableZoom={true}
         enableRotate={true}
         target={[0, settings.cameraHeight * 0.3, 0]}
         maxPolarAngle={Math.PI / 1.5}
-        minDistance={3} // Reduced minimum distance for closer inspection
-        maxDistance={200} // Increased maximum distance for wide views
+        minDistance={3}
+        maxDistance={200}
         enableDamping={true}
         dampingFactor={0.05}
-        zoomSpeed={1.0} // Normal zoom speed
-        rotateSpeed={0.5} // Slightly slower rotation for better control
+        zoomSpeed={1.0}
+        rotateSpeed={0.5}
         panSpeed={0.8}
-        // Ensure mouse wheel always controls zoom
         mouseButtons={{
           LEFT: THREE.MOUSE.ROTATE,
           MIDDLE: THREE.MOUSE.DOLLY,
@@ -488,102 +443,26 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// PhotoCycler component to handle photo cycling when slots are full
-const PhotoCycler: React.FC<{
-  photos: Photo[];
-  slots: number;
-  cycleInterval?: number;
-}> = ({ photos, slots, cycleInterval = 5000 }) => {
-  const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
-  const cycleIndexRef = useRef(0);
-  const lastUpdateRef = useRef(Date.now());
-
-  useEffect(() => {
-    if (photos.length <= slots) {
-      // If we have fewer photos than slots, just display all photos
-      setDisplayPhotos(photos);
-      return;
-    }
-
-    // Initialize display with newest photos first
-    const sortedPhotos = [...photos].sort((a, b) => 
-      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-    );
-    
-    // Take the newest photos to fill all slots
-    setDisplayPhotos(sortedPhotos.slice(0, slots));
-
-    // Set up cycling interval
-    const interval = setInterval(() => {
-      setDisplayPhotos(prev => {
-        const currentTime = Date.now();
-        
-        // Don't cycle if we just updated (prevents rapid cycling on new photo uploads)
-        if (currentTime - lastUpdateRef.current < 1000) {
-          return prev;
-        }
-
-        // Create a new display array by cycling through all photos
-        const newDisplay = [...prev];
-        
-        // Replace the oldest displayed photo with the next one in the cycle
-        const oldestIndex = 0; // Always replace the first slot for consistent cycling
-        cycleIndexRef.current = (cycleIndexRef.current + 1) % photos.length;
-        
-        // Find a photo that's not currently displayed
-        let attempts = 0;
-        while (attempts < photos.length) {
-          const candidatePhoto = photos[cycleIndexRef.current];
-          if (!newDisplay.some(p => p.id === candidatePhoto.id)) {
-            newDisplay[oldestIndex] = candidatePhoto;
-            break;
-          }
-          cycleIndexRef.current = (cycleIndexRef.current + 1) % photos.length;
-          attempts++;
-        }
-        
-        lastUpdateRef.current = currentTime;
-        return newDisplay;
-      });
-    }, cycleInterval);
-
-    return () => clearInterval(interval);
-  }, [photos, slots, cycleInterval]);
-
-  // When new photos are added, prioritize showing them
-  useEffect(() => {
-    if (photos.length > displayPhotos.length && photos.length > slots) {
-      const sortedPhotos = [...photos].sort((a, b) => 
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
-      
-      // Show the newest photos
-      setDisplayPhotos(sortedPhotos.slice(0, slots));
-      lastUpdateRef.current = Date.now();
-    }
-  }, [photos.length]);
-
-  return <>{displayPhotos}</>;
-};
-
-// Optimized AnimationController with stable photo management
+// UPDATED AnimationController with better photo management
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
+  const [photoVersion, setPhotoVersion] = useState(0); // Force updates when photos change
   const cycleIndexRef = useRef(0);
   const lastCycleTimeRef = useRef(Date.now());
-  const photoCycleInterval = 5000; // 5 seconds per cycle
+  const photoCycleInterval = 5000;
 
-  // Update display photos based on available photos and slots
+  // Watch for photo changes and force update
   useEffect(() => {
+    setPhotoVersion(prev => prev + 1);
+    
     if (photos.length <= settings.photoCount) {
-      // If we have fewer photos than slots, just display all photos
       setDisplayPhotos(photos);
     } else {
-      // If we have more photos than slots, prioritize newest ones initially
+      // Prioritize newest photos
       const sortedPhotos = [...photos].sort((a, b) => 
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
@@ -594,19 +473,15 @@ const AnimationController: React.FC<{
   useFrame((state) => {
     const currentTime = Date.now();
     
-    // Handle photo cycling if we have more photos than slots
+    // Handle photo cycling
     if (photos.length > settings.photoCount && currentTime - lastCycleTimeRef.current > photoCycleInterval) {
       lastCycleTimeRef.current = currentTime;
       
-      // Cycle through photos
       setDisplayPhotos(prev => {
         const newDisplay = [...prev];
-        
-        // Replace one photo at a time for smooth transitions
         const slotToReplace = cycleIndexRef.current % settings.photoCount;
         cycleIndexRef.current++;
         
-        // Find next photo that's not currently displayed
         let nextPhotoIndex = cycleIndexRef.current % photos.length;
         let attempts = 0;
         
@@ -627,14 +502,12 @@ const AnimationController: React.FC<{
     // Always update positions
     const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
     
-    // Create pattern and generate positions
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, displayPhotos);
     const patternState = pattern.generatePositions(time);
     
-    // Create photos with positions array
     const photosWithPositions: PhotoWithPosition[] = [];
     
-    // Fill with actual display photos first
+    // Add real photos
     for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
       photosWithPositions.push({
         ...displayPhotos[i],
@@ -644,11 +517,11 @@ const AnimationController: React.FC<{
       });
     }
     
-    // Fill remaining slots with placeholder photos if needed
+    // Add placeholders
     for (let i = displayPhotos.length; i < settings.photoCount; i++) {
       photosWithPositions.push({
-        id: `placeholder-${i}`,
-        url: '', // Empty URL will show as colored placeholder
+        id: `placeholder-${i}-v${photoVersion}`, // Include version to force re-render
+        url: '',
         targetPosition: patternState.positions[i] || [0, 0, 0],
         targetRotation: patternState.rotations?.[i] || [0, 0, 0],
         displayIndex: i,
@@ -666,11 +539,9 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   const { scene, gl } = useThree();
   
   useEffect(() => {
-    // Always set scene background to null when using gradients
-    // This prevents Three.js from overriding the CSS background
     if (settings.backgroundGradient) {
       scene.background = null;
-      gl.setClearColor('#000000', 0); // Transparent clear color
+      gl.setClearColor('#000000', 0);
     } else {
       scene.background = new THREE.Color(settings.backgroundColor);
       gl.setClearColor(settings.backgroundColor, 1);
@@ -688,11 +559,16 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   return null;
 };
 
-// Main CollageScene component with optimized photo handling
+// Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const [sceneKey, setSceneKey] = useState(0); // Force re-render when photos change
 
-  // Create background style for gradient support
+  // Force scene update when photos array changes
+  useEffect(() => {
+    setSceneKey(prev => prev + 1);
+  }, [photos.length]); // React to photo count changes
+
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
       return {
@@ -713,22 +589,22 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   return (
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas 
+        key={sceneKey} // Force re-mount when scene key changes
         shadows
         gl={{ 
           antialias: true, 
-          alpha: true, // Always enable alpha for transparency
+          alpha: true,
           premultipliedAlpha: false,
           preserveDrawingBuffer: false,
-          powerPreference: "high-performance", // Optimize for performance
+          powerPreference: "high-performance",
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
           gl.shadowMap.autoUpdate = true;
-          // Enable optimizations
-          gl.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
+          gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         }}
-        performance={{ min: 0.8 }} // Lower performance threshold to maintain 60fps
+        performance={{ min: 0.8 }}
       >
         <BackgroundRenderer settings={settings} />
         <CameraController settings={settings} />
@@ -736,17 +612,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Floor settings={settings} />
         <Grid settings={settings} />
         
-        {/* Animation controller for dynamic updates */}
         <AnimationController
           settings={settings}
           photos={photos}
           onPositionsUpdate={setPhotosWithPositions}
         />
         
-        {/* Render photos with stable keys */}
         {photosWithPositions.map((photo) => (
           <PhotoMesh
-            key={`${photo.id}-${photo.displayIndex}`} // Use displayIndex for stable keys
+            key={`${photo.id}-${photo.displayIndex}`}
             photo={photo}
             size={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
