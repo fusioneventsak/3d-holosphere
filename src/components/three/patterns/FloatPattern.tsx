@@ -16,7 +16,7 @@ export class FloatPattern extends BasePattern {
     const riseSpeed = 8; // Units per second rising speed
     const maxHeight = 60; // Maximum height before recycling
     const startHeight = -15; // Start well below the floor
-    const totalRiseDistance = maxHeight - startHeight;
+    const totalRiseDistance = maxHeight - startHeight; // 75 units total
     
     // Calculate grid-like distribution for better coverage
     const gridSize = Math.ceil(Math.sqrt(totalPhotos));
@@ -41,22 +41,23 @@ export class FloatPattern extends BasePattern {
       const baseZ = cellCenterZ + (randomOffsetZ * cellSize * 0.8);
       
       // Calculate rising motion - each photo has its own timing offset
-      const adjustedTime = animationTime + (timeOffset * (totalRiseDistance / riseSpeed));
+      // Spread out the initial positions across the full height range
+      const initialOffset = timeOffset * totalRiseDistance;
       
-      // Calculate height with proper teleportation
-      const totalRiseTime = adjustedTime * riseSpeed;
       let y: number;
       
       if (this.settings.animationEnabled) {
-        // Use floor division to ensure instant reset when reaching max height
-        const cyclePosition = totalRiseTime % totalRiseDistance;
-        y = startHeight + cyclePosition;
+        // Calculate position in the rise cycle
+        const riseProgress = (animationTime * riseSpeed + initialOffset) % totalRiseDistance;
+        
+        // Position is simply start height + progress through the cycle
+        y = startHeight + riseProgress;
         
         // Add subtle bobbing motion for more natural floating
         y += Math.sin(animationTime * 2 + i * 0.3) * 0.4;
       } else {
-        // Static position when animation is disabled
-        y = startHeight + (timeOffset * totalRiseDistance);
+        // Static position when animation is disabled - distribute evenly
+        y = startHeight + initialOffset;
       }
       
       // Add horizontal position with gentle drift
