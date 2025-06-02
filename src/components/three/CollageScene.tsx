@@ -211,35 +211,36 @@ const PhotoMesh: React.FC<{
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
   return (
-    <>
-      {/* Add a very slight bevel to the plane for better light response */}
-      <mesh ref={meshRef} castShadow receiveShadow>
-        {isLoading || !texture ? (
-          // Empty slot with frame
-          <group>
-            {/* Outer frame */}
-            <mesh material={material[0]}>
-              <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+    <mesh ref={meshRef} castShadow receiveShadow>
+      {isLoading || !texture ? (
+        // Empty slot with frame
+        <group>
+          {/* Outer frame */}
+          <mesh material={material[0]}>
+            <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+          </mesh>
+          {/* Inner panel */}
+          <group position={[0, 0, -0.01]}>
+            {/* Main panel */}
+            <mesh material={material[1]}>
+              <boxGeometry args={[size * (9/16), size, 0.01]} />
             </mesh>
-            {/* Inner panel */}
-            <mesh material={material[1]} position={[0, 0, -0.01]}>
-          {/* Main panel */}
-          <mesh material={material[1]}>
-            <boxGeometry args={[size * (9/16), size, 0.01]} />
-          </mesh>
-          {/* Horizontal line of plus sign */}
-          <mesh material={material[0]} position={[0, 0, 0.01]}>
-            <boxGeometry args={[size * 0.2, size * 0.02, 0.01]} />
-          </mesh>
-          {/* Vertical line of plus sign */}
-          <mesh material={material[0]} position={[0, 0, 0.01]}>
-            <boxGeometry args={[size * 0.02, size * 0.2, 0.01]} />
-          </mesh>
-        )}
-      </mesh>
-    </>
-      );
-    };
+            {/* Horizontal line of plus sign */}
+            <mesh material={material[0]} position={[0, 0, 0.01]}>
+              <boxGeometry args={[size * 0.2, size * 0.02, 0.01]} />
+            </mesh>
+            {/* Vertical line of plus sign */}
+            <mesh material={material[0]} position={[0, 0, 0.01]}>
+              <boxGeometry args={[size * 0.02, size * 0.2, 0.01]} />
+            </mesh>
+          </group>
+        </group>
+      ) : (
+        <planeGeometry args={[size * (9/16), size]} />
+      )}
+    </mesh>
+  );
+};
 
 // AnimationController - handles photo positioning
 const AnimationController: React.FC<{
@@ -494,5 +495,3 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 };
 
 export default CollageScene;
-  )
-}
