@@ -24,9 +24,10 @@ type PhotoWithPosition = Photo & {
   displayIndex?: number;
 };
 
-// Improve smoothing values for better animation
+// Adjusted smoothing values for float pattern
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
+const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
 // VolumetricSpotlight component with adjusted intensity
 const VolumetricSpotlight: React.FC<{
@@ -174,7 +175,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// PhotoMesh component - Updated to handle seamless transitions
+// PhotoMesh component - Updated to handle teleportation for float pattern
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -188,6 +189,7 @@ const PhotoMesh: React.FC<{
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
 
   useEffect(() => {
     if (!photo.url) {
@@ -229,10 +231,11 @@ const PhotoMesh: React.FC<{
   useFrame(() => {
     if (!meshRef.current) return;
 
-    // Initialize position on first frame if this is a new photo
+    // Initialize position on first frame
     if (!isInitializedRef.current && photo.targetPosition) {
       meshRef.current.position.set(...photo.targetPosition);
       meshRef.current.rotation.set(...(photo.targetRotation || [0, 0, 0]));
+      lastPositionRef.current = [...photo.targetPosition];
       isInitializedRef.current = true;
       return;
     }
@@ -240,11 +243,34 @@ const PhotoMesh: React.FC<{
     const currentPos = meshRef.current.position;
     const targetPos = photo.targetPosition;
 
-    // Smooth interpolation for position
-    meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-    meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-    meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
+    // Detect teleportation for float pattern
+    if (pattern === 'float') {
+      const yDistance = Math.abs(targetPos[1] - lastPositionRef.current[1]);
+      
+      // If the Y distance is too large, it's a teleport
+      if (yDistance > TELEPORT_THRESHOLD) {
+        // Instant teleport without interpolation
+        meshRef.current.position.set(...targetPos);
+        lastPositionRef.current = [...targetPos];
+      } else {
+        // Normal smooth interpolation
+        meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+        meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+        meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
+        lastPositionRef.current = [
+          meshRef.current.position.x,
+          meshRef.current.position.y,
+          meshRef.current.position.z
+        ];
+      }
+    } else {
+      // For other patterns, use normal interpolation
+      meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+      meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+      meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
+    }
 
+    // Handle rotation
     if (shouldFaceCamera) {
       const photoPos = meshRef.current.position;
       const cameraPos = camera.position;
@@ -440,7 +466,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// UPDATED AnimationController - Smooth photo transitions without resets
+// AnimationController
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
@@ -580,7 +606,7 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   return null;
 };
 
-// Main CollageScene component - UPDATED to prevent resets
+// Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
