@@ -33,7 +33,58 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// PhotoMesh component with brightness control
+// Camera icon shape creation function
+const createCameraIconGeometry = (size: number) => {
+  const shape = new THREE.Shape();
+  const scale = size * 0.3; // Scale the icon to 30% of photo size
+  
+  // Camera body (rectangle)
+  const bodyWidth = scale * 0.6;
+  const bodyHeight = scale * 0.4;
+  const bodyX = -bodyWidth / 2;
+  const bodyY = -bodyHeight / 2;
+  
+  shape.moveTo(bodyX, bodyY);
+  shape.lineTo(bodyX + bodyWidth, bodyY);
+  shape.lineTo(bodyX + bodyWidth, bodyY + bodyHeight);
+  shape.lineTo(bodyX, bodyY + bodyHeight);
+  shape.closePath();
+  
+  // Lens (circle in center)
+  const lensRadius = scale * 0.15;
+  const lensX = 0;
+  const lensY = 0;
+  shape.moveTo(lensX + lensRadius, lensY);
+  shape.absarc(lensX, lensY, lensRadius, 0, Math.PI * 2, false);
+  
+  // Viewfinder (small rectangle on top)
+  const viewfinderWidth = scale * 0.15;
+  const viewfinderHeight = scale * 0.08;
+  const viewfinderX = -viewfinderWidth / 2;
+  const viewfinderY = bodyY + bodyHeight;
+  
+  shape.moveTo(viewfinderX, viewfinderY);
+  shape.lineTo(viewfinderX + viewfinderWidth, viewfinderY);
+  shape.lineTo(viewfinderX + viewfinderWidth, viewfinderY + viewfinderHeight);
+  shape.lineTo(viewfinderX, viewfinderY + viewfinderHeight);
+  shape.closePath();
+  
+  // Flash (small rectangle on the side)
+  const flashWidth = scale * 0.06;
+  const flashHeight = scale * 0.1;
+  const flashX = bodyX + bodyWidth;
+  const flashY = bodyY + bodyHeight - flashHeight - scale * 0.05;
+  
+  shape.moveTo(flashX, flashY);
+  shape.lineTo(flashX + flashWidth, flashY);
+  shape.lineTo(flashX + flashWidth, flashY + flashHeight);
+  shape.lineTo(flashX, flashY + flashHeight);
+  shape.closePath();
+  
+  return new THREE.ShapeGeometry(shape);
+};
+
+// PhotoMesh component with brightness control and camera icon for empty slots
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -159,12 +210,12 @@ const PhotoMesh: React.FC<{
   });
 
   // Materials with brightness control
-  const material = useMemo(() => {
+  const materials = useMemo(() => {
     const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
     
     if (hasError) {
-      return [
-        new THREE.MeshStandardMaterial({ 
+      return {
+        photo: new THREE.MeshStandardMaterial({ 
           color: new THREE.Color('#ff4444'),
           transparent: false,
           roughness: 0.4,
@@ -172,72 +223,80 @@ const PhotoMesh: React.FC<{
           emissive: new THREE.Color('#400000'),
           emissiveIntensity: 0.1
         })
-      ];
+      };
     }
     
     if (isLoading || !texture) {
-      // Create materials for empty slot frame
-      const frameMaterial = new THREE.MeshStandardMaterial({
-        color: new THREE.Color('#ffffff'),
-        transparent: true,
-        opacity: 0.1,
-        roughness: 0.5,
-        metalness: 0.8,
-        side: THREE.DoubleSide
-      });
+      // Create materials for empty slot
+      const slotColor = new THREE.Color(emptySlotColor);
+      const hsl = { h: 0, s: 0, l: 0 };
+      slotColor.getHSL(hsl);
+      
+      // Create a lighter shade for the icon (20% lighter)
+      const iconColor = new THREE.Color();
+      iconColor.setHSL(hsl.h, hsl.s * 0.7, Math.min(hsl.l + 0.2, 0.8));
 
-      const innerMaterial = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(emptySlotColor),
-        transparent: false,
-        roughness: 0.9,
-        metalness: 0.1,
-        side: THREE.DoubleSide
-      });
-
-      return [frameMaterial, innerMaterial];
+      return {
+        slot: new THREE.MeshStandardMaterial({
+          color: slotColor,
+          transparent: false,
+          roughness: 0.9,
+          metalness: 0.1,
+          side: THREE.DoubleSide
+        }),
+        icon: new THREE.MeshStandardMaterial({
+          color: iconColor,
+          transparent: true,
+          opacity: 0.3,
+          roughness: 0.9,
+          metalness: 0.1,
+          side: THREE.DoubleSide
+        })
+      };
     }
     
     // Create a material optimized for photo display
-    return [new THREE.MeshStandardMaterial({ 
-      map: texture,
-      transparent: true,
-      roughness: 0,
-      metalness: 0,
-      emissive: new THREE.Color(1, 1, 1),
-      emissiveMap: texture,
-      emissiveIntensity: clampedBrightness,
-      toneMapped: false
-    })];
+    return {
+      photo: new THREE.MeshStandardMaterial({ 
+        map: texture,
+        transparent: true,
+        roughness: 0,
+        metalness: 0,
+        emissive: new THREE.Color(1, 1, 1),
+        emissiveMap: texture,
+        emissiveIntensity: clampedBrightness,
+        toneMapped: false
+      })
+    };
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
+  // Create camera icon geometry
+  const cameraIconGeometry = useMemo(() => {
+    return createCameraIconGeometry(size);
+  }, [size]);
+
+  if (isLoading || !texture) {
+    // Render empty slot with camera icon
+    return (
+      <group ref={meshRef} castShadow receiveShadow>
+        {/* Background slot */}
+        <mesh material={materials.slot}>
+          <planeGeometry args={[size * (9/16), size]} />
+        </mesh>
+        {/* Camera icon */}
+        <mesh 
+          material={materials.icon} 
+          geometry={cameraIconGeometry}
+          position={[0, 0, 0.01]}
+        />
+      </group>
+    );
+  }
+
+  // Render photo
   return (
-    <mesh ref={meshRef} castShadow receiveShadow>
-      {isLoading || !texture ? (
-        // Empty slot with frame
-        <group>
-          {/* Outer frame */}
-          <mesh material={material[0]}>
-            <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
-          </mesh>
-          {/* Inner panel */}
-          <group position={[0, 0, -0.01]}>
-            {/* Main panel */}
-            <mesh material={material[1]}>
-              <boxGeometry args={[size * (9/16), size, 0.01]} />
-            </mesh>
-            {/* Horizontal line of plus sign */}
-            <mesh material={material[0]} position={[0, 0, 0.01]}>
-              <boxGeometry args={[size * 0.2, size * 0.02, 0.01]} />
-            </mesh>
-            {/* Vertical line of plus sign */}
-            <mesh material={material[0]} position={[0, 0, 0.01]}>
-              <boxGeometry args={[size * 0.02, size * 0.2, 0.01]} />
-            </mesh>
-          </group>
-        </group>
-      ) : (
-        <planeGeometry args={[size * (9/16), size]} />
-      )}
+    <mesh ref={meshRef} castShadow receiveShadow material={materials.photo}>
+      <planeGeometry args={[size * (9/16), size]} />
     </mesh>
   );
 };
