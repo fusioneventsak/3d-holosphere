@@ -10,10 +10,10 @@ export const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       color: settings.floorColor,
       transparent: settings.floorOpacity < 1,
       opacity: settings.floorOpacity,
-      metalness: Math.min(settings.floorMetalness, 0.9),
-      roughness: Math.max(settings.floorRoughness, 0.1),
+      metalness: Math.min(settings.floorMetalness * 1.2, 0.95),
+      roughness: Math.max(settings.floorRoughness * 0.8, 0.05),
       side: THREE.DoubleSide,
-      envMapIntensity: 0.5,
+      envMapIntensity: 1.2,
     });
   }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
 

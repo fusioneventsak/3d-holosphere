@@ -165,29 +165,33 @@ const PhotoMesh: React.FC<{
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color('#ff4444'),
-        emissive: new THREE.Color('#ff4444'),
-        emissiveIntensity: 1.0,
-        roughness: 0.0,
-        metalness: 0.0
+        transparent: false,
+        roughness: 0.4,
+        metalness: 0.0,
+        emissive: new THREE.Color('#400000'),
+        emissiveIntensity: 0.1
       });
     }
     
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color(emptySlotColor),
+        transparent: false,
+        roughness: 0.0,
+        metalness: 0.0,
         emissive: new THREE.Color(emptySlotColor),
         emissiveIntensity: 1.0,
-        roughness: 0.0,
-        metalness: 0.0
+        toneMapped: false
       });
     }
     
     // Create a material with brightness control
     const material = new THREE.MeshStandardMaterial({ 
       map: texture,
+      transparent: false,
       roughness: 0.3,
       metalness: 0.3,
-      envMapIntensity: 2.0
+      envMapIntensity: 1.5
     });
     
     // Apply brightness by adjusting the material color
