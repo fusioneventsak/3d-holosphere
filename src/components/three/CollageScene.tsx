@@ -176,30 +176,33 @@ const PhotoMesh: React.FC<{
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color(emptySlotColor),
-        transparent: false,
-        roughness: 0.0,
-        metalness: 0.0,
+        transparent: true,
+        opacity: 1,
+        roughness: 1,
+        metalness: 0,
         emissive: new THREE.Color(emptySlotColor),
         emissiveIntensity: 1.0,
         toneMapped: false
       });
     }
     
-    // Create a material with brightness control
+    // Create a material optimized for photo display
     const material = new THREE.MeshStandardMaterial({ 
       map: texture,
-      transparent: false,
-      roughness: 0.3,
-      metalness: 0.3,
-      envMapIntensity: 1.5
+      transparent: true,
+      opacity: 1,
+      roughness: 0.2, // Lower roughness for better light response
+      metalness: 0.1, // Low metalness to preserve colors
+      envMapIntensity: 1.2,
+      toneMapped: false // Disable tone mapping for photos
     });
     
     // Apply brightness by adjusting the material color
     material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
     
-    // For very bright settings, add subtle emissive glow
+    // Add emissive for brightness boost
     if (clampedBrightness > 1.0) {
-      const emissiveIntensity = Math.min(1.0, (clampedBrightness - 1.0) * 0.5);
+      const emissiveIntensity = Math.min(1.0, (clampedBrightness - 1.0) * 0.8);
       material.emissive = new THREE.Color(1, 1, 1);
       material.emissiveIntensity = emissiveIntensity;
     }
@@ -427,8 +430,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           premultipliedAlpha: false, // Better for our use case
           preserveDrawingBuffer: false, // Better performance
           powerPreference: "high-performance", // Request best GPU
-          toneMapping: THREE.ACESFilmicToneMapping, // High quality tone mapping
-          toneMappingExposure: 1.0, // Standard exposure
+          toneMapping: THREE.NoToneMapping, // Remove tone mapping to preserve photo colors
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
