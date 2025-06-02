@@ -163,31 +163,43 @@ const PhotoMesh: React.FC<{
     const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
     
     if (hasError) {
-      return new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color('#ff4444'),
-        transparent: false,
-        roughness: 0.4,
-        metalness: 0.0,
-        emissive: new THREE.Color('#400000'),
-        emissiveIntensity: 0.1
-      });
+      return [
+        new THREE.MeshStandardMaterial({ 
+          color: new THREE.Color('#ff4444'),
+          transparent: false,
+          roughness: 0.4,
+          metalness: 0.0,
+          emissive: new THREE.Color('#400000'),
+          emissiveIntensity: 0.1
+        })
+      ];
     }
     
     if (isLoading || !texture) {
-      return new THREE.MeshStandardMaterial({ 
+      // Create materials for empty slot frame
+      const frameMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        opacity: 0.1,
+        roughness: 0.5,
+        metalness: 0.8,
+        side: THREE.DoubleSide
+      });
+
+      const innerMaterial = new THREE.MeshStandardMaterial({
         color: new THREE.Color(emptySlotColor),
         transparent: true,
-        opacity: 1,
-        roughness: 1,
-        metalness: 0,
-        emissive: new THREE.Color(emptySlotColor),
-        emissiveIntensity: 1.0,
-        toneMapped: false
+        opacity: 0.15,
+        roughness: 0.9,
+        metalness: 0.1,
+        side: THREE.DoubleSide
       });
+
+      return [frameMaterial, innerMaterial];
     }
     
     // Create a material optimized for photo display
-    const material = new THREE.MeshStandardMaterial({ 
+    return [new THREE.MeshStandardMaterial({ 
       map: texture,
       transparent: true,
       roughness: 0,
@@ -196,15 +208,30 @@ const PhotoMesh: React.FC<{
       emissiveMap: texture,
       emissiveIntensity: clampedBrightness,
       toneMapped: false
-    });
-    
-    return material;
+    })];
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
   return (
-    <mesh ref={meshRef} material={material} castShadow receiveShadow>
       {/* Add a very slight bevel to the plane for better light response */}
-      <boxGeometry args={[size * (9/16), size, 0.05]} />
+    <mesh ref={meshRef} castShadow receiveShadow>
+      {isLoading || !texture ? (
+        // Empty slot with frame
+        <group>
+          {/* Outer frame */}
+          <mesh material={material[0]}>
+            <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+          </mesh>
+          {/* Inner panel */}
+          <mesh material={material[1]} position={[0, 0, -0.01]}>
+            <boxGeometry args={[size * (9/16) - 0.1, size - 0.1, 0.01]} />
+          </mesh>
+        </group>
+      ) : (
+        // Photo display
+        <mesh material={material[0]}>
+          <boxGeometry args={[size * (9/16), size, 0.05]} />
+        </mesh>
+      )}
     </mesh>
   );
 };
