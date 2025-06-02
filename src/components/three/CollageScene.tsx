@@ -21,6 +21,7 @@ type CollageSceneProps = {
 type PhotoWithPosition = Photo & {
   targetPosition: [number, number, number];
   targetRotation: [number, number, number];
+  displayIndex?: number; // Track which slot this photo is displayed in
 };
 
 // Improve smoothing values for better animation
@@ -487,92 +488,172 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
+// PhotoCycler component to handle photo cycling when slots are full
+const PhotoCycler: React.FC<{
+  photos: Photo[];
+  slots: number;
+  cycleInterval?: number;
+}> = ({ photos, slots, cycleInterval = 5000 }) => {
+  const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
+  const cycleIndexRef = useRef(0);
+  const lastUpdateRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (photos.length <= slots) {
+      // If we have fewer photos than slots, just display all photos
+      setDisplayPhotos(photos);
+      return;
+    }
+
+    // Initialize display with newest photos first
+    const sortedPhotos = [...photos].sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+    
+    // Take the newest photos to fill all slots
+    setDisplayPhotos(sortedPhotos.slice(0, slots));
+
+    // Set up cycling interval
+    const interval = setInterval(() => {
+      setDisplayPhotos(prev => {
+        const currentTime = Date.now();
+        
+        // Don't cycle if we just updated (prevents rapid cycling on new photo uploads)
+        if (currentTime - lastUpdateRef.current < 1000) {
+          return prev;
+        }
+
+        // Create a new display array by cycling through all photos
+        const newDisplay = [...prev];
+        
+        // Replace the oldest displayed photo with the next one in the cycle
+        const oldestIndex = 0; // Always replace the first slot for consistent cycling
+        cycleIndexRef.current = (cycleIndexRef.current + 1) % photos.length;
+        
+        // Find a photo that's not currently displayed
+        let attempts = 0;
+        while (attempts < photos.length) {
+          const candidatePhoto = photos[cycleIndexRef.current];
+          if (!newDisplay.some(p => p.id === candidatePhoto.id)) {
+            newDisplay[oldestIndex] = candidatePhoto;
+            break;
+          }
+          cycleIndexRef.current = (cycleIndexRef.current + 1) % photos.length;
+          attempts++;
+        }
+        
+        lastUpdateRef.current = currentTime;
+        return newDisplay;
+      });
+    }, cycleInterval);
+
+    return () => clearInterval(interval);
+  }, [photos, slots, cycleInterval]);
+
+  // When new photos are added, prioritize showing them
+  useEffect(() => {
+    if (photos.length > displayPhotos.length && photos.length > slots) {
+      const sortedPhotos = [...photos].sort((a, b) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      
+      // Show the newest photos
+      setDisplayPhotos(sortedPhotos.slice(0, slots));
+      lastUpdateRef.current = Date.now();
+    }
+  }, [photos.length]);
+
+  return <>{displayPhotos}</>;
+};
+
 // Optimized AnimationController with stable photo management
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
-  const lastPhotoCountRef = useRef(settings.photoCount);
-  const stablePhotosRef = useRef<PhotoWithPosition[]>([]);
-  
-  // Create stable photo array that doesn't cause unnecessary re-renders
-  const createStablePhotoArray = useCallback((currentPhotos: Photo[], patternState: any) => {
-    const newPhotoCount = settings.photoCount;
-    const photosToShow = currentPhotos.slice(0, newPhotoCount);
-    
-    // If photo count hasn't changed and we have existing stable photos, preserve them
-    if (newPhotoCount === lastPhotoCountRef.current && stablePhotosRef.current.length > 0) {
-      // Update positions for existing photos, add new ones, remove excess
-      const updatedPhotos: PhotoWithPosition[] = [];
-      
-      // Update existing photos
-      for (let i = 0; i < Math.min(stablePhotosRef.current.length, newPhotoCount); i++) {
-        const existingPhoto = stablePhotosRef.current[i];
-        const newPhoto = photosToShow[i];
-        
-        updatedPhotos.push({
-          // Preserve existing photo if no new photo available, otherwise use new photo
-          ...(newPhoto || existingPhoto),
-          targetPosition: patternState.positions[i] || [0, 0, 0],
-          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-        });
-      }
-      
-      // Add new photos if count increased
-      for (let i = stablePhotosRef.current.length; i < newPhotoCount; i++) {
-        const newPhoto = photosToShow[i];
-        updatedPhotos.push({
-          ...(newPhoto || {
-            id: `placeholder-${i}`,
-            url: '', // Empty URL will show as colored placeholder
-          }),
-          targetPosition: patternState.positions[i] || [0, 0, 0],
-          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-        });
-      }
-      
-      stablePhotosRef.current = updatedPhotos;
-      return updatedPhotos;
+  const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
+  const cycleIndexRef = useRef(0);
+  const lastCycleTimeRef = useRef(Date.now());
+  const photoCycleInterval = 5000; // 5 seconds per cycle
+
+  // Update display photos based on available photos and slots
+  useEffect(() => {
+    if (photos.length <= settings.photoCount) {
+      // If we have fewer photos than slots, just display all photos
+      setDisplayPhotos(photos);
+    } else {
+      // If we have more photos than slots, prioritize newest ones initially
+      const sortedPhotos = [...photos].sort((a, b) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      setDisplayPhotos(sortedPhotos.slice(0, settings.photoCount));
     }
+  }, [photos, settings.photoCount]);
+
+  useFrame((state) => {
+    const currentTime = Date.now();
     
-    // Create new array when photo count changes or first time
-    const newPhotosWithPositions: PhotoWithPosition[] = [];
+    // Handle photo cycling if we have more photos than slots
+    if (photos.length > settings.photoCount && currentTime - lastCycleTimeRef.current > photoCycleInterval) {
+      lastCycleTimeRef.current = currentTime;
+      
+      // Cycle through photos
+      setDisplayPhotos(prev => {
+        const newDisplay = [...prev];
+        
+        // Replace one photo at a time for smooth transitions
+        const slotToReplace = cycleIndexRef.current % settings.photoCount;
+        cycleIndexRef.current++;
+        
+        // Find next photo that's not currently displayed
+        let nextPhotoIndex = cycleIndexRef.current % photos.length;
+        let attempts = 0;
+        
+        while (attempts < photos.length) {
+          const candidatePhoto = photos[nextPhotoIndex];
+          if (!newDisplay.some(p => p.id === candidatePhoto.id)) {
+            newDisplay[slotToReplace] = candidatePhoto;
+            break;
+          }
+          nextPhotoIndex = (nextPhotoIndex + 1) % photos.length;
+          attempts++;
+        }
+        
+        return newDisplay;
+      });
+    }
+
+    // Always update positions
+    const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
     
-    // Fill with actual photos first
-    for (let i = 0; i < photosToShow.length; i++) {
-      newPhotosWithPositions.push({
-        ...photosToShow[i],
+    // Create pattern and generate positions
+    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, displayPhotos);
+    const patternState = pattern.generatePositions(time);
+    
+    // Create photos with positions array
+    const photosWithPositions: PhotoWithPosition[] = [];
+    
+    // Fill with actual display photos first
+    for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
+      photosWithPositions.push({
+        ...displayPhotos[i],
         targetPosition: patternState.positions[i] || [0, 0, 0],
         targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+        displayIndex: i,
       });
     }
     
-    // Fill remaining slots with placeholder photos if we need more
-    for (let i = photosToShow.length; i < newPhotoCount; i++) {
-      newPhotosWithPositions.push({
+    // Fill remaining slots with placeholder photos if needed
+    for (let i = displayPhotos.length; i < settings.photoCount; i++) {
+      photosWithPositions.push({
         id: `placeholder-${i}`,
         url: '', // Empty URL will show as colored placeholder
         targetPosition: patternState.positions[i] || [0, 0, 0],
         targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+        displayIndex: i,
       });
     }
-    
-    lastPhotoCountRef.current = newPhotoCount;
-    stablePhotosRef.current = newPhotosWithPositions;
-    return newPhotosWithPositions;
-  }, [settings.photoCount]);
-
-  useFrame((state) => {
-    // Always update positions, but only use time for animation if enabled
-    const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
-    
-    // Create pattern and generate positions
-    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
-    const patternState = pattern.generatePositions(time);
-    
-    // Create stable photo array
-    const photosWithPositions = createStablePhotoArray(photos, patternState);
     
     onPositionsUpdate(photosWithPositions);
   });
@@ -610,49 +691,6 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
 // Main CollageScene component with optimized photo handling
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  
-  // Memoize photo keys to detect when actual photos change vs just array reference
-  const photoKeys = useMemo(() => {
-    return photos.map(p => p.id).join(',');
-  }, [photos]);
-
-  // Create initial pattern positions for photos only when needed
-  const initialPhotosWithPositions = useMemo(() => {
-    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
-    const patternState = pattern.generatePositions(0); // Start at time 0
-    
-    const photosToShow = photos.slice(0, settings.photoCount);
-    const result: PhotoWithPosition[] = [];
-    
-    // Fill with actual photos first
-    for (let i = 0; i < photosToShow.length; i++) {
-      result.push({
-        ...photosToShow[i],
-        targetPosition: patternState.positions[i] || [0, 0, 0] as [number, number, number],
-        targetRotation: patternState.rotations?.[i] || [0, 0, 0] as [number, number, number],
-      });
-    }
-    
-    // Fill remaining slots with placeholder photos if we need more
-    for (let i = photosToShow.length; i < settings.photoCount; i++) {
-      result.push({
-        id: `placeholder-${i}`,
-        url: '', // Empty URL will show as colored placeholder
-        targetPosition: patternState.positions[i] || [0, 0, 0] as [number, number, number],
-        targetRotation: patternState.rotations?.[i] || [0, 0, 0] as [number, number, number],
-      });
-    }
-    
-    return result;
-  }, [settings.animationPattern, settings.photoCount]); // Removed photoKeys dependency to prevent refresh
-
-  // Only update photos with positions when settings change, not when photos change
-  useEffect(() => {
-    // Only set initial positions if we don't have any yet
-    if (photosWithPositions.length === 0) {
-      setPhotosWithPositions(initialPhotosWithPositions);
-    }
-  }, [initialPhotosWithPositions]);
 
   // Create background style for gradient support
   const backgroundStyle = useMemo(() => {
@@ -706,9 +744,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         />
         
         {/* Render photos with stable keys */}
-        {photosWithPositions.map((photo, index) => (
+        {photosWithPositions.map((photo) => (
           <PhotoMesh
-            key={`${photo.id}-${index}`} // Stable key that doesn't cause remounts
+            key={`${photo.id}-${photo.displayIndex}`} // Use displayIndex for stable keys
             photo={photo}
             size={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
