@@ -117,7 +117,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return (
     <group ref={groupRef}>
       <ambientLight 
-        intensity={settings.ambientLightIntensity * 0.4} 
+        intensity={settings.ambientLightIntensity} 
         color="#ffffff" 
       />
       
@@ -125,7 +125,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       
       <directionalLight
         position={[20, 30, 20]}
-        intensity={0.2}
+        intensity={0.4}
         color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
@@ -143,7 +143,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         targetRef.current.position.set(...light.target);
         
         const adjustedAngle = settings.spotlightWidth * light.angleVariation;
-        const baseIntensity = settings.spotlightIntensity * 0.05;
+        const baseIntensity = settings.spotlightIntensity * 0.2;
         const adjustedIntensity = baseIntensity * light.intensityVariation;
         
         return (
