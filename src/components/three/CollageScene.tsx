@@ -223,13 +223,17 @@ const PhotoMesh: React.FC<{
             </mesh>
             {/* Inner panel */}
             <mesh material={material[1]} position={[0, 0, -0.01]}>
-              <boxGeometry args={[size * (9/16) - 0.1, size - 0.1, 0.01]} />
-            </mesh>
-          </group>
-        ) : (
-          // Photo display
-          <mesh material={material[0]}>
-            <boxGeometry args={[size * (9/16), size, 0.05]} />
+          {/* Main panel */}
+          <mesh material={material[1]}>
+            <boxGeometry args={[size * (9/16), size, 0.01]} />
+          </mesh>
+          {/* Horizontal line of plus sign */}
+          <mesh material={material[0]} position={[0, 0, 0.01]}>
+            <boxGeometry args={[size * 0.2, size * 0.02, 0.01]} />
+          </mesh>
+          {/* Vertical line of plus sign */}
+          <mesh material={material[0]} position={[0, 0, 0.01]}>
+            <boxGeometry args={[size * 0.02, size * 0.2, 0.01]} />
           </mesh>
         )}
       </mesh>
