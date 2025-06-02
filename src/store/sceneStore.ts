@@ -43,7 +43,7 @@ export type SceneSettings = {
   photoSpacing: number;
   wallHeight: number;
   gridAspectRatio: number;
-  photoBrightness: number; // NEW: Photo brightness control
+  photoBrightness: number;
   patterns: {
     grid: {
       enabled: boolean;
@@ -95,8 +95,8 @@ const defaultSettings: SceneSettings = {
   spotlightAngle: Math.PI / 4,
   spotlightWidth: 0.6,
   spotlightPenumbra: 0.4,
-  ambientLightIntensity: 0.5, // Restored to original higher value
-  spotlightIntensity: 100.0, // Restored to original higher value
+  ambientLightIntensity: 0.5,
+  spotlightIntensity: 100.0,
   spotlightColor: '#ffffff',
   floorEnabled: true,
   floorColor: '#1A1A1A',
@@ -115,7 +115,7 @@ const defaultSettings: SceneSettings = {
   photoSpacing: 0,
   wallHeight: 0,
   gridAspectRatio: 1.77778,
-  photoBrightness: 1.0, // NEW: Default photo brightness (100%)
+  photoBrightness: 1.0, // 1.0 = natural photo brightness (100%)
   patterns: {
     grid: {
       enabled: true,
