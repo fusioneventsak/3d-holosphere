@@ -75,13 +75,12 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           if (payload.new) {
             const newPhoto = payload.new as Photo;
             
-            // Add the new photo to the state immediately
+            // Add with timestamp to force re-render
             set((state) => {
-              // Check if photo already exists to prevent duplicates
               const exists = state.photos.some(p => p.id === newPhoto.id);
               if (exists) return state;
               
-              // Add new photo to the beginning for newest-first order
+              // Force update by creating new array
               return {
                 photos: [newPhoto, ...state.photos]
               };
@@ -99,7 +98,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         },
         (payload) => {
           if (payload.old) {
-            // Remove deleted photo from state
             set((state) => ({
               photos: state.photos.filter(p => p.id !== payload.old.id)
             }));
@@ -114,7 +112,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   },
 
   deletePhoto: async (photoId: string) => {
-    // Optimistic update - remove from UI immediately
     set(state => ({
       photos: state.photos.filter(p => p.id !== photoId)
     }));
@@ -140,7 +137,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         console.warn('Failed to parse photo URL:', photo.url, err);
       }
 
-      // Delete from storage and database in parallel
       const deletePromises = [];
       
       if (filePath) {
@@ -157,7 +153,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       set({ error: null });
     } catch (error: any) {
-      // Revert optimistic update on error
       const { data: photos } = await supabase
         .from('photos')
         .select('*')
@@ -211,7 +206,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      // Fetch photos without blocking
       get().fetchPhotosByCollageId(collage.id);
       
       return collageWithSettings;
@@ -245,7 +239,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      // Fetch photos without blocking
       get().fetchPhotosByCollageId(collage.id);
       
       return collageWithSettings;
@@ -295,10 +288,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .eq('collage_id', collageId)
         .single();
 
-      // Initialize current settings by deep merging default settings with existing settings
       const currentSettings = deepMerge(defaultSettings, existingData?.settings || {});
 
-      // Handle pattern changes
       if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
         Object.keys(currentSettings.patterns || {}).forEach(pattern => {
           if (currentSettings.patterns[pattern as keyof typeof currentSettings.patterns]) {
@@ -308,7 +299,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         });
       }
 
-      // Deep merge the current settings with new settings
       const mergedSettings = deepMerge(currentSettings, newSettings);
 
       const { data, error } = await supabase
@@ -324,7 +314,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (error) throw error;
 
-      // Update local state without triggering scene refresh
       set(state => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
@@ -363,7 +352,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collage.code}/${fileName}`;
 
-      // Upload file with optimized settings
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
@@ -376,7 +364,6 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const publicUrl = getFileUrl('photos', filePath);
 
-      // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -387,14 +374,21 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .single();
 
       if (insertError) {
-        // Clean up uploaded file on database error
         await supabase.storage.from('photos').remove([filePath]);
         throw insertError;
       }
 
       const newPhoto = photoData as Photo;
       
-      // The real-time subscription will handle adding it to the state
+      // Immediately add to state (subscription will handle deduplication)
+      set((state) => {
+        const exists = state.photos.some(p => p.id === newPhoto.id);
+        if (exists) return state;
+        
+        return {
+          photos: [newPhoto, ...state.photos]
+        };
+      });
       
       return newPhoto;
     } catch (error: any) {
