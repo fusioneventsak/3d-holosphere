@@ -11,14 +11,14 @@ export class SpiralPattern extends BasePattern {
     const animationTime = time * speed;
     
     // Tornado parameters
-    const baseRadius = 25; // Base radius at ground level
-    const topRadius = 3; // Narrow radius at top
-    const maxHeight = 60; // Total height of the tornado
+    const baseRadius = 3; // Narrow radius at ground level (bottom of funnel)
+    const topRadius = 30; // Wide radius at top (top of funnel)
+    const maxHeight = 35; // Reduced height to keep photos in view
     const rotationSpeed = 0.8; // Speed of rotation
     const orbitalChance = 0.15; // 15% chance for a photo to be on an outer orbit
     
     // Distribution parameters
-    const verticalBias = 0.7; // Bias towards lower parts of the tornado
+    const verticalBias = 0.6; // Slightly less bias to spread photos more evenly
     
     for (let i = 0; i < totalPhotos; i++) {
       // Generate random but consistent values for each photo
