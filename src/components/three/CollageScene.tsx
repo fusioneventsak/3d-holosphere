@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useEffect, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
