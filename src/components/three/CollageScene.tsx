@@ -212,27 +212,29 @@ const PhotoMesh: React.FC<{
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
   return (
+    <>
       {/* Add a very slight bevel to the plane for better light response */}
-    <mesh ref={meshRef} castShadow receiveShadow>
-      {isLoading || !texture ? (
-        // Empty slot with frame
-        <group>
-          {/* Outer frame */}
+      <mesh ref={meshRef} castShadow receiveShadow>
+        {isLoading || !texture ? (
+          // Empty slot with frame
+          <group>
+            {/* Outer frame */}
+            <mesh material={material[0]}>
+              <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+            </mesh>
+            {/* Inner panel */}
+            <mesh material={material[1]} position={[0, 0, -0.01]}>
+              <boxGeometry args={[size * (9/16) - 0.1, size - 0.1, 0.01]} />
+            </mesh>
+          </group>
+        ) : (
+          // Photo display
           <mesh material={material[0]}>
-            <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+            <boxGeometry args={[size * (9/16), size, 0.05]} />
           </mesh>
-          {/* Inner panel */}
-          <mesh material={material[1]} position={[0, 0, -0.01]}>
-            <boxGeometry args={[size * (9/16) - 0.1, size - 0.1, 0.01]} />
-          </mesh>
-        </group>
-      ) : (
-        // Photo display
-        <mesh material={material[0]}>
-          <boxGeometry args={[size * (9/16), size, 0.05]} />
-        </mesh>
-      )}
-    </mesh>
+        )}
+      </mesh>
+    </>
   );
 };
 
