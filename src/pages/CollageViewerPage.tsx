@@ -31,7 +31,7 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const { currentCollage, photos, fetchCollageByCode, loading, error } = useCollageStore();
+  const { currentCollage, photos, fetchCollageByCode, loading, error, subscribeToPhotos } = useCollageStore();
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const navigate = useNavigate();
@@ -41,6 +41,16 @@ const CollageViewerPage: React.FC = () => {
       fetchCollageByCode(code);
     }
   }, [code, fetchCollageByCode]);
+
+  // Set up real-time subscription for photos
+  useEffect(() => {
+    if (currentCollage?.id) {
+      const unsubscribe = subscribeToPhotos(currentCollage.id);
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [currentCollage?.id, subscribeToPhotos]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
