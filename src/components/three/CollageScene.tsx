@@ -33,58 +33,7 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// Camera icon shape creation function
-const createCameraIconGeometry = (size: number) => {
-  const shape = new THREE.Shape();
-  const scale = size * 0.3; // Scale the icon to 30% of photo size
-  
-  // Camera body (rectangle)
-  const bodyWidth = scale * 0.6;
-  const bodyHeight = scale * 0.4;
-  const bodyX = -bodyWidth / 2;
-  const bodyY = -bodyHeight / 2;
-  
-  shape.moveTo(bodyX, bodyY);
-  shape.lineTo(bodyX + bodyWidth, bodyY);
-  shape.lineTo(bodyX + bodyWidth, bodyY + bodyHeight);
-  shape.lineTo(bodyX, bodyY + bodyHeight);
-  shape.closePath();
-  
-  // Lens (circle in center)
-  const lensRadius = scale * 0.15;
-  const lensX = 0;
-  const lensY = 0;
-  shape.moveTo(lensX + lensRadius, lensY);
-  shape.absarc(lensX, lensY, lensRadius, 0, Math.PI * 2, false);
-  
-  // Viewfinder (small rectangle on top)
-  const viewfinderWidth = scale * 0.15;
-  const viewfinderHeight = scale * 0.08;
-  const viewfinderX = -viewfinderWidth / 2;
-  const viewfinderY = bodyY + bodyHeight;
-  
-  shape.moveTo(viewfinderX, viewfinderY);
-  shape.lineTo(viewfinderX + viewfinderWidth, viewfinderY);
-  shape.lineTo(viewfinderX + viewfinderWidth, viewfinderY + viewfinderHeight);
-  shape.lineTo(viewfinderX, viewfinderY + viewfinderHeight);
-  shape.closePath();
-  
-  // Flash (small rectangle on the side)
-  const flashWidth = scale * 0.06;
-  const flashHeight = scale * 0.1;
-  const flashX = bodyX + bodyWidth;
-  const flashY = bodyY + bodyHeight - flashHeight - scale * 0.05;
-  
-  shape.moveTo(flashX, flashY);
-  shape.lineTo(flashX + flashWidth, flashY);
-  shape.lineTo(flashX + flashWidth, flashY + flashHeight);
-  shape.lineTo(flashX, flashY + flashHeight);
-  shape.closePath();
-  
-  return new THREE.ShapeGeometry(shape);
-};
-
-// PhotoMesh component with brightness control and camera icon for empty slots
+// PhotoMesh component with brightness control
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -210,12 +159,12 @@ const PhotoMesh: React.FC<{
   });
 
   // Materials with brightness control
-  const materials = useMemo(() => {
+  const material = useMemo(() => {
     const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
     
     if (hasError) {
-      return {
-        photo: new THREE.MeshStandardMaterial({ 
+      return [
+        new THREE.MeshStandardMaterial({ 
           color: new THREE.Color('#ff4444'),
           transparent: false,
           roughness: 0.4,
@@ -223,80 +172,170 @@ const PhotoMesh: React.FC<{
           emissive: new THREE.Color('#400000'),
           emissiveIntensity: 0.1
         })
-      };
+      ];
     }
     
     if (isLoading || !texture) {
-      // Create materials for empty slot
-      const slotColor = new THREE.Color(emptySlotColor);
-      const hsl = { h: 0, s: 0, l: 0 };
-      slotColor.getHSL(hsl);
-      
-      // Create a lighter shade for the icon (20% lighter)
-      const iconColor = new THREE.Color();
-      iconColor.setHSL(hsl.h, hsl.s * 0.7, Math.min(hsl.l + 0.2, 0.8));
+      // Create materials for empty slot frame
+      const frameMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        opacity: 0.15,
+        roughness: 0.5,
+        metalness: 0.8,
+        side: THREE.DoubleSide
+      });
 
-      return {
-        slot: new THREE.MeshStandardMaterial({
-          color: slotColor,
-          transparent: false,
-          roughness: 0.9,
-          metalness: 0.1,
-          side: THREE.DoubleSide
-        }),
-        icon: new THREE.MeshStandardMaterial({
-          color: iconColor,
-          transparent: true,
-          opacity: 0.3,
-          roughness: 0.9,
-          metalness: 0.1,
-          side: THREE.DoubleSide
-        })
-      };
+      const innerMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(emptySlotColor),
+        transparent: false,
+        roughness: 0.9,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+      });
+
+      const iconMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#ffffff'),
+        transparent: true,
+        opacity: 0.3,
+        roughness: 0.3,
+        metalness: 0.5,
+        emissive: new THREE.Color('#ffffff'),
+        emissiveIntensity: 0.05,
+        side: THREE.DoubleSide
+      });
+
+      return [frameMaterial, innerMaterial, iconMaterial];
     }
     
     // Create a material optimized for photo display
-    return {
-      photo: new THREE.MeshStandardMaterial({ 
-        map: texture,
-        transparent: true,
-        roughness: 0,
-        metalness: 0,
-        emissive: new THREE.Color(1, 1, 1),
-        emissiveMap: texture,
-        emissiveIntensity: clampedBrightness,
-        toneMapped: false
-      })
-    };
+    return [new THREE.MeshStandardMaterial({ 
+      map: texture,
+      transparent: true,
+      roughness: 0,
+      metalness: 0,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveMap: texture,
+      emissiveIntensity: clampedBrightness,
+      toneMapped: false
+    })];
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
-  // Create camera icon geometry
-  const cameraIconGeometry = useMemo(() => {
-    return createCameraIconGeometry(size);
-  }, [size]);
+  // Camera icon shape creation
+  const createCameraShape = () => {
+    const shape = new THREE.Shape();
+    
+    // Camera body (larger, more prominent)
+    const bodyWidth = size * 0.3;
+    const bodyHeight = size * 0.2;
+    const bodyX = -bodyWidth / 2;
+    const bodyY = -bodyHeight / 2;
+    
+    // Main camera body
+    shape.moveTo(bodyX, bodyY);
+    shape.lineTo(bodyX + bodyWidth, bodyY);
+    shape.lineTo(bodyX + bodyWidth, bodyY + bodyHeight);
+    shape.lineTo(bodyX, bodyY + bodyHeight);
+    shape.closePath();
+    
+    // Create lens hole
+    const lensHole = new THREE.Path();
+    const lensRadius = size * 0.08;
+    const centerX = 0;
+    const centerY = 0;
+    
+    lensHole.absarc(centerX, centerY, lensRadius, 0, Math.PI * 2, false);
+    shape.holes.push(lensHole);
+    
+    return shape;
+  };
 
-  if (isLoading || !texture) {
-    // Render empty slot with camera icon
-    return (
-      <group ref={meshRef} castShadow receiveShadow>
-        {/* Background slot */}
-        <mesh material={materials.slot}>
-          <planeGeometry args={[size * (9/16), size]} />
-        </mesh>
-        {/* Camera icon */}
-        <mesh 
-          material={materials.icon} 
-          geometry={cameraIconGeometry}
-          position={[0, 0, 0.01]}
-        />
-      </group>
-    );
-  }
+  // Create viewfinder shape
+  const createViewfinderShape = () => {
+    const shape = new THREE.Shape();
+    const width = size * 0.12;
+    const height = size * 0.08;
+    const x = -width / 2;
+    const y = size * 0.1;
+    
+    shape.moveTo(x, y);
+    shape.lineTo(x + width, y);
+    shape.lineTo(x + width, y + height);
+    shape.lineTo(x, y + height);
+    shape.closePath();
+    
+    return shape;
+  };
 
-  // Render photo
   return (
-    <mesh ref={meshRef} castShadow receiveShadow material={materials.photo}>
-      <planeGeometry args={[size * (9/16), size]} />
+    <mesh ref={meshRef} castShadow receiveShadow>
+      {isLoading || !texture ? (
+        // Empty slot with camera icon
+        <group>
+          {/* Outer frame with shadow effect */}
+          <mesh material={material[0]}>
+            <boxGeometry args={[size * (9/16) + 0.1, size + 0.1, 0.02]} />
+          </mesh>
+          
+          {/* Inner panel */}
+          <group position={[0, 0, -0.01]}>
+            {/* Main panel */}
+            <mesh material={material[1]}>
+              <boxGeometry args={[size * (9/16), size, 0.01]} />
+            </mesh>
+            
+            {/* Camera Icon Group */}
+            <group position={[0, 0, 0.02]}>
+              {/* Camera body with depth */}
+              <mesh material={material[2]} position={[0, 0, 0]}>
+                <extrudeGeometry 
+                  args={[
+                    createCameraShape(), 
+                    { 
+                      depth: size * 0.03, 
+                      bevelEnabled: true,
+                      bevelThickness: size * 0.005,
+                      bevelSize: size * 0.005,
+                      bevelSegments: 2
+                    }
+                  ]} 
+                />
+              </mesh>
+              
+              {/* Viewfinder */}
+              <mesh material={material[2]} position={[0, 0, 0]}>
+                <extrudeGeometry 
+                  args={[
+                    createViewfinderShape(), 
+                    { 
+                      depth: size * 0.025,
+                      bevelEnabled: true,
+                      bevelThickness: size * 0.003,
+                      bevelSize: size * 0.003,
+                      bevelSegments: 2
+                    }
+                  ]} 
+                />
+              </mesh>
+              
+              {/* Lens (circular element) */}
+              <mesh material={material[2]} position={[0, 0, size * 0.03]}>
+                <cylinderGeometry args={[size * 0.08, size * 0.08, size * 0.02, 32]} />
+                <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                  <ringGeometry args={[size * 0.05, size * 0.08, 32]} />
+                </mesh>
+              </mesh>
+              
+              {/* Flash/highlight element */}
+              <mesh material={material[2]} position={[size * 0.1, size * 0.12, size * 0.02]}>
+                <boxGeometry args={[size * 0.06, size * 0.04, size * 0.02]} />
+              </mesh>
+            </group>
+          </group>
+        </group>
+      ) : (
+        <planeGeometry args={[size * (9/16), size]} />
+      )}
     </mesh>
   );
 };
