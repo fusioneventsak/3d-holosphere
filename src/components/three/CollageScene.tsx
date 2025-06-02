@@ -174,7 +174,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// PhotoMesh component
+// PhotoMesh component - Updated to handle seamless transitions
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -187,7 +187,7 @@ const PhotoMesh: React.FC<{
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const prevPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     if (!photo.url) {
@@ -229,22 +229,21 @@ const PhotoMesh: React.FC<{
   useFrame(() => {
     if (!meshRef.current) return;
 
+    // Initialize position on first frame if this is a new photo
+    if (!isInitializedRef.current && photo.targetPosition) {
+      meshRef.current.position.set(...photo.targetPosition);
+      meshRef.current.rotation.set(...(photo.targetRotation || [0, 0, 0]));
+      isInitializedRef.current = true;
+      return;
+    }
+
     const currentPos = meshRef.current.position;
     const targetPos = photo.targetPosition;
 
-    const yDistance = Math.abs(targetPos[1] - currentPos.y);
-    const xDistance = Math.abs(targetPos[0] - currentPos.x);
-    const zDistance = Math.abs(targetPos[2] - currentPos.z);
-    const maxTeleportDistance = 20;
-    
-    if (yDistance > maxTeleportDistance || xDistance > maxTeleportDistance || zDistance > maxTeleportDistance) {
-      meshRef.current.position.set(targetPos[0], targetPos[1], targetPos[2]);
-      prevPositionRef.current = [...targetPos];
-    } else {
-      meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-      meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-      meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
-    }
+    // Smooth interpolation for position
+    meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+    meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+    meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
 
     if (shouldFaceCamera) {
       const photoPos = meshRef.current.position;
@@ -272,8 +271,6 @@ const PhotoMesh: React.FC<{
       meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
       meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
     }
-    
-    prevPositionRef.current = [currentPos.x, currentPos.y, currentPos.z];
   });
 
   const material = useMemo(() => {
@@ -296,7 +293,7 @@ const PhotoMesh: React.FC<{
   }, [texture, isLoading, hasError, emptySlotColor]);
 
   return (
-    <mesh ref={meshRef} material={material} castShadow receiveShadow position={photo.targetPosition}>
+    <mesh ref={meshRef} material={material} castShadow receiveShadow>
       <planeGeometry args={[size * (9/16), size]} />
     </mesh>
   );
@@ -443,37 +440,67 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// UPDATED AnimationController with better photo management
+// UPDATED AnimationController - Smooth photo transitions without resets
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
-  const [photoVersion, setPhotoVersion] = useState(0); // Force updates when photos change
   const cycleIndexRef = useRef(0);
   const lastCycleTimeRef = useRef(Date.now());
   const photoCycleInterval = 5000;
+  const previousPhotosRef = useRef<Photo[]>([]);
 
-  // Watch for photo changes and force update
+  // Handle photo updates smoothly
   useEffect(() => {
-    setPhotoVersion(prev => prev + 1);
-    
     if (photos.length <= settings.photoCount) {
       setDisplayPhotos(photos);
     } else {
-      // Prioritize newest photos
+      // When there are more photos than slots, prioritize newest
       const sortedPhotos = [...photos].sort((a, b) => 
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       );
-      setDisplayPhotos(sortedPhotos.slice(0, settings.photoCount));
+      
+      // Check if new photos were added
+      const newPhotos = photos.filter(p => !previousPhotosRef.current.some(prev => prev.id === p.id));
+      
+      if (newPhotos.length > 0) {
+        // Seamlessly integrate new photos
+        setDisplayPhotos(prev => {
+          const updated = [...prev];
+          let replaceIndex = 0;
+          
+          for (const newPhoto of newPhotos) {
+            if (updated.length < settings.photoCount) {
+              // Add to empty slots first
+              updated.push(newPhoto);
+            } else {
+              // Replace oldest photos with new ones
+              const oldestIndex = updated.findIndex(p => 
+                !newPhotos.some(np => np.id === p.id)
+              );
+              if (oldestIndex !== -1) {
+                updated[oldestIndex] = newPhoto;
+              }
+            }
+          }
+          
+          return updated.slice(0, settings.photoCount);
+        });
+      } else {
+        // No new photos, just ensure we have the right count
+        setDisplayPhotos(sortedPhotos.slice(0, settings.photoCount));
+      }
     }
+    
+    previousPhotosRef.current = photos;
   }, [photos, settings.photoCount]);
 
   useFrame((state) => {
     const currentTime = Date.now();
     
-    // Handle photo cycling
+    // Handle photo cycling for excess photos
     if (photos.length > settings.photoCount && currentTime - lastCycleTimeRef.current > photoCycleInterval) {
       lastCycleTimeRef.current = currentTime;
       
@@ -482,24 +509,18 @@ const AnimationController: React.FC<{
         const slotToReplace = cycleIndexRef.current % settings.photoCount;
         cycleIndexRef.current++;
         
-        let nextPhotoIndex = cycleIndexRef.current % photos.length;
-        let attempts = 0;
-        
-        while (attempts < photos.length) {
-          const candidatePhoto = photos[nextPhotoIndex];
-          if (!newDisplay.some(p => p.id === candidatePhoto.id)) {
-            newDisplay[slotToReplace] = candidatePhoto;
-            break;
-          }
-          nextPhotoIndex = (nextPhotoIndex + 1) % photos.length;
-          attempts++;
+        // Find a photo that's not currently displayed
+        const candidatePhotos = photos.filter(p => !newDisplay.some(d => d.id === p.id));
+        if (candidatePhotos.length > 0) {
+          const randomIndex = Math.floor(Math.random() * candidatePhotos.length);
+          newDisplay[slotToReplace] = candidatePhotos[randomIndex];
         }
         
         return newDisplay;
       });
     }
 
-    // Always update positions
+    // Update positions based on current animation time
     const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
     
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, displayPhotos);
@@ -507,7 +528,7 @@ const AnimationController: React.FC<{
     
     const photosWithPositions: PhotoWithPosition[] = [];
     
-    // Add real photos
+    // Add real photos with their positions
     for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
       photosWithPositions.push({
         ...displayPhotos[i],
@@ -517,10 +538,10 @@ const AnimationController: React.FC<{
       });
     }
     
-    // Add placeholders
+    // Add placeholders for empty slots
     for (let i = displayPhotos.length; i < settings.photoCount; i++) {
       photosWithPositions.push({
-        id: `placeholder-${i}-v${photoVersion}`, // Include version to force re-render
+        id: `placeholder-${i}`,
         url: '',
         targetPosition: patternState.positions[i] || [0, 0, 0],
         targetRotation: patternState.rotations?.[i] || [0, 0, 0],
@@ -559,15 +580,9 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   return null;
 };
 
-// Main CollageScene component
+// Main CollageScene component - UPDATED to prevent resets
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const [sceneKey, setSceneKey] = useState(0); // Force re-render when photos change
-
-  // Force scene update when photos array changes
-  useEffect(() => {
-    setSceneKey(prev => prev + 1);
-  }, [photos.length]); // React to photo count changes
 
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
@@ -589,7 +604,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   return (
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas 
-        key={sceneKey} // Force re-mount when scene key changes
         shadows
         gl={{ 
           antialias: true, 
@@ -620,7 +634,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         
         {photosWithPositions.map((photo) => (
           <PhotoMesh
-            key={`${photo.id}-${photo.displayIndex}`}
+            key={photo.id}
             photo={photo}
             size={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
