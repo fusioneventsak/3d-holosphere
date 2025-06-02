@@ -10,13 +10,13 @@ export class FloatPattern extends BasePattern {
     const speed = this.settings.animationSpeed / 100;
     const animationTime = time * speed;
     
-    // Floor area configuration - use the FULL floor area
+    // Floor area configuration
     const floorSize = this.settings.floorSize || 100;
-    const fullFloorArea = floorSize; // Use 100% of floor area
+    const fullFloorArea = floorSize;
     const riseSpeed = 8; // Units per second rising speed
     const maxHeight = 60; // Maximum height before recycling
     const startHeight = -15; // Start well below the floor
-    const totalRiseDistance = maxHeight - startHeight; // 75 units total
+    const cycleHeight = maxHeight - startHeight; // Total distance to travel
     
     // Calculate grid-like distribution for better coverage
     const gridSize = Math.ceil(Math.sqrt(totalPhotos));
@@ -27,37 +27,37 @@ export class FloatPattern extends BasePattern {
       const gridX = i % gridSize;
       const gridZ = Math.floor(i / gridSize);
       
-      // Add randomness within each grid cell for natural distribution
+      // Deterministic pseudo-random values based on photo index
       const randomOffsetX = ((i * 73) % 1000) / 1000 - 0.5; // -0.5 to 0.5
       const randomOffsetZ = ((i * 137) % 1000) / 1000 - 0.5; // -0.5 to 0.5
-      const timeOffset = ((i * 211) % 1000) / 1000; // 0 to 1
+      const phaseOffset = ((i * 211) % 1000) / 1000; // 0 to 1, for staggering
       
       // Calculate position within the grid cell
       const cellCenterX = (gridX + 0.5) * cellSize - fullFloorArea / 2;
       const cellCenterZ = (gridZ + 0.5) * cellSize - fullFloorArea / 2;
       
-      // Add randomness within the cell (but keep it within cell bounds)
+      // Add randomness within the cell
       const baseX = cellCenterX + (randomOffsetX * cellSize * 0.8);
       const baseZ = cellCenterZ + (randomOffsetZ * cellSize * 0.8);
       
-      // Calculate rising motion - each photo has its own timing offset
-      // Spread out the initial positions across the full height range
-      const initialOffset = timeOffset * totalRiseDistance;
-      
+      // Calculate Y position with proper wrapping
       let y: number;
       
       if (this.settings.animationEnabled) {
-        // Calculate position in the rise cycle
-        const riseProgress = (animationTime * riseSpeed + initialOffset) % totalRiseDistance;
+        // Calculate total distance traveled including the phase offset
+        const totalDistance = (animationTime * riseSpeed) + (phaseOffset * cycleHeight);
         
-        // Position is simply start height + progress through the cycle
-        y = startHeight + riseProgress;
+        // Use modulo to wrap around when reaching the top
+        const positionInCycle = totalDistance % cycleHeight;
         
-        // Add subtle bobbing motion for more natural floating
+        // Add to start height to get actual Y position
+        y = startHeight + positionInCycle;
+        
+        // Add subtle bobbing motion
         y += Math.sin(animationTime * 2 + i * 0.3) * 0.4;
       } else {
-        // Static position when animation is disabled - distribute evenly
-        y = startHeight + initialOffset;
+        // Static position when animation is disabled - distribute evenly through the height
+        y = startHeight + (phaseOffset * cycleHeight);
       }
       
       // Add horizontal position with gentle drift
@@ -65,8 +65,8 @@ export class FloatPattern extends BasePattern {
       let z = baseZ;
       
       if (this.settings.animationEnabled) {
-        // Gentle horizontal drift as photos rise (like wind effect)
-        const driftStrength = 1.5; // Reduced to keep photos from drifting too far
+        // Gentle horizontal drift as photos rise
+        const driftStrength = 1.5;
         const driftSpeed = 0.3;
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
@@ -74,12 +74,12 @@ export class FloatPattern extends BasePattern {
       
       positions.push([x, y, z]);
       
-      // Calculate rotation to face camera if enabled
+      // Calculate rotation
       if (this.settings.photoRotation) {
-        // Calculate angle to face towards center (0, 0, 0) where camera typically looks
+        // Face towards center
         const rotationY = Math.atan2(-x, -z);
         
-        // Add very gentle rotation wobble as photos float up
+        // Add gentle wobble
         const wobbleX = this.settings.animationEnabled ? Math.sin(animationTime * 0.5 + i * 0.2) * 0.03 : 0;
         const wobbleZ = this.settings.animationEnabled ? Math.cos(animationTime * 0.4 + i * 0.3) * 0.03 : 0;
         
