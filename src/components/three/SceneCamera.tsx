@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useThree } from '@react-three/fiber';
+import { useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
