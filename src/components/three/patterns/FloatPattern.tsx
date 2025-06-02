@@ -1,12 +1,3 @@
-// Updated CollageScene.tsx - PhotoMesh component fix for portrait orientation
-
-// In the PhotoMesh component, change this line:
-// <planeGeometry args={[size, size * (9/16)]} />
-// 
-// To this line for portrait orientation:
-// <planeGeometry args={[size * (9/16), size]} />
-
-// Here's the corrected FloatPattern:
 import { BasePattern, type PatternState, type Position } from './BasePattern';
 
 export class FloatPattern extends BasePattern {
@@ -52,8 +43,21 @@ export class FloatPattern extends BasePattern {
       // Calculate rising motion - each photo has its own timing offset
       const adjustedTime = animationTime + (timeOffset * (totalRiseDistance / riseSpeed));
       
-      // Calculate height based on continuous rising motion
-      let y = startHeight + (adjustedTime * riseSpeed) % totalRiseDistance;
+      // Calculate height with proper teleportation
+      const totalRiseTime = adjustedTime * riseSpeed;
+      let y: number;
+      
+      if (this.settings.animationEnabled) {
+        // Use floor division to ensure instant reset when reaching max height
+        const cyclePosition = totalRiseTime % totalRiseDistance;
+        y = startHeight + cyclePosition;
+        
+        // Add subtle bobbing motion for more natural floating
+        y += Math.sin(animationTime * 2 + i * 0.3) * 0.4;
+      } else {
+        // Static position when animation is disabled
+        y = startHeight + (timeOffset * totalRiseDistance);
+      }
       
       // Add horizontal position with gentle drift
       let x = baseX;
@@ -65,9 +69,6 @@ export class FloatPattern extends BasePattern {
         const driftSpeed = 0.3;
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
-        
-        // Subtle bobbing motion for more natural floating
-        y += Math.sin(animationTime * 2 + i * 0.3) * 0.4;
       }
       
       positions.push([x, y, z]);
@@ -78,8 +79,8 @@ export class FloatPattern extends BasePattern {
         const rotationY = Math.atan2(-x, -z);
         
         // Add very gentle rotation wobble as photos float up
-        const wobbleX = Math.sin(animationTime * 0.5 + i * 0.2) * 0.03;
-        const wobbleZ = Math.cos(animationTime * 0.4 + i * 0.3) * 0.03;
+        const wobbleX = this.settings.animationEnabled ? Math.sin(animationTime * 0.5 + i * 0.2) * 0.03 : 0;
+        const wobbleZ = this.settings.animationEnabled ? Math.cos(animationTime * 0.4 + i * 0.3) * 0.03 : 0;
         
         rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {
