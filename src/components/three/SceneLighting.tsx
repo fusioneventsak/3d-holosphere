@@ -153,16 +153,17 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               target={targetRef.current}
               angle={adjustedAngle}
               penumbra={settings.spotlightPenumbra}
-              intensity={adjustedIntensity}
+              intensity={adjustedIntensity * 5}
               color={settings.spotlightColor}
               distance={settings.spotlightDistance * 2}
-              decay={2}
+              decay={1.5}
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
               shadow-camera-far={settings.spotlightDistance * 3}
               shadow-bias={-0.0001}
+              power={100}
               shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}
             />
             <VolumetricSpotlight
