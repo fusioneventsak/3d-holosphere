@@ -373,11 +373,10 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return <primitive object={gridHelper} />;
 };
 
-// CameraController component - Updated to persist camera position during auto-rotation
+// CameraController component - Fixed auto-rotation
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
-  const rotationTimeRef = useRef(0);
   const userInteractingRef = useRef(false);
   const lastInteractionTimeRef = useRef(0);
   
@@ -400,28 +399,41 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     }
   }, [camera, settings.cameraDistance, settings.cameraHeight]);
 
+  // Handle user interaction tracking
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      lastInteractionTimeRef.current = Date.now();
+      // Delay before resuming auto-rotation
+      setTimeout(() => {
+        userInteractingRef.current = false;
+      }, 500);
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, []);
+
   useFrame((state, delta) => {
     if (!settings.cameraEnabled || !controlsRef.current) return;
 
-    // Check if user is interacting
-    const isInteracting = controlsRef.current.getAzimuthalAngle !== undefined && 
-                        (controlsRef.current.getAzimuthalAngle() !== 0 || 
-                         controlsRef.current.getPolarAngle() !== Math.PI / 2);
-    
-    if (isInteracting) {
-      userInteractingRef.current = true;
-      lastInteractionTimeRef.current = Date.now();
-    } else if (Date.now() - lastInteractionTimeRef.current > 100) {
-      userInteractingRef.current = false;
-    }
-
+    // Auto-rotate only when enabled and user is not interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
       // Get current camera position relative to target
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
-      
-      // Increment rotation
-      rotationTimeRef.current += delta * settings.cameraRotationSpeed;
       
       // Apply rotation while maintaining current radius and polar angle
       spherical.theta += delta * settings.cameraRotationSpeed;
@@ -429,9 +441,10 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       // Convert back to cartesian coordinates
       const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
       camera.position.copy(newPosition);
+      
+      // Update controls
+      controlsRef.current.update();
     }
-
-    controlsRef.current.update();
   });
 
   return (
