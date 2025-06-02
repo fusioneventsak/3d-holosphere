@@ -37,29 +37,47 @@ type CollageState = {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
 };
 
-const BATCH_SIZE = 10;
+// Optimized batch processing for better performance
+const BATCH_SIZE = 20; // Increased batch size for better throughput
+const BATCH_DELAY = 50; // Reduced delay for faster updates
 let photoUpdateQueue: Photo[] = [];
 let updateTimeout: NodeJS.Timeout | null = null;
+let isProcessingBatch = false;
 
 const processBatchUpdate = (set: any) => {
-  if (photoUpdateQueue.length === 0) return;
+  if (photoUpdateQueue.length === 0 || isProcessingBatch) return;
   
+  isProcessingBatch = true;
   const batch = photoUpdateQueue.splice(0, BATCH_SIZE);
   
-  set((state: CollageState) => {
-    const existingIds = new Set(state.photos.map(p => p.id));
-    const newPhotos = batch.filter(p => !existingIds.has(p.id));
-    
-    return {
-      photos: [...state.photos, ...newPhotos].sort((a, b) => 
+  // Use requestAnimationFrame for smoother updates
+  requestAnimationFrame(() => {
+    set((state: CollageState) => {
+      const existingIds = new Set(state.photos.map(p => p.id));
+      const newPhotos = batch.filter(p => !existingIds.has(p.id));
+      
+      if (newPhotos.length === 0) {
+        isProcessingBatch = false;
+        if (photoUpdateQueue.length > 0) {
+          updateTimeout = setTimeout(() => processBatchUpdate(set), BATCH_DELAY);
+        }
+        return state; // No changes needed
+      }
+      
+      const updatedPhotos = [...state.photos, ...newPhotos].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-    };
+      );
+      
+      isProcessingBatch = false;
+      
+      // Schedule next batch if there are more items
+      if (photoUpdateQueue.length > 0) {
+        updateTimeout = setTimeout(() => processBatchUpdate(set), BATCH_DELAY);
+      }
+      
+      return { photos: updatedPhotos };
+    });
   });
-
-  if (photoUpdateQueue.length > 0) {
-    updateTimeout = setTimeout(() => processBatchUpdate(set), 100);
-  }
 };
 
 // Deep merge utility function
@@ -106,6 +124,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         ],
         async (payload) => {
           if (payload.eventType === 'DELETE') {
+            // Handle deletions immediately for responsiveness
             set((state) => ({
               photos: state.photos.filter(p => p.id !== payload.old.id)
             }));
@@ -115,13 +134,18 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           if (payload.eventType === 'INSERT' && payload.new) {
             const photo = {
               ...payload.new,
-              url: addCacheBustToUrl(normalizeFileExtension(payload.new.url))
+              url: normalizeFileExtension(payload.new.url) // Don't add cache bust here for better performance
             } as Photo;
             
+            // Add to queue for batch processing
             photoUpdateQueue.push(photo);
             
-            if (!updateTimeout) {
-              updateTimeout = setTimeout(() => processBatchUpdate(set), 100);
+            // Start batch processing if not already running
+            if (!updateTimeout && !isProcessingBatch) {
+              updateTimeout = setTimeout(() => {
+                updateTimeout = null;
+                processBatchUpdate(set);
+              }, BATCH_DELAY);
             }
           }
         }
@@ -135,11 +159,16 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         updateTimeout = null;
       }
       photoUpdateQueue = [];
+      isProcessingBatch = false;
     };
   },
 
   deletePhoto: async (photoId: string) => {
-    set({ loading: true, error: null });
+    // Optimistic update - remove from UI immediately
+    set(state => ({
+      photos: state.photos.filter(p => p.id !== photoId)
+    }));
+
     try {
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
@@ -161,28 +190,33 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         console.warn('Failed to parse photo URL:', photo.url, err);
       }
 
+      // Delete from storage and database in parallel
+      const deletePromises = [];
+      
       if (filePath) {
-        await supabase.storage
-          .from('photos')
-          .remove([filePath]);
+        deletePromises.push(
+          supabase.storage.from('photos').remove([filePath])
+        );
       }
 
-      const { error: deleteError } = await supabase
-        .from('photos')
-        .delete()
-        .eq('id', photoId);
+      deletePromises.push(
+        supabase.from('photos').delete().eq('id', photoId)
+      );
 
-      if (deleteError) throw deleteError;
+      await Promise.allSettled(deletePromises);
 
-      set(state => ({
-        photos: state.photos.filter(p => p.id !== photoId),
-        loading: false,
-        error: null
-      }));
+      set({ error: null });
     } catch (error: any) {
+      // Revert optimistic update on error
+      const { data: photos } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('collage_id', get().currentCollage?.id)
+        .order('created_at', { ascending: false });
+
       set({ 
-        error: error.message || 'Failed to delete photo',
-        loading: false
+        photos: (photos || []) as Photo[],
+        error: error.message || 'Failed to delete photo'
       });
       throw error;
     }
@@ -226,7 +260,10 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       } as Collage;
 
       set({ currentCollage: collageWithSettings, loading: false });
-      await get().fetchPhotosByCollageId(collage.id);
+      
+      // Fetch photos without blocking
+      get().fetchPhotosByCollageId(collage.id);
+      
       return collageWithSettings;
     } catch (error: any) {
       set({ error: error.message, loading: false });
@@ -257,7 +294,10 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       } as Collage;
 
       set({ currentCollage: collageWithSettings, loading: false });
-      await get().fetchPhotosByCollageId(collage.id);
+      
+      // Fetch photos without blocking
+      get().fetchPhotosByCollageId(collage.id);
+      
       return collageWithSettings;
     } catch (error: any) {
       set({ error: error.message, loading: false });
@@ -334,6 +374,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (error) throw error;
 
+      // Update local state without triggering scene refresh
       set(state => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
@@ -349,7 +390,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
   },
 
   uploadPhoto: async (collageId: string, file: File) => {
-    set({ loading: true, error: null });
+    // Don't set loading state to avoid UI disruption
     try {
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
@@ -373,17 +414,20 @@ export const useCollageStore = create<CollageState>((set, get) => ({
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collage.code}/${fileName}`;
 
+      // Upload file with optimized settings
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: false, // Don't overwrite, use unique names
+          duplex: 'half' // Optimize for upload performance
         });
 
       if (uploadError) throw uploadError;
 
       const publicUrl = getFileUrl('photos', filePath);
 
+      // Insert photo record
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -394,32 +438,27 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .single();
 
       if (insertError) {
-        await supabase.storage
-          .from('photos')
-          .remove([filePath]);
+        // Clean up uploaded file on database error
+        await supabase.storage.from('photos').remove([filePath]);
         throw insertError;
       }
 
       const newPhoto = photoData as Photo;
       
-      set(state => ({ 
-        photos: [...state.photos, newPhoto],
-        loading: false,
-        error: null
-      }));
-
+      // Don't update local state here - let real-time subscription handle it
+      // This prevents double-adding and ensures consistency
+      
       return newPhoto;
     } catch (error: any) {
       set({ 
-        error: error.message || 'Failed to upload photo', 
-        loading: false 
+        error: error.message || 'Failed to upload photo'
       });
       return null;
     }
   },
 
   fetchPhotosByCollageId: async (collageId: string) => {
-    set({ loading: true, error: null });
+    // Don't set loading state for background photo fetching
     try {
       const { data, error } = await supabase
         .from('photos')
@@ -429,9 +468,9 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (error) throw error;
       
-      set({ photos: data as Photo[], loading: false });
+      set({ photos: data as Photo[], error: null });
     } catch (error: any) {
-      set({ error: error.message, loading: false });
+      set({ error: error.message });
     }
   }
 }));
