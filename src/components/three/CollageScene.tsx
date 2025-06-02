@@ -238,8 +238,8 @@ const PhotoMesh: React.FC<{
         )}
       </mesh>
     </>
-  );
-};
+      );
+    };
 
 // AnimationController - handles photo positioning
 const AnimationController: React.FC<{
@@ -494,3 +494,5 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 };
 
 export default CollageScene;
+  )
+}
