@@ -38,7 +38,7 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
 
 const CollageEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
+  const { currentCollage, photos, fetchCollageById, loading, error, subscribeToPhotos } = useCollageStore();
   const { settings, updateSettings: updateSceneSettings, resetSettings } = useSceneStore();
   const [activeTab, setActiveTab] = React.useState<Tab>('settings');
   const [updateError, setUpdateError] = React.useState<string | null>(null);
@@ -51,6 +51,16 @@ const CollageEditorPage: React.FC = () => {
       fetchCollageById(id);
     }
   }, [id, fetchCollageById]);
+
+  // Set up real-time subscription for photos
+  useEffect(() => {
+    if (currentCollage?.id) {
+      const unsubscribe = subscribeToPhotos(currentCollage.id);
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [currentCollage?.id, subscribeToPhotos]);
 
   // Sync collage settings with scene store when collage is loaded
   useEffect(() => {
