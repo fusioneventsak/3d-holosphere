@@ -301,20 +301,18 @@ const PhotoMesh: React.FC<{
     prevPositionRef.current = [currentPos.x, currentPos.y, currentPos.z];
   });
 
-  // Create material based on state with optimized settings
+  // Create material based on state with optimized settings - REMOVED TRANSPARENCY FROM EMPTY SLOTS
   const material = useMemo(() => {
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: '#ff4444',
-        transparent: true,
-        opacity: 0.8
+        transparent: false // Removed transparency
       });
     }
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: emptySlotColor,
-        transparent: true,
-        opacity: 0.3
+        transparent: false // Removed transparency - empty slots are now solid
       });
     }
     return new THREE.MeshStandardMaterial({ 
