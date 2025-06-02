@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { type SceneSettings } from '../../store/sceneStore';
 
 type VolumetricSpotlightProps = {
@@ -88,13 +88,15 @@ const VolumetricSpotlight: React.FC<VolumetricSpotlightProps> = ({
 
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const { scene } = useThree();
 
   const spotlights = useMemo(() => {
     const lights = [];
     const count = Math.min(settings.spotlightCount, 4);
+    const angleStep = (Math.PI * 2) / count;
     
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
+      const angle = i * angleStep;
       
       const distanceVariation = 0.9 + Math.random() * 0.2;
       const heightVariation = 0.95 + Math.random() * 0.1;
@@ -151,7 +153,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             <spotLight
               position={light.position}
               target={targetRef.current}
-              angle={adjustedAngle}
+              angle={Math.max(0.1, adjustedAngle)}
               penumbra={settings.spotlightPenumbra}
               intensity={adjustedIntensity * 5}
               color={settings.spotlightColor}
@@ -161,7 +163,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
-              shadow-camera-far={settings.spotlightDistance * 3}
+              shadow-camera-far={settings.spotlightDistance * 4}
               shadow-bias={-0.0001}
               power={100}
               shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}

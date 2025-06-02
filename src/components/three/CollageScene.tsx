@@ -165,41 +165,37 @@ const PhotoMesh: React.FC<{
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color('#ff4444'),
-        transparent: false,
-        roughness: 0.7,
-        metalness: 0.0,
-        emissive: new THREE.Color('#400000'),
-        emissiveIntensity: 0.1
+        emissive: new THREE.Color('#ff4444'),
+        emissiveIntensity: 1.0,
+        roughness: 0.0,
+        metalness: 0.0
       });
     }
     
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color(emptySlotColor),
-        transparent: false,
-        roughness: 0.0,
-        metalness: 0.0,
         emissive: new THREE.Color(emptySlotColor),
-        emissiveIntensity: 1.0
+        emissiveIntensity: 1.0,
+        roughness: 0.0,
+        metalness: 0.0
       });
     }
     
     // Create a material with brightness control
     const material = new THREE.MeshStandardMaterial({ 
       map: texture,
-      transparent: false,
-      roughness: 0.4,
-      metalness: 0.2,
-      envMapIntensity: 1.2
+      roughness: 0.3,
+      metalness: 0.3,
+      envMapIntensity: 2.0
     });
     
     // Apply brightness by adjusting the material color
-    // 1.0 = natural photo appearance
     material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
     
     // For very bright settings, add subtle emissive glow
     if (clampedBrightness > 1.0) {
-      const emissiveIntensity = Math.min(0.5, (clampedBrightness - 1.0) * 0.25);
+      const emissiveIntensity = Math.min(1.0, (clampedBrightness - 1.0) * 0.5);
       material.emissive = new THREE.Color(1, 1, 1);
       material.emissiveIntensity = emissiveIntensity;
     }
