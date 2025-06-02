@@ -1,6 +1,6 @@
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun } from 'lucide-react';
 
 const SceneSettings: React.FC<{
   settings: SceneSettings;
@@ -206,7 +206,7 @@ const SceneSettings: React.FC<{
           </div>
         </div>
         
-        {/* Photo Size and Spacing */}
+        {/* Photo Layout and Brightness */}
         <div>
           <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
             <ImageIcon className="h-4 w-4 mr-2" />
@@ -310,6 +310,28 @@ const SceneSettings: React.FC<{
               />
               <p className="mt-1 text-xs text-gray-400">
                 Adjust gap between photos (0% = no gap, 100% = one photo width)
+              </p>
+            </div>
+
+            {/* NEW: Photo Brightness Control */}
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">
+                Photo Brightness
+                <span className="ml-2 text-xs text-gray-400">{(settings.photoBrightness * 100).toFixed(0)}%</span>
+              </label>
+              <input
+                type="range"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={settings.photoBrightness}
+                onChange={(e) => onSettingsChange({ 
+                  photoBrightness: parseFloat(e.target.value) 
+                }, true)}
+                className="w-full bg-gray-800"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Adjust photo brightness independently (10% = very dark, 300% = very bright)
               </p>
             </div>
           </div>
@@ -486,6 +508,7 @@ const SceneSettings: React.FC<{
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Ambient Light
+                <span className="ml-2 text-xs text-gray-400">{(settings.ambientLightIntensity * 100).toFixed(0)}%</span>
               </label>
               <input
                 type="range"
@@ -505,7 +528,7 @@ const SceneSettings: React.FC<{
         {/* Spotlight Settings */}
         <div>
           <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-            <ImageIcon className="h-4 w-4 mr-2" />
+            <Sun className="h-4 w-4 mr-2" />
             Spotlights
           </h4>
           
@@ -564,11 +587,12 @@ const SceneSettings: React.FC<{
             <div>
               <label className="block text-sm text-gray-300 mb-2">
                 Spotlight Intensity
+                <span className="ml-2 text-xs text-gray-400">{settings.spotlightIntensity.toFixed(0)}%</span>
               </label>
               <input
                 type="range"
                 min="1"
-                max="100"
+                max="200"
                 step="1"
                 value={settings.spotlightIntensity}
                 onChange={(e) => onSettingsChange({ 
