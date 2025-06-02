@@ -49,8 +49,8 @@ const VolumetricSpotlight: React.FC<{
   }, [angle, distance]);
 
   const material = useMemo(() => {
-    // Adjust intensity scaling for more balanced lighting
-    const scaledIntensity = intensity * 0.0002; // Reduced from 0.0005
+    // Further adjusted intensity scaling for better balance with photo brightness
+    const scaledIntensity = intensity * 0.0001; // Reduced from 0.0002
     
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -83,8 +83,8 @@ const VolumetricSpotlight: React.FC<{
           
           float alpha = gradient * radialFade * intensity;
           
-          // Reduce alpha to prevent overexposure
-          alpha = clamp(alpha, 0.0, 0.4);
+          // Reduce alpha to prevent overexposure with bright photos
+          alpha = clamp(alpha, 0.0, 0.3);
           
           gl_FragColor = vec4(color, alpha);
         }
@@ -109,7 +109,7 @@ const VolumetricSpotlight: React.FC<{
   return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
 };
 
-// Improved SceneLighting component with better intensity balancing
+// Improved SceneLighting component with photo brightness awareness
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
 
@@ -141,21 +141,29 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
 
+  // Adjust lighting based on photo brightness to maintain visual balance
+  const lightingAdjustment = useMemo(() => {
+    // Inverse relationship: when photos are brighter, reduce ambient/environment lighting
+    const photoBrightnessFactor = Math.max(0.1, Math.min(2, settings.photoBrightness));
+    const adjustment = 1 / Math.sqrt(photoBrightnessFactor);
+    return Math.max(0.3, Math.min(1.5, adjustment));
+  }, [settings.photoBrightness]);
+
   return (
     <group ref={groupRef}>
-      {/* Reduced ambient light intensity for better contrast */}
+      {/* Ambient light adjusted for photo brightness */}
       <ambientLight 
-        intensity={Math.min(settings.ambientLightIntensity * 0.6, 0.3)} 
+        intensity={Math.min(settings.ambientLightIntensity * 0.4 * lightingAdjustment, 0.25)} 
         color="#ffffff" 
       />
       
       {/* Improved fog for depth */}
       <fog attach="fog" args={['#000000', 30, 250]} />
       
-      {/* Soft directional light for subtle fill */}
+      {/* Soft directional light for subtle fill - adjusted for photo brightness */}
       <directionalLight
         position={[20, 30, 20]}
-        intensity={0.2} // Reduced from 0.5
+        intensity={0.15 * lightingAdjustment} // Further reduced and adjusted
         color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
@@ -168,14 +176,15 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
-      {/* Spotlights with improved parameters */}
+      {/* Spotlights with improved parameters and brightness adjustment */}
       {spotlights.map((light) => {
         const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
         targetRef.current.position.set(...light.target);
         
-        // Calculate adjusted spotlight parameters
+        // Calculate adjusted spotlight parameters with brightness consideration
         const adjustedAngle = settings.spotlightWidth * light.angleVariation;
-        const adjustedIntensity = settings.spotlightIntensity * 0.05 * light.intensityVariation; // Reduced by factor of 2
+        const baseIntensity = settings.spotlightIntensity * 0.03; // Reduced base intensity
+        const adjustedIntensity = baseIntensity * light.intensityVariation * lightingAdjustment;
         
         return (
           <group key={light.key}>
@@ -187,14 +196,13 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               intensity={adjustedIntensity}
               color={settings.spotlightColor}
               distance={settings.spotlightDistance * 2}
-              decay={2} // Changed from 1 to 2 for more realistic light falloff
+              decay={2}
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
               shadow-camera-far={settings.spotlightDistance * 3}
               shadow-bias={-0.0001}
-              // Add shadow camera parameters for better shadow quality
               shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}
             />
             <VolumetricSpotlight
@@ -202,7 +210,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               target={light.target}
               angle={adjustedAngle}
               color={settings.spotlightColor}
-              intensity={settings.spotlightIntensity * light.intensityVariation}
+              intensity={settings.spotlightIntensity * light.intensityVariation * lightingAdjustment}
               distance={settings.spotlightDistance}
               penumbra={settings.spotlightPenumbra}
             />
@@ -214,14 +222,15 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Improved PhotoMesh component with better materials
+// Enhanced PhotoMesh component with brightness control
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
   pattern: string;
   shouldFaceCamera: boolean;
-}> = ({ photo, size, emptySlotColor, pattern, shouldFaceCamera }) => {
+  brightness: number; // NEW: brightness control
+}> = ({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -338,38 +347,52 @@ const PhotoMesh: React.FC<{
     }
   });
 
-  // Improved materials with better light response
+  // Enhanced materials with brightness control
   const material = useMemo(() => {
+    const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
+    
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
-        color: '#ff4444',
+        color: new THREE.Color('#ff4444').multiplyScalar(clampedBrightness),
         transparent: false,
         roughness: 0.7,
         metalness: 0.0,
-        emissive: '#400000',
+        emissive: new THREE.Color('#400000').multiplyScalar(clampedBrightness * 0.1),
         emissiveIntensity: 0.1
       });
     }
     
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
-        color: emptySlotColor,
+        color: new THREE.Color(emptySlotColor).multiplyScalar(clampedBrightness),
         transparent: false,
         roughness: 0.5,
         metalness: 0.1
       });
     }
     
-    return new THREE.MeshStandardMaterial({ 
+    // Create a material with brightness control
+    const material = new THREE.MeshStandardMaterial({ 
       map: texture,
       transparent: false,
-      // Improved material properties for better lighting response
-      roughness: 0.7,     // Increased from default
-      metalness: 0.0,     // Reduced to 0 for photo materials
-      // Add subtle ambient occlusion for depth
+      roughness: 0.7,
+      metalness: 0.0,
       aoMapIntensity: 0.5
     });
-  }, [texture, isLoading, hasError, emptySlotColor]);
+    
+    // Apply brightness by adjusting the material color
+    // This multiplies the texture color without washing it out
+    material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
+    
+    // For very bright settings, add subtle emissive glow
+    if (clampedBrightness > 1.5) {
+      const emissiveIntensity = Math.min(0.2, (clampedBrightness - 1.5) * 0.1);
+      material.emissive = new THREE.Color(1, 1, 1);
+      material.emissiveIntensity = emissiveIntensity;
+    }
+    
+    return material;
+  }, [texture, isLoading, hasError, emptySlotColor, brightness]);
 
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow>
@@ -774,9 +797,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           premultipliedAlpha: false,
           preserveDrawingBuffer: false,
           powerPreference: "high-performance",
-          // Add tone mapping for better light balance
+          // Adjusted tone mapping for better brightness control
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 0.8, // Slightly reduced exposure
+          toneMappingExposure: 0.9, // Slightly increased for better photo brightness visibility
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
@@ -808,6 +831,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
             emptySlotColor={settings.emptySlotColor}
             pattern={settings.animationPattern}
             shouldFaceCamera={settings.photoRotation}
+            brightness={settings.photoBrightness} // NEW: Pass brightness to photo meshes
           />
         ))}
       </Canvas>
