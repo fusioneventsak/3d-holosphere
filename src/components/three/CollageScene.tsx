@@ -190,22 +190,13 @@ const PhotoMesh: React.FC<{
     const material = new THREE.MeshStandardMaterial({ 
       map: texture,
       transparent: true,
-      opacity: 1,
-      roughness: 0.2, // Lower roughness for better light response
-      metalness: 0.1, // Low metalness to preserve colors
-      envMapIntensity: 1.2,
-      toneMapped: false // Disable tone mapping for photos
+      roughness: 0,
+      metalness: 0,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveMap: texture,
+      emissiveIntensity: clampedBrightness,
+      toneMapped: false
     });
-    
-    // Apply brightness by adjusting the material color
-    material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
-    
-    // Add emissive for brightness boost
-    if (clampedBrightness > 1.0) {
-      const emissiveIntensity = Math.min(1.0, (clampedBrightness - 1.0) * 0.8);
-      material.emissive = new THREE.Color(1, 1, 1);
-      material.emissiveIntensity = emissiveIntensity;
-    }
     
     return material;
   }, [texture, isLoading, hasError, emptySlotColor, brightness]);
@@ -426,11 +417,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         shadows
         gl={{ 
           antialias: true,
-          alpha: true, // Enable alpha for transparency
-          premultipliedAlpha: false, // Better for our use case
-          preserveDrawingBuffer: false, // Better performance
-          powerPreference: "high-performance", // Request best GPU
-          toneMapping: THREE.NoToneMapping, // Remove tone mapping to preserve photo colors
+          alpha: true,
+          premultipliedAlpha: false,
+          preserveDrawingBuffer: false,
+          powerPreference: "high-performance", 
+          toneMapping: THREE.NoToneMapping, // Disable tone mapping globally
+          outputColorSpace: THREE.LinearSRGBColorSpace // Use linear color space for better color accuracy
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
