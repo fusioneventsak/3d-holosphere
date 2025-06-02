@@ -30,7 +30,7 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// Improved VolumetricSpotlight component with better intensity control
+// VolumetricSpotlight component
 const VolumetricSpotlight: React.FC<{
   position: [number, number, number];
   target: [number, number, number];
@@ -49,8 +49,7 @@ const VolumetricSpotlight: React.FC<{
   }, [angle, distance]);
 
   const material = useMemo(() => {
-    // Further adjusted intensity scaling for better balance with photo brightness
-    const scaledIntensity = intensity * 0.0001; // Reduced from 0.0002
+    const scaledIntensity = intensity * 0.0002; // Volumetric fog intensity
     
     return new THREE.ShaderMaterial({
       uniforms: {
@@ -72,19 +71,19 @@ const VolumetricSpotlight: React.FC<{
         varying vec3 vPosition;
         
         void main() {
-          // Improved gradient calculation with penumbra control
+          // Gradient calculation with penumbra control
           float gradient = 1.0 - (vPosition.y + 0.5);
           gradient = pow(gradient, 1.5 + penumbra);
           
-          // Better radial fade with penumbra influence
+          // Radial fade with penumbra influence
           float radialFade = 1.0 - length(vPosition.xz) * (1.8 + penumbra * 0.4);
           radialFade = clamp(radialFade, 0.0, 1.0);
           radialFade = pow(radialFade, 1.0 + penumbra);
           
           float alpha = gradient * radialFade * intensity;
           
-          // Reduce alpha to prevent overexposure with bright photos
-          alpha = clamp(alpha, 0.0, 0.3);
+          // Cap alpha to prevent overexposure
+          alpha = clamp(alpha, 0.0, 0.4);
           
           gl_FragColor = vec4(color, alpha);
         }
@@ -109,7 +108,7 @@ const VolumetricSpotlight: React.FC<{
   return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
 };
 
-// Improved SceneLighting component with photo brightness awareness
+// SceneLighting component - Fixed to not be affected by photo brightness
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
 
@@ -141,29 +140,21 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     return lights;
   }, [settings.spotlightCount, settings.spotlightDistance, settings.spotlightHeight, settings.wallHeight]);
 
-  // Adjust lighting based on photo brightness to maintain visual balance
-  const lightingAdjustment = useMemo(() => {
-    // Inverse relationship: when photos are brighter, reduce ambient/environment lighting
-    const photoBrightnessFactor = Math.max(0.1, Math.min(2, settings.photoBrightness));
-    const adjustment = 1 / Math.sqrt(photoBrightnessFactor);
-    return Math.max(0.3, Math.min(1.5, adjustment));
-  }, [settings.photoBrightness]);
-
   return (
     <group ref={groupRef}>
-      {/* Ambient light adjusted for photo brightness */}
+      {/* Ambient light - not affected by photo brightness */}
       <ambientLight 
-        intensity={Math.min(settings.ambientLightIntensity * 0.4 * lightingAdjustment, 0.25)} 
+        intensity={settings.ambientLightIntensity * 0.4} 
         color="#ffffff" 
       />
       
-      {/* Improved fog for depth */}
+      {/* Fog for depth */}
       <fog attach="fog" args={['#000000', 30, 250]} />
       
-      {/* Soft directional light for subtle fill - adjusted for photo brightness */}
+      {/* Soft directional light for subtle fill */}
       <directionalLight
         position={[20, 30, 20]}
-        intensity={0.15 * lightingAdjustment} // Further reduced and adjusted
+        intensity={0.2}
         color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
@@ -176,15 +167,15 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
-      {/* Spotlights with improved parameters and brightness adjustment */}
+      {/* Spotlights with proper intensity */}
       {spotlights.map((light) => {
         const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
         targetRef.current.position.set(...light.target);
         
-        // Calculate adjusted spotlight parameters with brightness consideration
+        // Calculate spotlight parameters
         const adjustedAngle = settings.spotlightWidth * light.angleVariation;
-        const baseIntensity = settings.spotlightIntensity * 0.03; // Reduced base intensity
-        const adjustedIntensity = baseIntensity * light.intensityVariation * lightingAdjustment;
+        const baseIntensity = settings.spotlightIntensity * 0.05; // Proper spotlight intensity
+        const adjustedIntensity = baseIntensity * light.intensityVariation;
         
         return (
           <group key={light.key}>
@@ -210,7 +201,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               target={light.target}
               angle={adjustedAngle}
               color={settings.spotlightColor}
-              intensity={settings.spotlightIntensity * light.intensityVariation * lightingAdjustment}
+              intensity={settings.spotlightIntensity * light.intensityVariation}
               distance={settings.spotlightDistance}
               penumbra={settings.spotlightPenumbra}
             />
@@ -222,14 +213,14 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Enhanced PhotoMesh component with brightness control
+// PhotoMesh component with brightness control
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
   pattern: string;
   shouldFaceCamera: boolean;
-  brightness: number; // NEW: brightness control
+  brightness: number;
 }> = ({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
@@ -347,24 +338,24 @@ const PhotoMesh: React.FC<{
     }
   });
 
-  // Enhanced materials with brightness control
+  // Materials with brightness control
   const material = useMemo(() => {
     const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
     
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color('#ff4444').multiplyScalar(clampedBrightness),
+        color: new THREE.Color('#ff4444'),
         transparent: false,
         roughness: 0.7,
         metalness: 0.0,
-        emissive: new THREE.Color('#400000').multiplyScalar(clampedBrightness * 0.1),
+        emissive: new THREE.Color('#400000'),
         emissiveIntensity: 0.1
       });
     }
     
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color(emptySlotColor).multiplyScalar(clampedBrightness),
+        color: new THREE.Color(emptySlotColor),
         transparent: false,
         roughness: 0.5,
         metalness: 0.1
@@ -381,7 +372,7 @@ const PhotoMesh: React.FC<{
     });
     
     // Apply brightness by adjusting the material color
-    // This multiplies the texture color without washing it out
+    // 1.0 = natural photo appearance
     material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
     
     // For very bright settings, add subtle emissive glow
@@ -402,7 +393,7 @@ const PhotoMesh: React.FC<{
   );
 };
 
-// Improved Floor component with better materials
+// Floor component
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -411,10 +402,10 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       color: settings.floorColor,
       transparent: settings.floorOpacity < 1,
       opacity: settings.floorOpacity,
-      metalness: Math.min(settings.floorMetalness, 0.9), // Cap metalness
-      roughness: Math.max(settings.floorRoughness, 0.1), // Ensure some roughness
+      metalness: Math.min(settings.floorMetalness, 0.9),
+      roughness: Math.max(settings.floorRoughness, 0.1),
       side: THREE.DoubleSide,
-      envMapIntensity: 0.5, // Reduce environment map influence
+      envMapIntensity: 0.5,
     });
   }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
 
@@ -425,7 +416,7 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// Improved Grid component with better opacity control
+// Grid component
 const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.gridEnabled) return null;
 
@@ -439,7 +430,6 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     
     const material = helper.material as THREE.LineBasicMaterial;
     material.transparent = true;
-    // Cap maximum opacity to prevent grid from being too prominent
     material.opacity = Math.min(settings.gridOpacity, 0.8);
     material.color = new THREE.Color(settings.gridColor);
     
@@ -451,7 +441,7 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   return <primitive object={gridHelper} />;
 };
 
-// CameraController component - Fixed auto-rotation
+// CameraController component
 const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const { camera } = useThree();
   const controlsRef = useRef<any>();
@@ -560,7 +550,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// AnimationController - Updated with new photo placement logic
+// AnimationController - handles photo positioning
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
@@ -797,9 +787,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           premultipliedAlpha: false,
           preserveDrawingBuffer: false,
           powerPreference: "high-performance",
-          // Adjusted tone mapping for better brightness control
           toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 0.9, // Slightly increased for better photo brightness visibility
+          toneMappingExposure: 1.0, // Standard exposure
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
@@ -808,7 +797,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         }}
         performance={{ min: 0.8 }}
-        // Add linear color space for more natural lighting
         linear={true}
       >
         <BackgroundRenderer settings={settings} />
@@ -831,7 +819,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
             emptySlotColor={settings.emptySlotColor}
             pattern={settings.animationPattern}
             shouldFaceCamera={settings.photoRotation}
-            brightness={settings.photoBrightness} // NEW: Pass brightness to photo meshes
+            brightness={settings.photoBrightness}
           />
         ))}
       </Canvas>
