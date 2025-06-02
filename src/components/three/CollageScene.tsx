@@ -30,7 +30,7 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// VolumetricSpotlight component with adjusted intensity
+// Improved VolumetricSpotlight component with better intensity control
 const VolumetricSpotlight: React.FC<{
   position: [number, number, number];
   target: [number, number, number];
@@ -38,7 +38,8 @@ const VolumetricSpotlight: React.FC<{
   color: string;
   intensity: number;
   distance: number;
-}> = ({ position, target, angle, color, intensity, distance }) => {
+  penumbra: number;
+}> = ({ position, target, angle, color, intensity, distance, penumbra }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   const coneGeometry = useMemo(() => {
@@ -48,10 +49,14 @@ const VolumetricSpotlight: React.FC<{
   }, [angle, distance]);
 
   const material = useMemo(() => {
+    // Adjust intensity scaling for more balanced lighting
+    const scaledIntensity = intensity * 0.0002; // Reduced from 0.0005
+    
     return new THREE.ShaderMaterial({
       uniforms: {
         color: { value: new THREE.Color(color) },
-        intensity: { value: intensity * 0.0005 },
+        intensity: { value: scaledIntensity },
+        penumbra: { value: penumbra },
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -63,16 +68,24 @@ const VolumetricSpotlight: React.FC<{
       fragmentShader: `
         uniform vec3 color;
         uniform float intensity;
+        uniform float penumbra;
         varying vec3 vPosition;
         
         void main() {
+          // Improved gradient calculation with penumbra control
           float gradient = 1.0 - (vPosition.y + 0.5);
-          gradient = pow(gradient, 2.0);
+          gradient = pow(gradient, 1.5 + penumbra);
           
-          float radialFade = 1.0 - length(vPosition.xz) * 2.0;
+          // Better radial fade with penumbra influence
+          float radialFade = 1.0 - length(vPosition.xz) * (1.8 + penumbra * 0.4);
           radialFade = clamp(radialFade, 0.0, 1.0);
+          radialFade = pow(radialFade, 1.0 + penumbra);
           
           float alpha = gradient * radialFade * intensity;
+          
+          // Reduce alpha to prevent overexposure
+          alpha = clamp(alpha, 0.0, 0.4);
+          
           gl_FragColor = vec4(color, alpha);
         }
       `,
@@ -81,7 +94,7 @@ const VolumetricSpotlight: React.FC<{
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-  }, [color, intensity]);
+  }, [color, intensity, penumbra]);
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -96,23 +109,33 @@ const VolumetricSpotlight: React.FC<{
   return <mesh ref={meshRef} geometry={coneGeometry} material={material} />;
 };
 
-// SceneLighting component
+// Improved SceneLighting component with better intensity balancing
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
 
+  // Calculate proper spotlight positions with better spread
   const spotlights = useMemo(() => {
     const lights = [];
     const count = Math.min(settings.spotlightCount, 4);
     
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
-      const x = Math.cos(angle) * settings.spotlightDistance;
-      const z = Math.sin(angle) * settings.spotlightDistance;
+      
+      // Add slight variation to spotlight positions for more natural lighting
+      const distanceVariation = 0.9 + Math.random() * 0.2; // 0.9-1.1 variation
+      const heightVariation = 0.95 + Math.random() * 0.1; // 0.95-1.05 variation
+      
+      const x = Math.cos(angle) * settings.spotlightDistance * distanceVariation;
+      const z = Math.sin(angle) * settings.spotlightDistance * distanceVariation;
+      const y = settings.spotlightHeight * heightVariation;
       
       lights.push({
         key: `spotlight-${i}`,
-        position: [x, settings.spotlightHeight, z] as [number, number, number],
+        position: [x, y, z] as [number, number, number],
         target: [0, settings.wallHeight / 2, 0] as [number, number, number],
+        // Add slight variations in angle and intensity for realism
+        angleVariation: 0.95 + Math.random() * 0.1,
+        intensityVariation: 0.9 + Math.random() * 0.2,
       });
     }
     return lights;
@@ -120,12 +143,19 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <group ref={groupRef}>
-      <ambientLight intensity={settings.ambientLightIntensity} color="#ffffff" />
-      <fog attach="fog" args={['#000000', 20, 300]} />
+      {/* Reduced ambient light intensity for better contrast */}
+      <ambientLight 
+        intensity={Math.min(settings.ambientLightIntensity * 0.6, 0.3)} 
+        color="#ffffff" 
+      />
       
+      {/* Improved fog for depth */}
+      <fog attach="fog" args={['#000000', 30, 250]} />
+      
+      {/* Soft directional light for subtle fill */}
       <directionalLight
         position={[20, 30, 20]}
-        intensity={0.5}
+        intensity={0.2} // Reduced from 0.5
         color="#ffffff"
         castShadow
         shadow-mapSize-width={2048}
@@ -138,35 +168,43 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
+      {/* Spotlights with improved parameters */}
       {spotlights.map((light) => {
         const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
         targetRef.current.position.set(...light.target);
+        
+        // Calculate adjusted spotlight parameters
+        const adjustedAngle = settings.spotlightWidth * light.angleVariation;
+        const adjustedIntensity = settings.spotlightIntensity * 0.05 * light.intensityVariation; // Reduced by factor of 2
         
         return (
           <group key={light.key}>
             <spotLight
               position={light.position}
               target={targetRef.current}
-              angle={settings.spotlightWidth}
+              angle={adjustedAngle}
               penumbra={settings.spotlightPenumbra}
-              intensity={settings.spotlightIntensity * 0.1}
+              intensity={adjustedIntensity}
               color={settings.spotlightColor}
               distance={settings.spotlightDistance * 2}
-              decay={1}
+              decay={2} // Changed from 1 to 2 for more realistic light falloff
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
               shadow-camera-far={settings.spotlightDistance * 3}
               shadow-bias={-0.0001}
+              // Add shadow camera parameters for better shadow quality
+              shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}
             />
             <VolumetricSpotlight
               position={light.position}
               target={light.target}
-              angle={settings.spotlightWidth}
+              angle={adjustedAngle}
               color={settings.spotlightColor}
-              intensity={settings.spotlightIntensity}
+              intensity={settings.spotlightIntensity * light.intensityVariation}
               distance={settings.spotlightDistance}
+              penumbra={settings.spotlightPenumbra}
             />
             <primitive object={targetRef.current} />
           </group>
@@ -176,7 +214,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   );
 };
 
-// PhotoMesh component - Updated to handle teleportation for float pattern
+// Improved PhotoMesh component with better materials
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
@@ -300,33 +338,48 @@ const PhotoMesh: React.FC<{
     }
   });
 
+  // Improved materials with better light response
   const material = useMemo(() => {
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: '#ff4444',
-        transparent: false
+        transparent: false,
+        roughness: 0.7,
+        metalness: 0.0,
+        emissive: '#400000',
+        emissiveIntensity: 0.1
       });
     }
+    
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: emptySlotColor,
-        transparent: false
+        transparent: false,
+        roughness: 0.5,
+        metalness: 0.1
       });
     }
+    
     return new THREE.MeshStandardMaterial({ 
       map: texture,
-      transparent: false
+      transparent: false,
+      // Improved material properties for better lighting response
+      roughness: 0.7,     // Increased from default
+      metalness: 0.0,     // Reduced to 0 for photo materials
+      // Add subtle ambient occlusion for depth
+      aoMapIntensity: 0.5
     });
   }, [texture, isLoading, hasError, emptySlotColor]);
 
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow>
-      <planeGeometry args={[size * (9/16), size]} />
+      {/* Add a very slight bevel to the plane for better light response */}
+      <boxGeometry args={[size * (9/16), size, 0.05]} />
     </mesh>
   );
 };
 
-// Floor component
+// Improved Floor component with better materials
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.floorEnabled) return null;
 
@@ -335,20 +388,21 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       color: settings.floorColor,
       transparent: settings.floorOpacity < 1,
       opacity: settings.floorOpacity,
-      metalness: settings.floorMetalness,
-      roughness: settings.floorRoughness,
+      metalness: Math.min(settings.floorMetalness, 0.9), // Cap metalness
+      roughness: Math.max(settings.floorRoughness, 0.1), // Ensure some roughness
       side: THREE.DoubleSide,
+      envMapIntensity: 0.5, // Reduce environment map influence
     });
   }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow material={floorMaterial}>
-      <planeGeometry args={[settings.floorSize, settings.floorSize]} />
+      <planeGeometry args={[settings.floorSize, settings.floorSize, 32, 32]} />
     </mesh>
   );
 };
 
-// Grid component
+// Improved Grid component with better opacity control
 const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   if (!settings.gridEnabled) return null;
 
@@ -362,7 +416,8 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     
     const material = helper.material as THREE.LineBasicMaterial;
     material.transparent = true;
-    material.opacity = settings.gridOpacity;
+    // Cap maximum opacity to prevent grid from being too prominent
+    material.opacity = Math.min(settings.gridOpacity, 0.8);
     material.color = new THREE.Color(settings.gridColor);
     
     helper.position.y = 0.01;
@@ -719,6 +774,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           premultipliedAlpha: false,
           preserveDrawingBuffer: false,
           powerPreference: "high-performance",
+          // Add tone mapping for better light balance
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 0.8, // Slightly reduced exposure
         }}
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
@@ -727,6 +785,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         }}
         performance={{ min: 0.8 }}
+        // Add linear color space for more natural lighting
+        linear={true}
       >
         <BackgroundRenderer settings={settings} />
         <CameraController settings={settings} />
