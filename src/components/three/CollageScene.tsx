@@ -93,22 +93,34 @@ const CameraIcon = React.memo<{ size: number; color: string }>(({ size, color })
     }
     
     const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.format = THREE.RGBAFormat;
+    texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
   }, [color, size]);
+  
+  const material = useMemo(() => 
+    new THREE.MeshBasicMaterial({ 
+      map: iconTexture, 
+      transparent: true, 
+      opacity: 0.3,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    }), 
+    [iconTexture]
+  );
 
   return (
     <mesh>
       <planeGeometry args={[size * 0.4, size * 0.4]} />
-      <meshBasicMaterial 
-        map={iconTexture} 
-        transparent={true} 
-        opacity={0.3}
-        side={THREE.DoubleSide}
-      />
+      <primitive object={material} attach="material" />
     </mesh>
   );
-});
+}, (prevProps, nextProps) => 
+  prevProps.size === nextProps.size && prevProps.color === nextProps.color
+);
 
 // PhotoMesh component with brightness control
 const PhotoMesh = React.memo<{
@@ -279,7 +291,7 @@ const PhotoMesh = React.memo<{
   const isEmptySlot = !photo.url || isLoading || hasError;
 
   return (
-    <group ref={meshRef}>
+    <group ref={meshRef} matrixAutoUpdate={true}>
       <mesh castShadow receiveShadow material={material}>
         <planeGeometry args={[size * (9/16), size]} />
       </mesh>
