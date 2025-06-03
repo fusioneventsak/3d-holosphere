@@ -4,16 +4,15 @@ export class WavePattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
     const spacing = this.settings.photoSize * (1 + this.settings.photoSpacing);
+    const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Calculate grid dimensions based on total photos
     const columns = Math.ceil(Math.sqrt(totalPhotos));
     const rows = Math.ceil(totalPhotos / columns);
     
-    // Base animation speed scaled by settings (0-100%)
-    const speed = this.settings.animationSpeed / 100;
-    const wavePhase = time * speed;
+    const speed = this.settings.animationSpeed / 50;
+    const wavePhase = time * speed * 2;
     
     // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
@@ -21,18 +20,21 @@ export class WavePattern extends BasePattern {
       const row = Math.floor(i / columns);
       
       // Calculate base grid position
-      const x = (col - columns / 2) * spacing;
-      const z = (row - rows / 2) * spacing;
+      let x = (col - columns / 2) * spacing;
+      let z = (row - rows / 2) * spacing;
       
       // Calculate wave height based on distance from center
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = 10;
-      const frequency = 0.5;
+      const amplitude = 15;
+      const frequency = 0.3;
       
-      const y = this.settings.wallHeight + 
-        (this.settings.animationEnabled 
-          ? Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude
-          : 0);
+      let y = this.settings.wallHeight;
+      
+      if (this.settings.animationEnabled) {
+        y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
+        // Add some vertical offset based on distance
+        y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.1);
+      }
       
       positions.push([x, y, z]);
 

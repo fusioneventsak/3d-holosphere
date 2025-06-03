@@ -4,27 +4,26 @@ export class SpiralPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
 
-    // Base animation speed scaled by settings (0-100%)
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = time * speed;
+    const totalPhotos = Math.min(this.settings.photoCount, 500);
+    const speed = this.settings.animationSpeed / 50;
+    const animationTime = time * speed * 2;
     
     // Tornado parameters
     const baseRadius = 3; // Narrow radius at ground level (bottom of funnel)
     const topRadius = 30; // Wide radius at top (top of funnel)
-    const maxHeight = 35; // Reduced height to keep photos in view
+    const maxHeight = 40; // Height of the spiral
     const rotationSpeed = 0.8; // Speed of rotation
-    const orbitalChance = 0.15; // 15% chance for a photo to be on an outer orbit
+    const orbitalChance = 0.2; // 20% chance for a photo to be on an outer orbit
     
     // Distribution parameters
-    const verticalBias = 0.6; // Slightly less bias to spread photos more evenly
+    const verticalBias = 0.7; // Bias towards bottom for density
     
     for (let i = 0; i < totalPhotos; i++) {
       // Generate random but consistent values for each photo
-      const randomSeed1 = ((i * 73) % 1000) / 1000;
-      const randomSeed2 = ((i * 137) % 1000) / 1000;
-      const randomSeed3 = ((i * 211) % 1000) / 1000;
+      const randomSeed1 = Math.sin(i * 0.73) * 0.5 + 0.5;
+      const randomSeed2 = Math.cos(i * 1.37) * 0.5 + 0.5;
+      const randomSeed3 = Math.sin(i * 2.11) * 0.5 + 0.5;
       
       // Determine if this photo is on the main funnel or an outer orbit
       const isOrbital = randomSeed1 < orbitalChance;

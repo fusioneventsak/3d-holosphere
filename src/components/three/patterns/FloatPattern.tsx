@@ -4,23 +4,23 @@ export class FloatPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
     
-    // Base animation speed scaled by settings (0-100%)
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = time * speed;
+    const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Floor area configuration
     const floorSize = this.settings.floorSize || 100;
     const fullFloorArea = floorSize;
     const riseSpeed = 8; // Units per second rising speed
     const maxHeight = 60; // Maximum height before recycling
-    const startHeight = -15; // Start well below the floor
+    const startHeight = -20; // Start well below the floor
     const cycleHeight = maxHeight - startHeight; // Total distance to travel
     
     // Calculate grid-like distribution for better coverage
     const gridSize = Math.ceil(Math.sqrt(totalPhotos));
     const cellSize = fullFloorArea / gridSize;
+    
+    const speed = this.settings.animationSpeed / 100;
+    const animationTime = time * speed;
     
     for (let i = 0; i < totalPhotos; i++) {
       // Create a grid-based distribution with randomness within each cell
@@ -28,9 +28,9 @@ export class FloatPattern extends BasePattern {
       const gridZ = Math.floor(i / gridSize);
       
       // Deterministic pseudo-random values based on photo index
-      const randomOffsetX = ((i * 73) % 1000) / 1000 - 0.5; // -0.5 to 0.5
-      const randomOffsetZ = ((i * 137) % 1000) / 1000 - 0.5; // -0.5 to 0.5
-      const phaseOffset = ((i * 211) % 1000) / 1000; // 0 to 1, for staggering
+      const randomOffsetX = Math.sin(i * 0.73) * 0.5;
+      const randomOffsetZ = Math.cos(i * 1.37) * 0.5;
+      const phaseOffset = (i * 0.211) % 1; // 0 to 1, for staggering
       
       // Calculate position within the grid cell
       const cellCenterX = (gridX + 0.5) * cellSize - fullFloorArea / 2;

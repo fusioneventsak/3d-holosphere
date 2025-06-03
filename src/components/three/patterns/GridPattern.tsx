@@ -4,25 +4,26 @@ export class GridPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
     const spacing = this.settings.photoSize * (1 + this.settings.photoSpacing);
+    const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     const aspectRatio = this.settings.gridAspectRatio;
     const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const rows = Math.ceil(totalPhotos / columns);
 
-    // Base animation speed scaled by settings (0-100%)
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = time * speed;
+    const wallHeight = this.settings.wallHeight;
     
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
       const x = (col - columns / 2) * spacing;
-      let y = this.settings.wallHeight + (rows / 2 - row) * spacing * (16/9);
+      let y = wallHeight + (rows / 2 - row) * spacing;
       let z = 0;
       
       if (this.settings.animationEnabled) {
+        const speed = this.settings.animationSpeed / 100;
+        const animationTime = time * speed;
+        
         // Add wave motion
         const waveX = Math.sin(animationTime + col * 0.3) * 2;
         const waveY = Math.cos(animationTime + row * 0.3) * 2;
