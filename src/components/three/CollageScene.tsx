@@ -34,7 +34,7 @@ const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
 // Simple 2D Camera Icon Component
-const CameraIcon: React.FC<{ size: number; color: string }> = ({ size, color }) => {
+const CameraIcon = React.memo<{ size: number; color: string }>(({ size, color }) => {
   const iconTexture = useMemo(() => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -95,7 +95,7 @@ const CameraIcon: React.FC<{ size: number; color: string }> = ({ size, color }) 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
     return texture;
-  }, [color]);
+  }, [color, size]);
 
   return (
     <mesh>
@@ -108,17 +108,17 @@ const CameraIcon: React.FC<{ size: number; color: string }> = ({ size, color }) 
       />
     </mesh>
   );
-};
+});
 
 // PhotoMesh component with brightness control
-const PhotoMesh: React.FC<{
+const PhotoMesh = React.memo<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = ({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
+}>(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -285,11 +285,11 @@ const PhotoMesh: React.FC<{
       </mesh>
       
       {isEmptySlot && !hasError && (
-        <CameraIcon size={size} color="#666666" />
+        <CameraIcon size={size} color={emptySlotColor} />
       )}
     </group>
   );
-};
+});
 
 // AnimationController - handles photo positioning
 const AnimationController: React.FC<{
