@@ -13,6 +13,9 @@ export class GridPattern extends BasePattern {
 
     const wallHeight = this.settings.wallHeight;
     
+    const speed = this.settings.animationSpeed / 100;
+    const animationTime = this.settings.animationEnabled ? time * speed : 0;
+    
     for (let i = 0; i < totalPhotos; i++) {
       const col = i % columns;
       const row = Math.floor(i / columns);
@@ -21,9 +24,6 @@ export class GridPattern extends BasePattern {
       let z = 0;
       
       if (this.settings.animationEnabled) {
-        const speed = this.settings.animationSpeed / 100;
-        const animationTime = time * speed;
-        
         // Add wave motion
         const waveX = Math.sin(animationTime + col * 0.3) * 2;
         const waveY = Math.cos(animationTime + row * 0.3) * 2;
