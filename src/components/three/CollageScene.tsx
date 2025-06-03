@@ -33,18 +33,17 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// Create static camera icon resources
-const staticCameraResources = (() => {
+// Create static texture and material that are reused across all instances
+const { staticMaterial } = (() => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   
   if (ctx) {
-    // Use a consistent gray color
-    const iconColor = '#666666';
-    
     ctx.clearRect(0, 0, 256, 256);
+    
+    const iconColor = '#888888';
     ctx.fillStyle = iconColor;
     ctx.strokeStyle = iconColor;
     ctx.lineWidth = 8;
@@ -61,7 +60,7 @@ const staticCameraResources = (() => {
     ctx.beginPath();
     ctx.arc(lensX, lensY, lensRadius, 0, Math.PI * 2);
     ctx.fill();
-
+    
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -85,6 +84,7 @@ const staticCameraResources = (() => {
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.format = THREE.RGBAFormat;
   texture.generateMipmaps = false;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -94,30 +94,20 @@ const staticCameraResources = (() => {
     map: texture,
     transparent: true,
     opacity: 0.3,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    depthTest: true
   });
   
-  // Create a static geometry that will be reused
-  const geometry = new THREE.PlaneGeometry(1, 1);
-  
-  return {
-    material,
-    geometry,
-    dispose: () => {
-      texture.dispose();
-      material.dispose();
-      geometry.dispose();
-    }
-  };
+  return { staticMaterial: material };
 })();
 
-// Optimized Camera Icon Component
+// Ultra-optimized Camera Icon Component
 const CameraIcon = React.memo<{ size: number }>(({ size }) => {
-  const scale = size * 0.4;
   return (
-    <mesh scale={[scale, scale, 1]} matrixAutoUpdate={false}>
-      <primitive object={staticCameraResources.geometry} attach="geometry" />
-      <primitive object={staticCameraResources.material} attach="material" />
+    <mesh>
+      <planeGeometry args={[size * 0.4, size * 0.4]} />
+      <primitive object={staticMaterial} attach="material" />
     </mesh>
   );
 }, () => true); // Prevent all re-renders
