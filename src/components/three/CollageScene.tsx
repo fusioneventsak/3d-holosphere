@@ -33,31 +33,27 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// Create a static camera icon texture that's reused across all instances
-const staticCameraIconTexture = (() => {
+// Create static texture and material that are reused across all instances
+const { staticMaterial } = (() => {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext('2d');
   
   if (ctx) {
-    // Clear canvas
     ctx.clearRect(0, 0, 256, 256);
     
-    // Set up styles with fixed color
     const iconColor = '#888888';
     ctx.fillStyle = iconColor;
     ctx.strokeStyle = iconColor;
     ctx.lineWidth = 8;
     
-    // Draw camera body
     const bodyWidth = 140;
     const bodyHeight = 100;
     const bodyX = (256 - bodyWidth) / 2;
     const bodyY = (256 - bodyHeight) / 2 + 20;
     ctx.fillRect(bodyX, bodyY, bodyWidth, bodyHeight);
     
-    // Draw lens
     const lensRadius = 35;
     const lensX = 128;
     const lensY = bodyY + bodyHeight / 2;
@@ -65,14 +61,12 @@ const staticCameraIconTexture = (() => {
     ctx.arc(lensX, lensY, lensRadius, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw lens inner circle
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(lensX, lensY, lensRadius - 10, 0, Math.PI * 2);
     ctx.stroke();
     
-    // Draw viewfinder
     ctx.fillStyle = iconColor;
     const viewfinderWidth = 40;
     const viewfinderHeight = 20;
@@ -80,7 +74,6 @@ const staticCameraIconTexture = (() => {
     const viewfinderY = bodyY - viewfinderHeight + 5;
     ctx.fillRect(viewfinderX, viewfinderY, viewfinderWidth, viewfinderHeight);
     
-    // Draw flash
     const flashWidth = 30;
     const flashHeight = 15;
     const flashX = bodyX + bodyWidth - flashWidth - 10;
@@ -96,28 +89,25 @@ const staticCameraIconTexture = (() => {
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
-  return texture;
+  
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    depthTest: true
+  });
+  
+  return { staticMaterial: material };
 })();
 
-// Optimized Camera Icon Component
+// Ultra-optimized Camera Icon Component
 const CameraIcon = React.memo<{ size: number }>(({ size }) => {
-  const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
-
-  if (!materialRef.current) {
-    materialRef.current = new THREE.MeshBasicMaterial({
-      map: staticCameraIconTexture,
-      transparent: true,
-      opacity: 0.3,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: true
-    });
-  }
-
   return (
     <mesh>
       <planeGeometry args={[size * 0.4, size * 0.4]} />
-      <primitive object={materialRef.current} attach="material" />
+      <primitive object={staticMaterial} attach="material" />
     </mesh>
   );
 }, () => true); // Prevent all re-renders
@@ -291,7 +281,7 @@ const PhotoMesh = React.memo<{
   const isEmptySlot = !photo.url || isLoading || hasError;
 
   return (
-    <group ref={meshRef} matrixAutoUpdate={true}>
+    <group ref={meshRef}>
       <mesh castShadow receiveShadow material={material}>
         <planeGeometry args={[size * (9/16), size]} />
       </mesh>
