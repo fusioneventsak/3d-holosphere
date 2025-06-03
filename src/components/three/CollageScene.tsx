@@ -8,7 +8,6 @@ import SceneCamera from './SceneCamera';
 import SceneLighting from './SceneLighting';
 import SceneBackground from './SceneBackground';
 import { Floor, Grid } from './SceneEnvironment';
-
 type Photo = {
   id: string;
   url: string;
@@ -33,84 +32,6 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
 
-// Create static texture and material that are reused across all instances
-const { staticMaterial } = (() => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  
-  if (ctx) {
-    ctx.clearRect(0, 0, 256, 256);
-    
-    const iconColor = '#888888';
-    ctx.fillStyle = iconColor;
-    ctx.strokeStyle = iconColor;
-    ctx.lineWidth = 8;
-    
-    const bodyWidth = 140;
-    const bodyHeight = 100;
-    const bodyX = (256 - bodyWidth) / 2;
-    const bodyY = (256 - bodyHeight) / 2 + 20;
-    ctx.fillRect(bodyX, bodyY, bodyWidth, bodyHeight);
-    
-    const lensRadius = 35;
-    const lensX = 128;
-    const lensY = bodyY + bodyHeight / 2;
-    ctx.beginPath();
-    ctx.arc(lensX, lensY, lensRadius, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(lensX, lensY, lensRadius - 10, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    ctx.fillStyle = iconColor;
-    const viewfinderWidth = 40;
-    const viewfinderHeight = 20;
-    const viewfinderX = (256 - viewfinderWidth) / 2;
-    const viewfinderY = bodyY - viewfinderHeight + 5;
-    ctx.fillRect(viewfinderX, viewfinderY, viewfinderWidth, viewfinderHeight);
-    
-    const flashWidth = 30;
-    const flashHeight = 15;
-    const flashX = bodyX + bodyWidth - flashWidth - 10;
-    const flashY = bodyY + 10;
-    ctx.fillRect(flashX, flashY, flashWidth, flashHeight);
-  }
-  
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.format = THREE.RGBAFormat;
-  texture.generateMipmaps = false;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.needsUpdate = true;
-  
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    opacity: 0.3,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-    depthTest: true
-  });
-  
-  return { staticMaterial: material };
-})();
-
-// Ultra-optimized Camera Icon Component
-const CameraIcon = React.memo<{ size: number }>(({ size }) => {
-  return (
-    <mesh>
-      <planeGeometry args={[size * 0.4, size * 0.4]} />
-      <primitive object={staticMaterial} attach="material" />
-    </mesh>
-  );
-}, () => true); // Prevent all re-renders
 
 // PhotoMesh component with brightness control
 const PhotoMesh = React.memo<{
@@ -285,9 +206,6 @@ const PhotoMesh = React.memo<{
       <mesh castShadow receiveShadow material={material}>
         <planeGeometry args={[size * (9/16), size]} />
       </mesh>
-      {isEmptySlot && !hasError && (
-        <CameraIcon size={size} />
-      )}
     </group>
   );
 }, (prevProps, nextProps) => {
