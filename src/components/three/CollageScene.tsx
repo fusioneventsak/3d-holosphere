@@ -286,6 +286,8 @@ const PhotoMesh: React.FC<{
 
 // AnimationController - handles photo positioning
 const AnimationController: React.FC<{
+    }
+  )
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
