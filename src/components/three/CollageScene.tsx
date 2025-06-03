@@ -283,12 +283,10 @@ const PhotoMesh: React.FC<{
       <mesh castShadow receiveShadow material={material}>
         <planeGeometry args={[size * (9/16), size]} />
       </mesh>
-      
       {isEmptySlot && !hasError && (
         <CameraIcon size={size} color="#666666" />
       )}
     </group>
-      )}
   );
 };
 
