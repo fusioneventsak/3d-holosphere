@@ -7,7 +7,7 @@ import { WavePattern } from './WavePattern';
 
 export class PatternFactory {
   static createPattern(type: string, settings: SceneSettings, photos: Photo[]) {
-    switch (settings.animationPattern) {
+    switch (type) {
       case 'float':
         return new FloatPattern(settings, photos);
       case 'grid':

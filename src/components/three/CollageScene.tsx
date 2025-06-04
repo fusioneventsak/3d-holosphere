@@ -4,7 +4,13 @@ import * as THREE from 'three';  // for TextureLoader and constants
 import { useCollageStore } from '../../store/collageStore';
 import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
-import { addCacheBustToUrl } from '../../lib/supabase';
+import { addCacheBustToUrl } from '../../lib/supabase'; 
+
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+};
 
 type CollageSceneProps = {
   photos: Photo[];
@@ -12,140 +18,178 @@ type CollageSceneProps = {
   onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 };
 
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
-  const groupRef = useRef<THREE.Group>(null);
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
+  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
-  // Optional: base configuration
-  const radius = 50;      // base radius for arrangements
-  const baseSize = 8;     // base height of each photo plane (adjust for your scene)
-  const waveAmplitude = 10;   // height of wave oscillation
-  const waveSpeed = 2;        // speed of wave motion
-  const floatSpeed = 2;       // upward floating speed
-  const spiralTurns = 2;      // number of twists in the spiral pattern
-  const floatSpawnY = -radius;              // y-position where float photos (bubbles) spawn
-  const floatDespawnY = radius + 5;         // y-position beyond which bubbles reset
+  useFrame((state) => {
+    const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
+    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
+    const patternState = pattern.generatePositions(time);
 
-  // Prepare data for float pattern (random positions and speeds for each photo)
-  const floatData = useRef<{ x: number, y: number, z: number }[]>([]);
-  useEffect(() => {
-    if (pattern === 'float') {
-      // Initialize random start positions for each photo (within a horizontal circle of "radius")
-      floatData.current = photos.map(() => {
-        const angle = Math.random() * 2 * Math.PI;
-        const r = Math.random() * radius * 0.8;  // random radius (0.8 to keep inside sphere)
-        return {
-          x: r * Math.cos(angle),
-          y: THREE.MathUtils.lerp(floatSpawnY, floatSpawnY * 0.5, Math.random()),  // between bottom and a bit above
-          z: r * Math.sin(angle)
-        };
-      });
-    }
-  }, [pattern, photos]);
+    const updatedPhotos = photos.map((photo, i) => ({
+      ...photo,
+      targetPosition: patternState.positions[i] || [0, 0, 0],
+      targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+      displayIndex: i,
+    }));
 
-  // Set static positions for grid and spiral patterns whenever pattern or photos change
-  useEffect(() => {
-    if (!groupRef.current) return;
-    const group = groupRef.current;
-    if (pattern === 'grid') {
-      // Arrange photos in a grid (plane) facing the camera
-      const N = photos.length;
-      const cols = Math.ceil(Math.sqrt(N));           // number of columns in grid
-      const rows = Math.ceil(N / cols);               // number of rows (enough to fit all photos)
-      const xSpacing = baseSize * 1.2;
-      const ySpacing = baseSize * 1.2;
-      let i = 0;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (i >= N) break;
-          const child = group.children[i];
-          // Center the grid at (0,0), and place each photo
-          const xOffset = (cols - 1) / 2;
-          const yOffset = (rows - 1) / 2;
-          child.position.x = (c - xOffset) * xSpacing;
-          child.position.y = (yOffset - r) * ySpacing;
-          child.position.z = -radius * 0.5;  // place the grid slightly in front of the center
-          i++;
-        }
-      }
-    } else if (pattern === 'spiral') {
-      // Arrange photos in a vertical spiral (helix) around the Y-axis
-      const N = photos.length;
-      for (let i = 0; i < N; i++) {
-        const child = group.children[i];
-        const t = i / Math.max(N - 1, 1);         // normalized [0,1] along the list
-        const angle = 2 * Math.PI * spiralTurns * t;
-        child.position.x = radius * 0.6 * Math.cos(angle);
-        child.position.z = radius * 0.6 * Math.sin(angle);
-        // vertical position from -radius/2 to +radius/2
-        child.position.y = THREE.MathUtils.lerp(-radius / 2, radius / 2, t);
-      }
-    }
-  }, [pattern, photos, radius, baseSize, spiralTurns]);
-
-  // Animate wave and float patterns each frame
-  useFrame((state, delta) => {
-    if (!groupRef.current) return;
-    const group = groupRef.current;
-    const N = photos.length;
-    if (pattern === 'wave') {
-      // Photos on a horizontal circle, moving up and down in a wave
-      for (let i = 0; i < N; i++) {
-        const child = group.children[i];
-        // Determine base position on a circle (evenly spaced)
-        const angle = (2 * Math.PI * i) / N;
-        child.position.x = radius * Math.cos(angle);
-        child.position.z = radius * Math.sin(angle);
-        child.position.y = Math.sin(state.clock.elapsedTime * waveSpeed + angle) * waveAmplitude;
-      }
-    } else if (pattern === 'float') {
-      // Photos drifting upward like bubbles
-      for (let i = 0; i < N; i++) {
-        const child = group.children[i];
-        if (pattern === 'float') {
-          let data = floatData.current[i];
-          // Update position
-          data.y += floatSpeed * delta;
-          if (data.y > floatDespawnY) {
-            // If a photo floats above the threshold, reset it to bottom with new random horizontal position
-            data.y = floatSpawnY;
-            const angle = Math.random() * 2 * Math.PI;
-            const r = Math.random() * radius * 0.8;
-            data.x = r * Math.cos(angle);
-            data.z = r * Math.sin(angle);
-          }
-          // Apply updated coordinates
-          child.position.set(data.x, data.y, data.z);
-        }
-      }
-    }
-
-    // Orient all photos to face the camera each frame for proper viewing
-    const cameraPos = state.camera.position;
-    group.children.forEach(child => {
-      child.lookAt(cameraPos);
-    });
+    setPhotosWithPositions(updatedPhotos);
   });
 
   return (
-    <group ref={groupRef}>
-      {photos.map((photo) => (
-        <PhotoMesh key={photo.id} photo={photo} size={baseSize} />
+    <>
+      {photosWithPositions.map((photo) => (
+        <PhotoMesh
+          key={photo.id}
+          photo={photo}
+          size={settings.photoSize}
+          pattern={settings.animationPattern}
+          shouldFaceCamera={settings.photoRotation}
+          brightness={settings.photoBrightness}
+        />
       ))}
-    </group>
+    </>
   );
 };
 
-const PhotoMesh: React.FC<{ photo: Photo; size: number }> = React.memo(({ photo, size }) => {
-  // Load the photo texture
-  const texture = useLoader(THREE.TextureLoader, photo.url);
-  // Optionally, ensure correct color space for the texture (if needed in your setup)
-  // texture.colorSpace = THREE.SRGBColorSpace;  // uncomment if colors appear off
+const PhotoMesh: React.FC<{
+  photo: PhotoWithPosition;
+  size: number;
+  pattern: string;
+  shouldFaceCamera: boolean;
+  brightness: number;
+}> = React.memo(({ photo, size, pattern, shouldFaceCamera, brightness }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera } = useThree();
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+
+  useEffect(() => {
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    setIsLoading(true);
+    setHasError(false);
+
+    const handleLoad = (loadedTexture: THREE.Texture) => {
+      loadedTexture.minFilter = THREE.LinearFilter;
+      loadedTexture.magFilter = THREE.LinearFilter;
+      loadedTexture.format = THREE.RGBAFormat;
+      loadedTexture.generateMipmaps = false;
+      setTexture(loadedTexture);
+      setIsLoading(false);
+    };
+
+    const handleError = () => {
+      console.error('Failed to load image:', photo.url);
+      setHasError(true);
+      setIsLoading(false);
+    };
+
+    const imageUrl = photo.url.includes('?') 
+      ? photo.url 
+      : addCacheBustToUrl(photo.url);
+
+    loader.load(imageUrl, handleLoad, undefined, handleError);
+
+    return () => {
+      if (texture) {
+        texture.dispose();
+      }
+    };
+  }, [photo.url]);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    // Initialize position on first frame
+    if (!isInitializedRef.current && photo.targetPosition) {
+      meshRef.current.position.set(...photo.targetPosition);
+      meshRef.current.rotation.set(...(photo.targetRotation || [0, 0, 0]));
+      lastPositionRef.current = [...photo.targetPosition];
+      isInitializedRef.current = true;
+      return;
+    }
+
+    const currentPos = meshRef.current.position;
+    const targetPos = photo.targetPosition;
+
+    // Handle rotation
+    if (shouldFaceCamera) {
+      const photoPos = meshRef.current.position;
+      const cameraPos = camera.position;
+      
+      const directionX = cameraPos.x - photoPos.x;
+      const directionZ = cameraPos.z - photoPos.z;
+      
+      const targetRotationY = Math.atan2(directionX, directionZ);
+      
+      const currentRotY = meshRef.current.rotation.y;
+      let rotationDiff = targetRotationY - currentRotY;
+      
+      if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+      if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+      
+      meshRef.current.rotation.y += rotationDiff * 0.1;
+      
+      const patternRot = photo.targetRotation;
+      meshRef.current.rotation.x += (patternRot[0] - meshRef.current.rotation.x) * 0.1;
+      meshRef.current.rotation.z += (patternRot[2] - meshRef.current.rotation.z) * 0.1;
+    } else {
+      const targetRot = photo.targetRotation;
+      meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * 0.1;
+      meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * 0.1;
+      meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * 0.1;
+    }
+  });
+
+  const material = useMemo(() => {
+    const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
+    
+    if (hasError) {
+      return new THREE.MeshStandardMaterial({ 
+        color: new THREE.Color('#ff4444'),
+        transparent: false,
+        roughness: 0.4,
+        metalness: 0.0,
+        emissive: new THREE.Color('#400000'),
+        emissiveIntensity: 0.1
+      });
+    }
+    
+    if (isLoading || !texture) {
+      return new THREE.MeshStandardMaterial({
+        color: new THREE.Color('#1A1A1A'),
+        transparent: false,
+        roughness: 0.9,
+        metalness: 0.1,
+        side: THREE.DoubleSide
+      });
+    }
+    
+    return new THREE.MeshStandardMaterial({ 
+      map: texture,
+      transparent: true,
+      roughness: 0,
+      metalness: 0,
+      emissive: new THREE.Color(1, 1, 1),
+      emissiveMap: texture,
+      emissiveIntensity: clampedBrightness,
+      toneMapped: false,
+      side: THREE.DoubleSide
+    });
+  }, [texture, isLoading, hasError, brightness]);
 
   return (
-    <group>
-      <mesh castShadow receiveShadow>
-        <planeGeometry args={[size * (9 / 16), size]} /> {/* 9:16 aspect ratio plane */}
-        <meshBasicMaterial map={texture} side={THREE.DoubleSide} />
+    <group ref={meshRef}>
+      <mesh castShadow receiveShadow material={material}>
+        <planeGeometry args={[size * (9/16), size]} />
       </mesh>
     </group>
   );
