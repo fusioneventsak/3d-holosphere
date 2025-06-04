@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';  // for TextureLoader and constants
 import { useCollageStore } from '../../store/collageStore';
-import { type SceneSettings } from '../../store/sceneStore';
+import { Canvas, useThree } from '@react-three/fiber';
+import { type SceneSettings } from '../../store/sceneStore'; 
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase'; 
 
@@ -18,7 +19,7 @@ type CollageSceneProps = {
   onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 };
 
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
+const Scene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
   useFrame((state) => {
@@ -194,5 +195,28 @@ const PhotoMesh: React.FC<{
     </group>
   );
 });
+
+const CollageScene: React.FC<CollageSceneProps> = (props) => {
+  return (
+    <Canvas
+      shadows
+      gl={{ 
+        antialias: true,
+        alpha: true,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+        powerPreference: "high-performance",
+        toneMapping: THREE.NoToneMapping,
+        outputColorSpace: THREE.LinearSRGBColorSpace
+      }}
+      camera={{
+        position: [props.settings.cameraDistance, props.settings.cameraHeight, props.settings.cameraDistance],
+        fov: 75
+      }}
+    >
+      <Scene {...props} />
+    </Canvas>
+  );
+};
 
 export default CollageScene;
