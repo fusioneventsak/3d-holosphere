@@ -7,10 +7,20 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase'; 
 
+// Constants for animation smoothing
+const POSITION_SMOOTHING = 0.1;
+const ROTATION_SMOOTHING = 0.1;
+
 type Photo = {
   id: string;
   url: string;
   collage_id?: string;
+};
+
+type PhotoWithPosition = Photo & {
+  targetPosition: [number, number, number];
+  targetRotation: [number, number, number];
+  displayIndex?: number;
 };
 
 type CollageSceneProps = {
@@ -21,18 +31,53 @@ type CollageSceneProps = {
 
 const Scene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const previousPhotosRef = useRef<Photo[]>([]);
+  const cycleIndexRef = useRef(0);
+  const lastCycleTimeRef = useRef(Date.now());
+  const photoCycleInterval = 5000;
+
+  useEffect(() => {
+    previousPhotosRef.current = photos;
+  }, [photos]);
 
   useFrame((state) => {
+    const currentTime = Date.now();
+    
+    // Handle photo cycling for excess photos
+    if (photos.length > settings.photoCount && currentTime - lastCycleTimeRef.current > photoCycleInterval) {
+      lastCycleTimeRef.current = currentTime;
+      cycleIndexRef.current = (cycleIndexRef.current + 1) % settings.photoCount;
+    }
+
     const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
     const patternState = pattern.generatePositions(time);
 
-    const updatedPhotos = photos.map((photo, i) => ({
-      ...photo,
-      targetPosition: patternState.positions[i] || [0, 0, 0],
-      targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-      displayIndex: i,
-    }));
+    const updatedPhotos: PhotoWithPosition[] = [];
+    
+    // Handle case when we have more photos than slots
+    if (photos.length > settings.photoCount) {
+      const displayCount = Math.min(photos.length, settings.photoCount);
+      for (let i = 0; i < displayCount; i++) {
+        const photoIndex = (i + cycleIndexRef.current) % photos.length;
+        updatedPhotos.push({
+          ...photos[photoIndex],
+          targetPosition: patternState.positions[i] || [0, 0, 0],
+          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          displayIndex: i,
+        });
+      }
+    } else {
+      // When we have fewer photos than slots, show all photos
+      photos.forEach((photo, i) => {
+        updatedPhotos.push({
+          ...photo,
+          targetPosition: patternState.positions[i] || [0, 0, 0],
+          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+          displayIndex: i,
+        });
+      });
+    }
 
     setPhotosWithPositions(updatedPhotos);
   });
@@ -120,6 +165,11 @@ const PhotoMesh: React.FC<{
 
     const currentPos = meshRef.current.position;
     const targetPos = photo.targetPosition;
+
+    // Apply position smoothing
+    meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
+    meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
+    meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
 
     // Handle rotation
     if (shouldFaceCamera) {
