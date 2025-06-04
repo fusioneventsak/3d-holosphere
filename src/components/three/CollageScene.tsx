@@ -5,7 +5,12 @@ import { useCollageStore } from '../../store/collageStore';
 import { Canvas, useThree } from '@react-three/fiber';
 import { type SceneSettings } from '../../store/sceneStore'; 
 import { PatternFactory } from './patterns/PatternFactory';
-import { addCacheBustToUrl } from '../../lib/supabase'; 
+import { addCacheBustToUrl } from '../../lib/supabase';
+import { OrbitControls } from '@react-three/drei';
+import SceneCamera from './SceneCamera';
+import SceneLighting from './SceneLighting';
+import SceneBackground from './SceneBackground';
+import { Floor, Grid } from './SceneEnvironment';
 
 // Constants for animation smoothing
 const POSITION_SMOOTHING = 0.1;
@@ -84,6 +89,26 @@ const Scene: React.FC<CollageSceneProps> = ({ photos, settings }) => {
 
   return (
     <>
+      <SceneBackground settings={settings} />
+      <SceneCamera settings={settings} />
+      <SceneLighting settings={settings} />
+      <Floor settings={settings} />
+      <Grid settings={settings} />
+      <OrbitControls
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        target={[0, settings.cameraHeight * 0.3, 0]}
+        maxPolarAngle={Math.PI / 1.5}
+        minDistance={3}
+        maxDistance={200}
+        enableDamping={true}
+        dampingFactor={0.05}
+        zoomSpeed={1.0}
+        rotateSpeed={0.5}
+        panSpeed={0.8}
+      />
+
       {photosWithPositions.map((photo) => (
         <PhotoMesh
           key={photo.id}
@@ -253,11 +278,17 @@ const CollageScene: React.FC<CollageSceneProps> = (props) => {
       gl={{ 
         antialias: true,
         alpha: true,
-        premultipliedAlpha: false,
+        premultipliedAlpha: true,
         preserveDrawingBuffer: false,
         powerPreference: "high-performance",
         toneMapping: THREE.NoToneMapping,
         outputColorSpace: THREE.LinearSRGBColorSpace
+      }}
+      onCreated={({ gl }) => {
+        gl.shadowMap.enabled = true;
+        gl.shadowMap.type = THREE.PCFSoftShadowMap;
+        gl.shadowMap.autoUpdate = true;
+        gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       }}
       camera={{
         position: [props.settings.cameraDistance, props.settings.cameraHeight, props.settings.cameraDistance],
