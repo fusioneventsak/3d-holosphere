@@ -1,21 +1,18 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';  // for TextureLoader and constants
+import { useCollageStore } from '../../store/collageStore';
+import { type SceneSettings } from '../../store/sceneStore';
+import { PatternFactory } from './patterns/PatternFactory';
+import { addCacheBustToUrl } from '../../lib/supabase';
 
-// Type for a photo object (adjust fields if your data differs)
-type Photo = {
-  id: string;
-  url: string;
+type CollageSceneProps = {
+  photos: Photo[];
+  settings: SceneSettings;
+  onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 };
 
-// Example: If using a Zustand store or props to get photos and pattern
-// (Replace these with actual data sources in your app)
-import { useCollageStore } from '../store/useCollageStore';  // ← adjust path as needed
-const photos: Photo[] = useCollageStore(state => state.photos);
-const pattern: string = useCollageStore(state => state.animationPattern);
-// (If not using a store, you can accept photos and pattern as props to CollageScene)
-
-const CollageScene: React.FC = () => {
+const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const groupRef = useRef<THREE.Group>(null);
 
   // Optional: base configuration
