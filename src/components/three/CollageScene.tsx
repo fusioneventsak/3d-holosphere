@@ -345,7 +345,7 @@ const PhotoMesh: React.FC<{
     if (hasError) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color('#ff4444'),
-        transparent: false,
+        transparent: true,
         roughness: 0.7,
         metalness: 0.0,
         emissive: new THREE.Color('#400000'),
@@ -356,7 +356,7 @@ const PhotoMesh: React.FC<{
     if (isLoading || !texture) {
       return new THREE.MeshStandardMaterial({ 
         color: new THREE.Color(emptySlotColor),
-        transparent: false,
+        transparent: true,
         roughness: 0.5,
         metalness: 0.1
       });
@@ -365,7 +365,8 @@ const PhotoMesh: React.FC<{
     // Create a material with brightness control
     const material = new THREE.MeshStandardMaterial({ 
       map: texture,
-      transparent: false,
+      transparent: true,
+      alphaTest: 0.1,
       roughness: 0.7,
       metalness: 0.0,
       aoMapIntensity: 0.5
@@ -388,7 +389,7 @@ const PhotoMesh: React.FC<{
   return (
     <mesh ref={meshRef} material={material} castShadow receiveShadow>
       {/* Add a very slight bevel to the plane for better light response */}
-      <boxGeometry args={[size * (9/16), size, 0.05]} />
+      <planeGeometry args={[size * (9/16), size]} />
     </mesh>
   );
 };
