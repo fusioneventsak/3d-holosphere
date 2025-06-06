@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Share2, Upload, Edit } from 'lucide-react';
+import { Share2, Upload, Edit, Maximize2, ChevronLeft } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { defaultSettings } from '../store/sceneStore';
 import { ErrorBoundary } from 'react-error-boundary';
-import Layout from '../components/layout/Layout';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 
@@ -32,9 +31,61 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const { currentCollage, photos, fetchCollageByCode, loading, error, subscribeToPhotos } = useCollageStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const navigate = useNavigate();
+
+  // Handle fullscreen toggle
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+        // Hide controls after a delay when entering fullscreen
+        setTimeout(() => setControlsVisible(false), 2000);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+        setControlsVisible(true);
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
+    }
+  };
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Toggle fullscreen with 'f' key
+      if (e.key.toLowerCase() === 'f') {
+        toggleFullscreen();
+      }
+      // Show controls temporarily when moving mouse in fullscreen
+      if (isFullscreen) {
+        setControlsVisible(true);
+        // Hide controls after delay
+        setTimeout(() => setControlsVisible(false), 2000);
+      }
+    };
+
+    const handleMouseMove = () => {
+      if (isFullscreen) {
+        setControlsVisible(true);
+        // Hide controls after delay
+        setTimeout(() => setControlsVisible(false), 2000);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    window.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [isFullscreen]);
 
   useEffect(() => {
     if (code) {
@@ -60,20 +111,20 @@ const CollageViewerPage: React.FC = () => {
 
   if (loading && !currentCollage) {
     return (
-      <Layout>
+      <div className="min-h-screen bg-black">
         <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             <p className="mt-2 text-gray-400">Loading collage...</p>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (error || !currentCollage) {
     return (
-      <Layout>
+      <div className="min-h-screen bg-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
@@ -89,14 +140,14 @@ const CollageViewerPage: React.FC = () => {
             </Link>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen bg-black relative">
+      <div className={`absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300 ${isFullscreen && !controlsVisible ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">
               {currentCollage.name}
@@ -107,6 +158,13 @@ const CollageViewerPage: React.FC = () => {
           </div>
           
           <div className="mt-4 sm:mt-0 flex space-x-3">
+            <button
+              onClick={toggleFullscreen}
+              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600/80 hover:bg-gray-700 transition-colors"
+            >
+              <Maximize2 className="h-4 w-4 mr-1" />
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </button>
             <button
               onClick={() => setShowUploader(!showUploader)}
               className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
@@ -156,7 +214,7 @@ const CollageViewerPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="h-[calc(100vh-200px)] w-full">
+        <div className="h-screen w-full">
           <ErrorBoundary 
             FallbackComponent={SceneErrorFallback}
             onReset={() => fetchCollageByCode(code || '')}
@@ -168,7 +226,7 @@ const CollageViewerPage: React.FC = () => {
           </ErrorBoundary>
         </div>
       )}
-    </Layout>
+    </div>
   );
 };
 
