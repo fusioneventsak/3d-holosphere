@@ -3,28 +3,28 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
-// Stock photo URLs of smiling people (using Unsplash for demo)
+// Stock photo URLs of diverse people having fun at events (using Unsplash for demo)
 const DEMO_PHOTOS = [
+  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1506629905607-64af794ab61c?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400&h=400&fit=crop&crop=face',
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1519648023493-d82b5f8d7b8a?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400&h=400&fit=crop&crop=face',
   'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1554727242-741c14fa561c?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1543269664-647b9c2fe1f3?w=400&h=400&fit=crop&crop=face',
   'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=400&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop&crop=face',
 ];
 
 interface PhotoProps {
@@ -36,16 +36,26 @@ interface PhotoProps {
 
 const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const textureRef = useRef<THREE.Texture>();
+  const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+  const [isLoaded, setIsLoaded] = React.useState(false);
   
-  // Load texture
-  const texture = useMemo(() => {
+  // Load texture with error handling
+  React.useEffect(() => {
     const loader = new THREE.TextureLoader();
-    const tex = loader.load(imageUrl);
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    textureRef.current = tex;
-    return tex;
+    loader.load(
+      imageUrl,
+      (loadedTexture) => {
+        loadedTexture.minFilter = THREE.LinearFilter;
+        loadedTexture.magFilter = THREE.LinearFilter;
+        setTexture(loadedTexture);
+        setIsLoaded(true);
+      },
+      undefined,
+      (error) => {
+        console.warn('Failed to load texture:', imageUrl, error);
+        setIsLoaded(true); // Still show the frame even if image fails
+      }
+    );
   }, [imageUrl]);
 
   useFrame((state) => {
@@ -55,33 +65,33 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     
     // Floating animation with different frequencies for each photo
     const floatOffset = Math.sin(time * 0.5 + index * 0.5) * 0.3;
-    const rotationOffset = Math.sin(time * 0.3 + index * 0.3) * 0.1;
+    
+    // Make photos face the camera
+    meshRef.current.lookAt(state.camera.position);
+    
+    // Add subtle rotation variation while still facing camera
+    const rotationOffset = Math.sin(time * 0.3 + index * 0.3) * 0.05;
+    meshRef.current.rotation.z += rotationOffset;
     
     meshRef.current.position.y = position[1] + floatOffset;
-    meshRef.current.rotation.z = rotation[2] + rotationOffset;
-    meshRef.current.rotation.x = rotation[0] + Math.sin(time * 0.2 + index * 0.2) * 0.05;
   });
+
+  if (!isLoaded) {
+    return null; // Don't render until loaded or failed
+  }
 
   return (
     <mesh ref={meshRef} position={position} rotation={rotation} castShadow receiveShadow>
-      {/* Photo frame effect - slightly larger and behind */}
-      <mesh position={[0, 0, -0.02]}>
-        <planeGeometry args={[1.4, 1.4]} />
-        <meshStandardMaterial 
-          color="#1a1a1a" 
-          metalness={0.1}
-          roughness={0.8}
-        />
-      </mesh>
-      {/* Main photo */}
+      {/* Main photo - no border, clean look */}
       <mesh position={[0, 0, 0]}>
-        <planeGeometry args={[1.2, 1.2]} />
+        <planeGeometry args={[1.3, 1.3]} />
         <meshStandardMaterial 
           map={texture} 
           transparent
           side={THREE.DoubleSide}
-          metalness={0.1}
-          roughness={0.7}
+          metalness={0.05}
+          roughness={0.8}
+          color={texture ? "#ffffff" : "#333333"}
         />
       </mesh>
     </mesh>
@@ -132,30 +142,30 @@ const ParticleSystem: React.FC = () => {
   );
 };
 
-// Floor component with reflective material
+// Floor component with reflective material - lighter
 const Floor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]} receiveShadow>
       <planeGeometry args={[30, 30]} />
       <meshStandardMaterial 
-        color="#0a0a0a"
-        metalness={0.8}
-        roughness={0.2}
-        envMapIntensity={0.5}
+        color="#1a1a2e"
+        metalness={0.7}
+        roughness={0.3}
+        envMapIntensity={0.8}
       />
     </mesh>
   );
 };
 
-// Grid component
+// Grid component - brighter
 const Grid: React.FC = () => {
   const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#8b5cf6', '#4c1d95');
+    const helper = new THREE.GridHelper(30, 30, '#a855f7', '#6b46c1');
     helper.position.y = -2.99;
     
     const material = helper.material as THREE.LineBasicMaterial;
     material.transparent = true;
-    material.opacity = 0.3;
+    material.opacity = 0.6;
     
     return helper;
   }, []);
@@ -233,47 +243,62 @@ const Scene: React.FC = () => {
       {/* Background */}
       <color attach="background" args={['#000000']} />
       
-      {/* Lighting Setup */}
-      <ambientLight intensity={0.15} color="#1a0a2e" />
+      {/* Lighting Setup - Much Brighter */}
+      <ambientLight intensity={0.6} color="#4c1d95" />
       
-      {/* Main spotlight from above */}
+      {/* Main spotlight from above - Much brighter */}
       <spotLight
         position={[0, 12, 0]}
-        angle={Math.PI / 3}
-        penumbra={0.5}
-        intensity={3}
+        angle={Math.PI / 2.5}
+        penumbra={0.3}
+        intensity={8}
         color="#ffffff"
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={20}
-        target-position={[0, 0, 0]}
       />
       
-      {/* Purple accent lights */}
+      {/* Additional fill lights for better illumination */}
+      <directionalLight 
+        position={[5, 8, 5]} 
+        intensity={3}
+        color="#ffffff"
+      />
+      
+      <directionalLight 
+        position={[-5, 6, -5]} 
+        intensity={2.5}
+        color="#f8fafc"
+      />
+      
+      {/* Purple accent lights - brighter */}
       <spotLight
         position={[-8, 8, -8]}
-        angle={Math.PI / 4}
-        penumbra={0.8}
-        intensity={2}
+        angle={Math.PI / 3}
+        penumbra={0.6}
+        intensity={4}
         color="#8b5cf6"
         castShadow
+        shadow-mapSize={[512, 512]}
       />
       
       <spotLight
         position={[8, 6, 8]}
-        angle={Math.PI / 5}
-        penumbra={0.7}
-        intensity={1.5}
+        angle={Math.PI / 4}
+        penumbra={0.5}
+        intensity={3.5}
         color="#a855f7"
+        shadow-mapSize={[512, 512]}
       />
       
-      {/* Rim lighting */}
-      <directionalLight 
-        position={[10, 5, -10]} 
-        intensity={0.8}
-        color="#6366f1"
+      {/* Front fill light to illuminate photos */}
+      <pointLight 
+        position={[0, 3, 8]} 
+        intensity={4} 
+        color="#ffffff" 
+        distance={15}
+        decay={2}
       />
       
       {/* Camera Controller */}
@@ -297,42 +322,68 @@ const Scene: React.FC = () => {
         />
       ))}
       
-      {/* Fog for depth */}
-      <fog attach="fog" args={['#0a0a0a', 8, 25]} />
+      {/* Fog for depth - lighter */}
+      <fog attach="fog" args={['#1a1a2e', 12, 30]} />
     </>
   );
 };
 
 const LoadingFallback: React.FC = () => (
-  <div className="flex items-center justify-center h-full">
-    <div className="text-center">
-      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-      <p className="mt-2 text-sm text-gray-400">Loading 3D experience...</p>
-    </div>
-  </div>
+  <mesh>
+    <sphereGeometry args={[0.1, 8, 8]} />
+    <meshBasicMaterial color="#8b5cf6" />
+  </mesh>
 );
+
+const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [hasError, setHasError] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleError = () => setHasError(true);
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-900/20 to-black/40">
+        <div className="text-center text-white/60">
+          <div className="w-16 h-16 border-2 border-purple-500/30 rounded-full mx-auto mb-4"></div>
+          <p>3D Scene Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
 
 const HeroScene: React.FC = () => {
   return (
-    <div className="absolute inset-0 w-full h-full">
-      <Canvas
-        camera={{ position: [10, 4, 10], fov: 50 }}
-        shadows
-        gl={{ 
-          antialias: true, 
-          alpha: true,
-          powerPreference: "high-performance",
-          shadowMap: true,
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.2
-        }}
-        style={{ background: 'transparent' }}
-      >
-        <Suspense fallback={null}>
-          <Scene />
-        </Suspense>
-      </Canvas>
-    </div>
+    <ErrorBoundary>
+      <div className="absolute inset-0 w-full h-full">
+        <Canvas
+          camera={{ position: [10, 4, 10], fov: 50 }}
+          shadows
+          gl={{ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance"
+          }}
+          style={{ background: 'transparent' }}
+          onCreated={({ gl }) => {
+            gl.shadowMap.enabled = true;
+            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 1.8; // Increased exposure for brightness
+          }}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <Scene />
+          </Suspense>
+        </Canvas>
+      </div>
+    </ErrorBoundary>
   );
 };
 
