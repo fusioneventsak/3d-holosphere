@@ -142,9 +142,9 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <group ref={groupRef}>
-      {/* Ambient light - not affected by photo brightness */}
+      {/* Enhanced Ambient light with increased intensity range */}
       <ambientLight 
-        intensity={settings.ambientLightIntensity * 0.4} 
+        intensity={settings.ambientLightIntensity * 0.8} 
         color="#ffffff" 
       />
       
@@ -174,7 +174,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         
         // Calculate spotlight parameters
         const adjustedAngle = settings.spotlightWidth * light.angleVariation;
-        const baseIntensity = settings.spotlightIntensity * 0.05; // Proper spotlight intensity
+        const baseIntensity = settings.spotlightIntensity * 0.2;
         const adjustedIntensity = baseIntensity * light.intensityVariation;
         
         return (
@@ -182,18 +182,19 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
             <spotLight
               position={light.position}
               target={targetRef.current}
-              angle={adjustedAngle}
+              angle={Math.max(0.1, adjustedAngle)}
               penumbra={settings.spotlightPenumbra}
-              intensity={adjustedIntensity}
+              intensity={adjustedIntensity * 5}
               color={settings.spotlightColor}
               distance={settings.spotlightDistance * 2}
-              decay={2}
+              decay={1.5}
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
-              shadow-camera-far={settings.spotlightDistance * 3}
+              shadow-camera-far={settings.spotlightDistance * 4}
               shadow-bias={-0.0001}
+              power={100}
               shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}
             />
             <VolumetricSpotlight
@@ -229,6 +230,8 @@ const PhotoMesh: React.FC<{
   const [hasError, setHasError] = useState(false);
   const isInitializedRef = useRef(false);
   const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3());
+  const currentRotation = useRef<THREE.Euler>(new THREE.Euler());
 
   useEffect(() => {
     if (!photo.url) {
@@ -255,8 +258,8 @@ const PhotoMesh: React.FC<{
     };
 
     const imageUrl = photo.url.includes('?') 
-      ? photo.url 
-      : addCacheBustToUrl(photo.url);
+      ? `${photo.url}&t=${Date.now()}`
+      : `${photo.url}?t=${Date.now()}`;
 
     loader.load(imageUrl, handleLoad, undefined, handleError);
 
@@ -267,127 +270,113 @@ const PhotoMesh: React.FC<{
     };
   }, [photo.url]);
 
+  // Camera facing logic
   useFrame(() => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || !shouldFaceCamera) return;
 
-    // Initialize position on first frame
-    if (!isInitializedRef.current && photo.targetPosition) {
-      meshRef.current.position.set(...photo.targetPosition);
-      meshRef.current.rotation.set(...(photo.targetRotation || [0, 0, 0]));
-      lastPositionRef.current = [...photo.targetPosition];
+    const mesh = meshRef.current;
+    const currentPositionArray = mesh.position.toArray() as [number, number, number];
+    
+    // Only update if position changed significantly
+    const positionChanged = currentPositionArray.some((coord, index) => 
+      Math.abs(coord - lastPositionRef.current[index]) > 0.01
+    );
+
+    if (positionChanged || !isInitializedRef.current) {
+      mesh.lookAt(camera.position);
+      lastPositionRef.current = currentPositionArray;
       isInitializedRef.current = true;
-      return;
-    }
-
-    const currentPos = meshRef.current.position;
-    const targetPos = photo.targetPosition;
-
-    // Detect teleportation for float pattern
-    if (pattern === 'float') {
-      const yDistance = Math.abs(targetPos[1] - lastPositionRef.current[1]);
-      
-      // If the Y distance is too large, it's a teleport
-      if (yDistance > TELEPORT_THRESHOLD) {
-        // Instant teleport without interpolation
-        meshRef.current.position.set(...targetPos);
-        lastPositionRef.current = [...targetPos];
-      } else {
-        // Normal smooth interpolation
-        meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-        meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-        meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
-        lastPositionRef.current = [
-          meshRef.current.position.x,
-          meshRef.current.position.y,
-          meshRef.current.position.z
-        ];
-      }
-    } else {
-      // For other patterns, use normal interpolation
-      meshRef.current.position.x += (targetPos[0] - currentPos.x) * POSITION_SMOOTHING;
-      meshRef.current.position.y += (targetPos[1] - currentPos.y) * POSITION_SMOOTHING;
-      meshRef.current.position.z += (targetPos[2] - currentPos.z) * POSITION_SMOOTHING;
-    }
-
-    // Handle rotation
-    if (shouldFaceCamera) {
-      const photoPos = meshRef.current.position;
-      const cameraPos = camera.position;
-      
-      const directionX = cameraPos.x - photoPos.x;
-      const directionZ = cameraPos.z - photoPos.z;
-      
-      const targetRotationY = Math.atan2(directionX, directionZ);
-      
-      const currentRotY = meshRef.current.rotation.y;
-      let rotationDiff = targetRotationY - currentRotY;
-      
-      if (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
-      if (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-      
-      meshRef.current.rotation.y += rotationDiff * ROTATION_SMOOTHING;
-      
-      const patternRot = photo.targetRotation;
-      meshRef.current.rotation.x += (patternRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
-      meshRef.current.rotation.z += (patternRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
-    } else {
-      const targetRot = photo.targetRotation;
-      meshRef.current.rotation.x += (targetRot[0] - meshRef.current.rotation.x) * ROTATION_SMOOTHING;
-      meshRef.current.rotation.y += (targetRot[1] - meshRef.current.rotation.y) * ROTATION_SMOOTHING;
-      meshRef.current.rotation.z += (targetRot[2] - meshRef.current.rotation.z) * ROTATION_SMOOTHING;
     }
   });
 
-  // Materials with brightness control
+  // Smooth animation frame
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    const targetPosition = new THREE.Vector3(...photo.targetPosition);
+    const targetRotation = new THREE.Euler(...photo.targetRotation);
+
+    // Check if this is a teleport (large distance change)
+    const distance = currentPosition.current.distanceTo(targetPosition);
+    const isTeleport = distance > TELEPORT_THRESHOLD;
+
+    if (isTeleport) {
+      // Instantly teleport to new position
+      currentPosition.current.copy(targetPosition);
+      currentRotation.current.copy(targetRotation);
+    } else {
+      // Smooth interpolation for normal movement
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
+      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
+      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
+    }
+
+    meshRef.current.position.copy(currentPosition.current);
+    if (!shouldFaceCamera) {
+      meshRef.current.rotation.copy(currentRotation.current);
+    }
+  });
+
+  // Create material with brightness control
   const material = useMemo(() => {
-    const clampedBrightness = Math.max(0.1, Math.min(3, brightness));
-    
-    if (hasError) {
-      return new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color('#ff4444'),
+    if (texture) {
+      const brightnessMaterial = new THREE.MeshStandardMaterial({
+        map: texture,
         transparent: true,
-        roughness: 0.7,
-        metalness: 0.0,
-        emissive: new THREE.Color('#400000'),
-        emissiveIntensity: 0.1
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      
+      // Apply brightness by modifying the material color - only for photos with textures
+      brightnessMaterial.color.setScalar(brightness);
+      
+      return brightnessMaterial;
+    } else {
+      // Empty slot material - NOT affected by brightness setting
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      
+      // Fill with background color
+      ctx.fillStyle = emptySlotColor;
+      ctx.fillRect(0, 0, 512, 512);
+      
+      // Add pattern
+      if (pattern === 'grid') {
+        ctx.strokeStyle = '#ffffff20';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 512; i += 64) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 512);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(512, i);
+          ctx.stroke();
+        }
+      }
+      
+      const emptyTexture = new THREE.CanvasTexture(canvas);
+      return new THREE.MeshStandardMaterial({
+        map: emptyTexture,
+        transparent: false,
+        opacity: 1.0, // Fully opaque empty slots
+        side: THREE.DoubleSide,
+        color: 0xffffff, // Fixed white color for empty slots, not affected by brightness
       });
     }
-    
-    if (isLoading || !texture) {
-      return new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color(emptySlotColor),
-        transparent: true,
-        roughness: 0.5,
-        metalness: 0.1
-      });
-    }
-    
-    // Create a material with brightness control
-    const material = new THREE.MeshStandardMaterial({ 
-      map: texture,
-      transparent: true,
-      alphaTest: 0.1,
-      roughness: 0.7,
-      metalness: 0.0,
-      aoMapIntensity: 0.5
-    });
-    
-    // Apply brightness by adjusting the material color
-    // 1.0 = natural photo appearance
-    material.color = new THREE.Color(clampedBrightness, clampedBrightness, clampedBrightness);
-    
-    // For very bright settings, add subtle emissive glow
-    if (clampedBrightness > 1.5) {
-      const emissiveIntensity = Math.min(0.2, (clampedBrightness - 1.5) * 0.1);
-      material.emissive = new THREE.Color(1, 1, 1);
-      material.emissiveIntensity = emissiveIntensity;
-    }
-    
-    return material;
-  }, [texture, isLoading, hasError, emptySlotColor, brightness]);
+  }, [texture, emptySlotColor, pattern, brightness]);
 
   return (
-    <mesh ref={meshRef} material={material} castShadow receiveShadow>
+    <mesh
+      ref={meshRef}
+      material={material}
+      castShadow
+      receiveShadow
+    >
       {/* Add a very slight bevel to the plane for better light response */}
       <planeGeometry args={[size * (9/16), size]} />
     </mesh>
@@ -479,7 +468,6 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
 
     const handleEnd = () => {
       lastInteractionTimeRef.current = Date.now();
-      // Delay before resuming auto-rotation
       setTimeout(() => {
         userInteractingRef.current = false;
       }, 500);
@@ -500,181 +488,86 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
 
     // Auto-rotate only when enabled and user is not interacting
     if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      // Get current camera position relative to target
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      // Apply rotation while maintaining current radius and polar angle
-      spherical.theta += delta * settings.cameraRotationSpeed;
+      spherical.theta += settings.cameraRotationSpeed * delta;
       
-      // Convert back to cartesian coordinates
       const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
       camera.position.copy(newPosition);
-      
-      // Update controls
       controlsRef.current.update();
     }
   });
 
-  return (
-    <>
-      <PerspectiveCamera
-        makeDefault
-        position={[settings.cameraDistance, settings.cameraHeight, settings.cameraDistance]}
-        fov={75}
-      />
-      <OrbitControls
-        ref={controlsRef}
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        target={[0, settings.cameraHeight * 0.3, 0]}
-        maxPolarAngle={Math.PI / 1.5}
-        minDistance={3}
-        maxDistance={200}
-        enableDamping={true}
-        dampingFactor={0.05}
-        zoomSpeed={1.0}
-        rotateSpeed={0.5}
-        panSpeed={0.8}
-        mouseButtons={{
-          LEFT: THREE.MOUSE.ROTATE,
-          MIDDLE: THREE.MOUSE.DOLLY,
-          RIGHT: THREE.MOUSE.PAN
-        }}
-        touches={{
-          ONE: THREE.TOUCH.ROTATE,
-          TWO: THREE.TOUCH.DOLLY_PAN
-        }}
-      />
-    </>
-  );
+  return settings.cameraEnabled ? (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={5}
+      maxDistance={200}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
+      enableDamping={true}
+      dampingFactor={0.05}
+    />
+  ) : null;
 };
 
-// AnimationController - handles photo positioning
+// AnimationController component
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
-  onPositionsUpdate: (photosWithPositions: PhotoWithPosition[]) => void;
+  onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
-  const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([]);
-  const [photoSlotMap, setPhotoSlotMap] = useState<Map<number, Photo>>(new Map());
-  const cycleIndexRef = useRef(0);
-  const lastCycleTimeRef = useRef(Date.now());
-  const photoCycleInterval = 5000;
-  const previousPhotosRef = useRef<Photo[]>([]);
-
-  // Handle photo updates with random slot placement
-  useEffect(() => {
+  const photoSlotMap = useRef<Map<number, Photo>>(new Map());
+  const lastPhotoChangeTime = useRef(Date.now());
+  const currentPhotoIndex = useRef(0);
+  
+  // Create display photos with cycling logic
+  const displayPhotos = useMemo(() => {
     if (photos.length <= settings.photoCount) {
-      // When we have fewer photos than slots
-      const newPhotos = photos.filter(p => !previousPhotosRef.current.some(prev => prev.id === p.id));
-      
-      if (newPhotos.length > 0) {
-        setPhotoSlotMap(prevMap => {
-          const newMap = new Map(prevMap);
-          
-          // Remove photos that are no longer in the photos array
-          for (const [slot, photo] of prevMap) {
-            if (!photos.some(p => p.id === photo.id)) {
-              newMap.delete(slot);
-            }
-          }
-          
-          // Add new photos to random empty slots
-          for (const newPhoto of newPhotos) {
-            // Find all empty slots
-            const emptySlots: number[] = [];
-            for (let i = 0; i < settings.photoCount; i++) {
-              if (!newMap.has(i)) {
-                emptySlots.push(i);
-              }
-            }
-            
-            if (emptySlots.length > 0) {
-              // Choose a random empty slot
-              const randomIndex = Math.floor(Math.random() * emptySlots.length);
-              const chosenSlot = emptySlots[randomIndex];
-              newMap.set(chosenSlot, newPhoto);
-            }
-          }
-          
-          return newMap;
-        });
-      } else {
-        // Just update the map to reflect removed photos
-        setPhotoSlotMap(prevMap => {
-          const newMap = new Map(prevMap);
-          for (const [slot, photo] of prevMap) {
-            if (!photos.some(p => p.id === photo.id)) {
-              newMap.delete(slot);
-            }
-          }
-          return newMap;
-        });
-      }
-      
-      setDisplayPhotos(photos);
-    } else {
-      // When there are more photos than slots, prioritize newest
-      const sortedPhotos = [...photos].sort((a, b) => 
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
-      
-      // Check if new photos were added
-      const newPhotos = photos.filter(p => !previousPhotosRef.current.some(prev => prev.id === p.id));
-      
-      if (newPhotos.length > 0) {
-        // Seamlessly integrate new photos
-        setDisplayPhotos(prev => {
-          const updated = [...prev];
-          
-          for (const newPhoto of newPhotos) {
-            // Replace oldest photos with new ones
-            const oldestIndex = updated.findIndex(p => 
-              !newPhotos.some(np => np.id === p.id)
-            );
-            if (oldestIndex !== -1) {
-              updated[oldestIndex] = newPhoto;
-            }
-          }
-          
-          return updated.slice(0, settings.photoCount);
-        });
-      } else {
-        // No new photos, just ensure we have the right count
-        setDisplayPhotos(sortedPhotos.slice(0, settings.photoCount));
-      }
+      return photos;
     }
     
-    previousPhotosRef.current = photos;
+    // For cycling through photos when there are more than photoCount
+    const cycleDuration = 10000; // 10 seconds per cycle
+    const photosPerCycle = Math.min(settings.photoCount, photos.length);
+    const totalCycles = Math.ceil(photos.length / photosPerCycle);
+    
+    const now = Date.now();
+    const timeSinceStart = now % (cycleDuration * totalCycles);
+    const currentCycle = Math.floor(timeSinceStart / cycleDuration);
+    
+    const startIndex = currentCycle * photosPerCycle;
+    const endIndex = Math.min(startIndex + photosPerCycle, photos.length);
+    
+    return photos.slice(startIndex, endIndex);
   }, [photos, settings.photoCount]);
 
-  useFrame((state) => {
-    const currentTime = Date.now();
-    
-    // Handle photo cycling for excess photos
-    if (photos.length > settings.photoCount && currentTime - lastCycleTimeRef.current > photoCycleInterval) {
-      lastCycleTimeRef.current = currentTime;
-      
-      setDisplayPhotos(prev => {
-        const newDisplay = [...prev];
-        const slotToReplace = cycleIndexRef.current % settings.photoCount;
-        cycleIndexRef.current++;
-        
-        // Find a photo that's not currently displayed
-        const candidatePhotos = photos.filter(p => !newDisplay.some(d => d.id === p.id));
-        if (candidatePhotos.length > 0) {
-          const randomIndex = Math.floor(Math.random() * candidatePhotos.length);
-          newDisplay[slotToReplace] = candidatePhotos[randomIndex];
-        }
-        
-        return newDisplay;
+  // Update photo slot mapping
+  useEffect(() => {
+    if (photos.length <= settings.photoCount) {
+      // Simple mapping when we have fewer photos than slots
+      const newMap = new Map<number, Photo>();
+      photos.forEach((photo, index) => {
+        newMap.set(index, photo);
+      });
+      photoSlotMap.current = newMap;
+    } else {
+      // More complex mapping for cycling photos
+      photoSlotMap.current.clear();
+      displayPhotos.forEach((photo, index) => {
+        photoSlotMap.current.set(index, photo);
       });
     }
+  }, [displayPhotos, photos.length, settings.photoCount]);
 
-    // Update positions based on current animation time
-    const time = settings.animationEnabled ? state.clock.elapsedTime : 0;
+  useFrame((state) => {
+    const time = settings.animationEnabled ? 
+      state.clock.elapsedTime * (settings.animationSpeed / 50) : 
+      settings.animationEnabled ? state.clock.elapsedTime : 0;
     
     const pattern = PatternFactory.createPattern(settings.animationPattern, settings, displayPhotos);
     const patternState = pattern.generatePositions(time);
@@ -684,7 +577,7 @@ const AnimationController: React.FC<{
     if (photos.length <= settings.photoCount) {
       // Use the slot map for positioning when we have fewer photos than slots
       for (let i = 0; i < settings.photoCount; i++) {
-        const photo = photoSlotMap.get(i);
+        const photo = photoSlotMap.current.get(i);
         if (photo) {
           photosWithPositions.push({
             ...photo,
