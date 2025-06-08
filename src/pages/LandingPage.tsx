@@ -1,15 +1,26 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import HeroScene from '../components/three/HeroScene';
 import { ArrowRight, CameraIcon, CloudCog, Share2, ShieldCheck } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
   return (
     <Layout>
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden min-h-screen">
+        {/* 3D Background Scene */}
+        <div className="absolute inset-0 z-0">
+          <HeroScene />
+        </div>
+        
+        {/* Content overlay */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
-          <div className="text-center lg:text-left lg:w-1/2">
+          <div className="relative z-10 text-center lg:text-left lg:w-1/2">
+            {/* Semi-transparent backdrop for better text readability */}
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-2xl -m-8"></div>
+            
+            <div className="relative z-20 p-8">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
               <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
                 Share Your Memories
@@ -37,15 +48,8 @@ const LandingPage: React.FC = () => {
                 Join Existing
               </Link>
             </div>
+            </div>
           </div>
-        </div>
-        
-        {/* Abstract shape decorations */}
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 opacity-50 lg:opacity-100 pointer-events-none">
-          <div className="w-96 h-96 bg-gradient-to-br from-purple-500/30 to-blue-500/30 rounded-full blur-3xl"></div>
-        </div>
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 opacity-50 lg:opacity-100 pointer-events-none">
-          <div className="w-72 h-72 bg-gradient-to-tr from-pink-500/30 to-purple-500/30 rounded-full blur-3xl"></div>
         </div>
       </div>
       
