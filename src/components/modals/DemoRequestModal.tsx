@@ -30,32 +30,48 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onClose }) 
     setIsSubmitting(true);
     
     try {
-      // Using Netlify Forms (add data-netlify="true" to form)
-      // This is the simplest approach - no backend needed
-      const formSubmission = new FormData();
-      formSubmission.append('form-name', 'demo-request');
-      formSubmission.append('name', formData.name);
-      formSubmission.append('email', formData.email);
-      formSubmission.append('phone', formData.phone);
-      formSubmission.append('eventDate', formData.eventDate);
-      formSubmission.append('message', formData.message);
+      // Check if we're on Netlify (production) or development
+      const isNetlify = window.location.hostname.includes('netlify') || 
+                       window.location.hostname.includes('photosphere');
+      
+      if (isNetlify) {
+        // Use Netlify Forms in production
+        const formData = new FormData();
+        formData.append('form-name', 'demo-request');
+        formData.append('name', formData.name);
+        formData.append('email', formData.email);
+        formData.append('phone', formData.phone);
+        formData.append('eventDate', formData.eventDate);
+        formData.append('message', formData.message);
 
-      const response = await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(formSubmission as any).toString()
-      });
+        const response = await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(formData as any).toString()
+        });
 
-      if (response.ok) {
-        setSubmitStatus('success');
-        setFormData({ name: '', email: '', phone: '', eventDate: '', message: '' });
-        setTimeout(() => {
-          onClose();
-          setSubmitStatus('idle');
-        }, 2000);
+        if (response.ok) {
+          setSubmitStatus('success');
+        } else {
+          throw new Error('Network response was not ok');
+        }
       } else {
-        setSubmitStatus('error');
+        // Development mode - simulate successful submission
+        console.log('Demo request submitted (development mode):', formData);
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setSubmitStatus('success');
       }
+      
+      // Clear form and close modal on success
+      setFormData({ name: '', email: '', phone: '', eventDate: '', message: '' });
+      setTimeout(() => {
+        onClose();
+        setSubmitStatus('idle');
+      }, 2000);
+      
     } catch (error) {
       console.error('Form submission error:', error);
       setSubmitStatus('error');
@@ -107,7 +123,7 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onClose }) 
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} data-netlify="true" name="demo-request" className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Hidden field for Netlify */}
             <input type="hidden" name="form-name" value="demo-request" />
             

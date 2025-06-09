@@ -10,8 +10,8 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Netlify Forms - Hidden form for demo requests -->
-    <form name="demo-request" netlify netlify-honeypot="bot-field" hidden>
+    <!-- Netlify Forms - Static HTML form for detection -->
+    <form name="demo-request" netlify netlify-honeypot="bot-field" hidden aria-hidden="true">
       <input type="text" name="name" />
       <input type="email" name="email" />
       <input type="tel" name="phone" />
