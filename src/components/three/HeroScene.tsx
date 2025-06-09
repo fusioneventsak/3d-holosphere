@@ -277,10 +277,15 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Photo mesh - increased size */}
+      {/* Photo mesh - using meshStandardMaterial to respond to lighting */}
       <mesh>
         <planeGeometry args={[1.8, 2.4]} />
-        <meshLambertMaterial map={texture} />
+        <meshStandardMaterial 
+          map={texture} 
+          metalness={0.0}
+          roughness={0.8}
+          side={THREE.DoubleSide}
+        />
       </mesh>
       
       {/* Comment text if available - adjust position for larger photos */}
@@ -448,7 +453,7 @@ const AutoRotatingCamera: React.FC = () => {
   const { camera } = useThree();
   const isUserInteracting = useRef(false);
   const lastInteractionTime = useRef(0);
-  const autoRotationEnabled = useRef(true);
+  const autoRotationEnabled = useRef(true); // Start with auto-rotation enabled by default
   const savedCameraState = useRef({
     position: new THREE.Vector3(25, 15, 25), // Further out starting position
     target: new THREE.Vector3(0, 3, 0) // Look at photos height, not floor
@@ -474,7 +479,7 @@ const AutoRotatingCamera: React.FC = () => {
     
     // Check if enough time has passed since last interaction to resume auto-rotation
     const timeSinceInteraction = currentTime - lastInteractionTime.current;
-    const shouldAutoRotate = !isUserInteracting.current && timeSinceInteraction > 2000; // Reduced to 2 seconds
+    const shouldAutoRotate = !isUserInteracting.current && (timeSinceInteraction > 1000 || lastInteractionTime.current === 0); // Start immediately or after 1 second
     
     if (shouldAutoRotate && autoRotationEnabled.current) {
       // Smooth wide sine wave orbit pattern around the scene
@@ -645,118 +650,131 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* MAXIMUM LIGHTING SETUP - Ensure no dark areas anywhere */}
+      {/* COMPREHENSIVE LIGHTING SETUP - Lights from every angle for background photos */}
       
-      {/* Very strong ambient light base - maximum brightness for all areas */}
-      <ambientLight intensity={1.8} color="#ffffff" />
+      {/* Strong ambient light base - proper level for photo visibility */}
+      <ambientLight intensity={1.0} color="#ffffff" />
       
-      {/* Key Light - Main directional light from above - maximum brightness */}
+      {/* Main directional lights - 8 directions for complete coverage */}
       <directionalLight
-        position={[5, 15, 5]}
-        intensity={2.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Fill Light - Opposite side to eliminate shadows - very bright */}
-      <directionalLight
-        position={[-5, 12, -5]}
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Multiple side lights for complete 360-degree coverage - all very bright */}
-      <directionalLight
-        position={[15, 10, 0]}
-        intensity={1.2}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-15, 10, 0]}
-        intensity={1.2}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[0, 10, 15]}
-        intensity={1.2}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[0, 10, -15]}
-        intensity={1.2}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      {/* Corner lights for diagonal coverage - bright */}
-      <directionalLight
-        position={[10, 8, 10]}
-        intensity={1.0}
+        position={[20, 12, 0]}
+        intensity={0.8}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
-        position={[-10, 8, -10]}
-        intensity={1.0}
+        position={[-20, 12, 0]}
+        intensity={0.8}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
-        position={[10, 8, -10]}
-        intensity={1.0}
+        position={[0, 12, 20]}
+        intensity={0.8}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
-        position={[-10, 8, 10]}
-        intensity={1.0}
+        position={[0, 12, -20]}
+        intensity={0.8}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Top-down light for photos - very bright */}
+      {/* Diagonal lights for corner coverage */}
+      <directionalLight
+        position={[15, 10, 15]}
+        intensity={0.7}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-15, 10, -15]}
+        intensity={0.7}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[15, 10, -15]}
+        intensity={0.7}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-15, 10, 15]}
+        intensity={0.7}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* High-angle lights for depth */}
+      <directionalLight
+        position={[10, 20, 10]}
+        intensity={0.6}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-10, 20, -10]}
+        intensity={0.6}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[10, 20, -10]}
+        intensity={0.6}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-10, 20, 10]}
+        intensity={0.6}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Far background lights - specifically for distant photos */}
+      <directionalLight
+        position={[30, 15, 30]}
+        intensity={0.8}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-30, 15, -30]}
+        intensity={0.8}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[30, 15, -30]}
+        intensity={0.8}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-30, 15, 30]}
+        intensity={0.8}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Top-down center light */}
       <directionalLight
         position={[0, 25, 0]}
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Additional background lighting - specifically for distant areas */}
-      <directionalLight
-        position={[20, 15, 20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-20, 15, -20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[20, 15, -20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-20, 15, 20]}
-        intensity={1.0}
+        intensity={0.9}
         color="#ffffff"
         castShadow={false}
       />
@@ -835,7 +853,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.8; // Maximum brightness exposure
+            gl.toneMappingExposure = 1.5; // Reduced exposure for more natural photo brightness
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
