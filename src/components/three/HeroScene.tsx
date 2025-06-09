@@ -399,7 +399,7 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// Auto-rotating camera controller with alternating orbit pattern
+// Auto-rotating camera controller with smooth rotation and height variation
 const AutoRotatingCamera: React.FC = () => {
   const controlsRef = useRef<any>();
   const { camera } = useThree();
@@ -410,18 +410,19 @@ const AutoRotatingCamera: React.FC = () => {
     if (!controlsRef.current) return;
     
     const currentTime = Date.now();
-    const time = currentTime * 0.0005;
+    const time = currentTime * 0.0001; // Much slower for smooth rotation
     
-    // If user isn't interacting, apply dynamic orbit
+    // If user isn't interacting, apply smooth rotation with height variation
     if (!isUserInteracting.current) {
-      const baseRadius = 10;
-      const heightBase = 4;
-      const heightVariation = 2;
+      const radius = 15; // Fixed distance, further from photos
+      const heightBase = 5; // Base height
+      const heightVariation = 1; // Subtle height change
       
-      // Complex alternating orbit pattern
-      camera.position.x = baseRadius * Math.cos(time) * Math.cos(time * 0.3);
-      camera.position.z = baseRadius * Math.sin(time) * Math.sin(time * 0.3);
-      camera.position.y = heightBase + heightVariation * Math.sin(time * 0.7);
+      // Simple circular rotation
+      camera.position.x = radius * Math.cos(time);
+      camera.position.z = radius * Math.sin(time);
+      // Gentle height variation
+      camera.position.y = heightBase + Math.sin(time * 2) * heightVariation;
       
       // Always look at the center
       camera.lookAt(0, 0, 0);
@@ -461,13 +462,13 @@ const AutoRotatingCamera: React.FC = () => {
       enableZoom={false}
       enableRotate={true}
       rotateSpeed={0.5}
-      minDistance={8}
-      maxDistance={12}
+      minDistance={12} // Minimum distance increased
+      maxDistance={18} // Maximum distance increased
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
       dampingFactor={0.05}
-      autoRotate={false} // We're handling auto-rotation manually
+      autoRotate={false} // We're handling rotation manually for better control
     />
   );
 };
@@ -545,12 +546,12 @@ const Scene: React.FC = () => {
       {/* ENHANCED LIGHTING SETUP - Complete coverage with no dark spots */}
       
       {/* Strong ambient light base - ensures minimum brightness everywhere */}
-      <ambientLight intensity={0.7} color="#ffffff" />
+      <ambientLight intensity={0.4} color="#ffffff" />
       
       {/* Key Light - Main directional light from above */}
       <directionalLight
         position={[5, 10, 5]}
-        intensity={0.8}
+        intensity={0.5}
         color="#ffffff"
         castShadow={false}
       />
@@ -558,7 +559,7 @@ const Scene: React.FC = () => {
       {/* Fill Light - Opposite side to key light */}
       <directionalLight
         position={[-5, 8, -5]}
-        intensity={0.6}
+        intensity={0.4}
         color="#ffffff"
         castShadow={false}
       />
@@ -566,7 +567,7 @@ const Scene: React.FC = () => {
       {/* Rim Light - Back lighting for depth */}
       <directionalLight
         position={[0, 12, -8]}
-        intensity={0.5}
+        intensity={0.3}
         color="#ffffff"
         castShadow={false}
       />
@@ -574,14 +575,14 @@ const Scene: React.FC = () => {
       {/* Bottom Fill Lights - Eliminate shadows underneath */}
       <directionalLight
         position={[5, 2, 5]}
-        intensity={0.4}
+        intensity={0.25}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-5, 2, -5]}
-        intensity={0.4}
+        intensity={0.25}
         color="#ffffff"
         castShadow={false}
       />
@@ -589,14 +590,14 @@ const Scene: React.FC = () => {
       {/* Side Lights - Ensure no dark sides */}
       <directionalLight
         position={[10, 5, 0]}
-        intensity={0.3}
+        intensity={0.2}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-10, 5, 0]}
-        intensity={0.3}
+        intensity={0.2}
         color="#ffffff"
         castShadow={false}
       />
@@ -604,7 +605,7 @@ const Scene: React.FC = () => {
       {/* Front Lights - Illuminate photos facing camera */}
       <directionalLight
         position={[0, 5, 10]}
-        intensity={0.4}
+        intensity={0.25}
         color="#ffffff"
         castShadow={false}
       />
@@ -612,7 +613,7 @@ const Scene: React.FC = () => {
       {/* Point Lights for localized brightness boost */}
       <pointLight 
         position={[0, 6, 0]} 
-        intensity={0.5} 
+        intensity={0.3} 
         color="#ffffff" 
         distance={20}
         decay={2}
@@ -620,24 +621,24 @@ const Scene: React.FC = () => {
       
       <pointLight 
         position={[0, 1, 6]} 
-        intensity={0.3} 
+        intensity={0.2} 
         color="#ffffff" 
         distance={15}
         decay={2}
       />
       
       {/* Additional ring of lights around the scene */}
-      <pointLight position={[8, 4, 0]} intensity={0.3} color="#ffffff" distance={12} />
-      <pointLight position={[-8, 4, 0]} intensity={0.3} color="#ffffff" distance={12} />
-      <pointLight position={[0, 4, 8]} intensity={0.3} color="#ffffff" distance={12} />
-      <pointLight position={[0, 4, -8]} intensity={0.3} color="#ffffff" distance={12} />
+      <pointLight position={[8, 4, 0]} intensity={0.2} color="#ffffff" distance={12} />
+      <pointLight position={[-8, 4, 0]} intensity={0.2} color="#ffffff" distance={12} />
+      <pointLight position={[0, 4, 8]} intensity={0.2} color="#ffffff" distance={12} />
+      <pointLight position={[0, 4, -8]} intensity={0.2} color="#ffffff" distance={12} />
       
       {/* Purple accent lights for atmosphere (reduced intensity) */}
       <spotLight
         position={[-8, 12, -8]}
         angle={Math.PI / 4}
         penumbra={0.8}
-        intensity={0.5}
+        intensity={0.3}
         color="#8b5cf6"
         castShadow={false}
       />
@@ -646,7 +647,7 @@ const Scene: React.FC = () => {
         position={[8, 10, -8]}
         angle={Math.PI / 4}
         penumbra={0.8}
-        intensity={0.4}
+        intensity={0.25}
         color="#a855f7"
         castShadow={false}
       />
@@ -714,7 +715,7 @@ const HeroScene: React.FC = () => {
     <ErrorBoundary>
       <div className="absolute inset-0 w-full h-full">
         <Canvas
-          camera={{ position: [10, 3, 10], fov: 45 }}
+          camera={{ position: [15, 5, 15], fov: 45 }}
           shadows={false}
           gl={{ 
             antialias: true, 
@@ -725,7 +726,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.8; // Increased for brighter overall scene
+            gl.toneMappingExposure = 1.2; // Reduced to prevent overexposure
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
