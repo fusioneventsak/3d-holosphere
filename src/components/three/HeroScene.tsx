@@ -33,24 +33,24 @@ const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
   'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
   'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1530023367847-a683933f4172?w=400&h=600&fit=crop&crop=center', // birthday party
+  'https://images.unsplash.com/photo-1519214605650-76a613ee3245?w=400&h=600&fit=crop&crop=center', // wedding celebration
   'https://images.unsplash.com/photo-1524159179951-0145ebc03e42?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // concert lights
   'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=600&fit=crop&crop=center', // party celebration
   'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=600&fit=crop&crop=center', // people cheering
   'https://images.unsplash.com/photo-1564865878688-9a244444042a?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=600&fit=crop&crop=center', // food party
   'https://images.unsplash.com/photo-1567446537708-ac4aa75c9c28?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=600&fit=crop&crop=center', // graduation party
+  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=600&fit=crop&crop=center', // business celebration
+  'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?w=400&h=600&fit=crop&crop=center', // outdoor party
+  'https://images.unsplash.com/photo-1496843916299-590492c751f4?w=400&h=600&fit=crop&crop=center', // festival crowd
+  'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=600&fit=crop&crop=center', // wedding party
   'https://images.unsplash.com/photo-1583394838340-0c5c0d6d7d5b?w=400&h=600&fit=crop&crop=center', // party celebration
   'https://images.unsplash.com/photo-1584646098378-0874589d76b1?w=400&h=600&fit=crop&crop=center', // group selfie
   'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1520986734961-6a681fdd0c9f?w=400&h=600&fit=crop&crop=center', // party friends
   'https://images.unsplash.com/photo-1588392382834-a891154bca4d?w=400&h=600&fit=crop&crop=center', // group celebration
   'https://images.unsplash.com/photo-1589652717406-1c69efaf1ff8?w=400&h=600&fit=crop&crop=center', // party celebration
   'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&h=600&fit=crop&crop=center', // group selfie
@@ -64,7 +64,7 @@ const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1603186921213-d2ca7c207b89?w=400&h=600&fit=crop&crop=center', // party fun
   'https://images.unsplash.com/photo-1604594849809-dfedbc827105?w=400&h=600&fit=crop&crop=center', // group celebration
   'https://images.unsplash.com/photo-1605640840605-14ac1855827b?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=600&fit=crop&crop=center', // food celebration
   'https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=400&h=600&fit=crop&crop=center', // celebration
   'https://images.unsplash.com/photo-1609086814533-1e3b8f28c81c?w=400&h=600&fit=crop&crop=center', // party dancing
   'https://images.unsplash.com/photo-1610216705422-caa3fcb6d158?w=400&h=600&fit=crop&crop=center', // group celebration
@@ -236,10 +236,10 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
           transparent
           side={THREE.DoubleSide}
           metalness={0}
-          roughness={0.3}
-          envMapIntensity={0.8}
+          roughness={0.2}
+          envMapIntensity={1.0}
           emissive="#ffffff"
-          emissiveIntensity={0.15}
+          emissiveIntensity={0.25}
           emissiveMap={texture}
           toneMapped={false}
         />
@@ -478,7 +478,7 @@ const AutoRotatingCamera: React.FC = () => {
 };
 
 const Scene: React.FC = () => {
-  // Generate photo positions for 100 photos with multiple distribution patterns
+  // Generate photo positions for 100 photos covering the entire floor plane
   const photoPositions = useMemo(() => {
     const positions: Array<{
       position: [number, number, number];
@@ -486,57 +486,48 @@ const Scene: React.FC = () => {
       imageUrl: string;
     }> = [];
 
-    DEMO_PHOTOS.forEach((photo, index) => {
-      // Multiple distribution strategies to ensure full coverage
-      let x, y, z;
-      
-      if (index < 20) {
-        // Inner circle - 20 photos
-        const angle = (index / 20) * Math.PI * 2;
-        const radius = 2.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.8) * 3) + 1;
-      } else if (index < 40) {
-        // Mid circle - 20 photos
-        const angle = ((index - 20) / 20) * Math.PI * 2 + Math.PI / 20;
-        const radius = 4.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.6) * 2.5) + 2;
-      } else if (index < 60) {
-        // Outer circle - 20 photos
-        const angle = ((index - 40) / 20) * Math.PI * 2 + Math.PI / 10;
-        const radius = 6.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.4) * 3.5) + 1.5;
-      } else if (index < 80) {
-        // Far background - 20 photos
-        const angle = ((index - 60) / 20) * Math.PI * 2 + Math.PI / 6.67;
-        const radius = 8.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.3) * 2.5) + 0.5;
-      } else {
-        // Very far background - 20 photos
-        const angle = ((index - 80) / 20) * Math.PI * 2 + Math.PI / 5;
-        const radius = 10.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.2) * 2) + 1;
+    // Create a grid pattern that covers the entire floor (35x35 units)
+    const gridSize = 12; // 12x12 grid = 144 positions
+    const spacing = 2.8; // Space between photos
+    const startX = -(gridSize * spacing) / 2;
+    const startZ = -(gridSize * spacing) / 2;
+    
+    let photoIndex = 0;
+    
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        // Skip some positions randomly to avoid overcrowding (keep about 100 photos)
+        if (Math.random() > 0.7 && positions.length > 80) continue;
+        
+        const x = startX + col * spacing + (Math.random() - 0.5) * 0.8; // Small random offset
+        const z = startZ + row * spacing + (Math.random() - 0.5) * 0.8;
+        
+        // Vary height based on distance from center for visual interest
+        const distFromCenter = Math.sqrt(x * x + z * z);
+        const baseHeight = 1.5;
+        const heightVariation = Math.sin(distFromCenter * 0.15) * 2 + Math.random() * 1;
+        const y = baseHeight + heightVariation;
+        
+        // Random rotations for natural look
+        const rotationX = (Math.random() - 0.5) * 0.3;
+        const rotationY = (Math.random() - 0.5) * 0.6;
+        const rotationZ = (Math.random() - 0.5) * 0.2;
+        
+        // Cycle through party photos, reusing them as needed
+        const imageUrl = DEMO_PHOTOS[photoIndex % DEMO_PHOTOS.length];
+        photoIndex++;
+        
+        positions.push({
+          position: [x, y, z] as [number, number, number],
+          rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
+          imageUrl: imageUrl,
+        });
+        
+        // Stop if we have enough photos
+        if (positions.length >= 100) break;
       }
-      
-      const rotationX = (Math.random() - 0.5) * 0.4;
-      const rotationY = (Math.random() - 0.5) * 0.6;
-      const rotationZ = (Math.random() - 0.5) * 0.3;
-      
-      positions.push({
-        position: [x, y, z] as [number, number, number],
-        rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
-        imageUrl: photo,
-      });
-    });
+      if (positions.length >= 100) break;
+    }
     
     console.log(`Generated ${positions.length} photo positions`); // Debug log
     return positions;
