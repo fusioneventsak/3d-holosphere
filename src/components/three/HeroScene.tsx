@@ -226,15 +226,17 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Main photo - larger vertical format for better view, no shadows */}
+      {/* Main photo - enhanced materials for better light interaction */}
       <mesh>
         <planeGeometry args={[1.4, 2.1]} />
         <meshStandardMaterial 
           map={texture}
           transparent
           side={THREE.DoubleSide}
-          metalness={0.02}
-          roughness={0.9}
+          metalness={0.1}
+          roughness={0.6}
+          emissive="#000000"
+          emissiveIntensity={0}
         />
       </mesh>
       
@@ -512,115 +514,85 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* Lighting Setup - Balanced brightness with no shadows */}
-      <ambientLight intensity={0.7} color="#f8fafc" />
+      {/* Dramatic Lighting Setup - Focus on photos */}
+      <ambientLight intensity={0.3} color="#2d1b69" />
       
-      {/* MAIN SPOTLIGHT from directly above - no shadows */}
+      {/* KEY SPOTLIGHT - Main dramatic light from above */}
       <spotLight
         position={[0, 20, 0]}
-        angle={Math.PI / 2}
-        penumbra={0.3}
-        intensity={6}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Secondary spotlight for extra brightness - no shadows */}
-      <spotLight
-        position={[0, 15, 5]}
         angle={Math.PI / 3}
-        penumbra={0.4}
-        intensity={4}
-        color="#f8fafc"
-        castShadow={false}
-      />
-      
-      {/* Fill lights for overall illumination */}
-      <directionalLight 
-        position={[8, 12, 8]} 
-        intensity={2.5}
+        penumbra={0.5}
+        intensity={8}
         color="#ffffff"
         castShadow={false}
       />
       
-      <directionalLight 
-        position={[-8, 10, -8]} 
-        intensity={2}
-        color="#f1f5f9"
-        castShadow={false}
-      />
-      
-      {/* Subtle 360-degree lighting to eliminate shadows */}
-      <directionalLight 
-        position={[12, 8, 0]} 
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight 
-        position={[-12, 8, 0]} 
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight 
-        position={[0, 8, 12]} 
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight 
-        position={[0, 8, -12]} 
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Purple accent lights - subtle */}
+      {/* FILL LIGHT - Softer light to prevent pure black shadows */}
       <spotLight
-        position={[-10, 10, -10]}
-        angle={Math.PI / 3}
+        position={[0, 15, 8]}
+        angle={Math.PI / 2.5}
         penumbra={0.6}
+        intensity={3}
+        color="#e2e8f0"
+        castShadow={false}
+      />
+      
+      {/* RIM LIGHTS - To make photos pop from background */}
+      <directionalLight 
+        position={[10, 8, 5]} 
         intensity={2}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight 
+        position={[-10, 8, 5]} 
+        intensity={2}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* ACCENT LIGHTS - Purple atmosphere */}
+      <spotLight
+        position={[-8, 12, -8]}
+        angle={Math.PI / 4}
+        penumbra={0.8}
+        intensity={1.5}
         color="#8b5cf6"
         castShadow={false}
       />
       
       <spotLight
-        position={[10, 8, 10]}
+        position={[8, 10, -8]}
         angle={Math.PI / 4}
-        penumbra={0.5}
-        intensity={1.5}
+        penumbra={0.8}
+        intensity={1.2}
         color="#a855f7"
         castShadow={false}
       />
       
-      {/* Front fill light */}
+      {/* PHOTO-FOCUSED LIGHTS - Specifically to illuminate photos */}
       <pointLight 
-        position={[0, 5, 12]} 
-        intensity={3} 
+        position={[0, 3, 8]} 
+        intensity={4} 
         color="#ffffff" 
-        distance={25}
-        decay={1.5}
+        distance={15}
+        decay={1.8}
       />
       
-      {/* Overhead fill lights */}
       <pointLight 
-        position={[5, 18, 0]} 
-        intensity={2} 
-        color="#ffffff" 
-        distance={20}
+        position={[6, 6, 6]} 
+        intensity={2.5} 
+        color="#f8fafc" 
+        distance={12}
         decay={2}
       />
       
       <pointLight 
-        position={[-5, 18, 0]} 
-        intensity={2} 
-        color="#ffffff" 
-        distance={20}
+        position={[-6, 6, 6]} 
+        intensity={2.5} 
+        color="#f8fafc" 
+        distance={12}
         decay={2}
       />
       
@@ -645,8 +617,8 @@ const Scene: React.FC = () => {
         />
       ))}
       
-      {/* Purple gradient fog for depth and atmosphere */}
-      <fog attach="fog" args={['#3730a3', 20, 45]} />
+      {/* Enhanced fog for more dramatic atmosphere */}
+      <fog attach="fog" args={['#1a0a2e', 15, 35]} />
     </>
   );
 };
@@ -698,7 +670,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.0; // More balanced exposure
+            gl.toneMappingExposure = 1.6; // Reduced for more dramatic contrast
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
