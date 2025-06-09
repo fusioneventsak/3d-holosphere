@@ -172,20 +172,6 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       )}
     </group>
   );
-// Grid component - neon green
-const Grid: React.FC = () => {
-  const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
-    helper.position.y = -2.99;
-    
-    const material = helper.material as THREE.LineBasicMaterial;
-    material.transparent = true;
-    material.opacity = 0.8;
-    
-    return helper;
-  }, []);
-
-  return <primitive object={gridHelper} />;
 };
 
 const ParticleSystem: React.FC = () => {
@@ -245,6 +231,22 @@ const Floor: React.FC = () => {
       />
     </mesh>
   );
+};
+
+// Grid component - neon green
+const Grid: React.FC = () => {
+  const gridHelper = useMemo(() => {
+    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
+    helper.position.y = -2.99;
+    
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.transparent = true;
+    material.opacity = 0.8;
+    
+    return helper;
+  }, []);
+
+  return <primitive object={gridHelper} />;
 };
 
 // Background gradient component
@@ -466,13 +468,6 @@ const Scene: React.FC = () => {
   );
 };
 
-const LoadingFallback: React.FC = () => (
-  <mesh>
-    <sphereGeometry args={[0.1, 8, 8]} />
-    <meshBasicMaterial color="#8b5cf6" />
-  </mesh>
-);
-
 const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [hasError, setHasError] = React.useState(false);
 
@@ -495,6 +490,13 @@ const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return <>{children}</>;
 };
+
+const LoadingFallback: React.FC = () => (
+  <mesh>
+    <sphereGeometry args={[0.1, 8, 8]} />
+    <meshBasicMaterial color="#8b5cf6" />
+  </mesh>
+);
 
 const HeroScene: React.FC = () => {
   return (
