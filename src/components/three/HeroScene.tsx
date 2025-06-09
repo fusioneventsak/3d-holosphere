@@ -512,15 +512,15 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* Lighting Setup - Even Brighter with No Shadows on Photos */}
-      <ambientLight intensity={1.2} color="#f8fafc" />
+      {/* Lighting Setup - Balanced brightness with no shadows */}
+      <ambientLight intensity={0.7} color="#f8fafc" />
       
-      {/* MAIN DRAMATIC SPOTLIGHT from directly above - no shadows */}
+      {/* MAIN SPOTLIGHT from directly above - no shadows */}
       <spotLight
         position={[0, 20, 0]}
         angle={Math.PI / 2}
-        penumbra={0.2}
-        intensity={12}
+        penumbra={0.3}
+        intensity={6}
         color="#ffffff"
         castShadow={false}
       />
@@ -530,61 +530,61 @@ const Scene: React.FC = () => {
         position={[0, 15, 5]}
         angle={Math.PI / 3}
         penumbra={0.4}
-        intensity={8}
+        intensity={4}
         color="#f8fafc"
         castShadow={false}
       />
       
-      {/* Fill lights for overall illumination - much brighter */}
+      {/* Fill lights for overall illumination */}
       <directionalLight 
         position={[8, 12, 8]} 
-        intensity={6}
+        intensity={2.5}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight 
         position={[-8, 10, -8]} 
-        intensity={5}
+        intensity={2}
         color="#f1f5f9"
         castShadow={false}
       />
       
-      {/* 360-degree lighting to eliminate all shadows */}
+      {/* Subtle 360-degree lighting to eliminate shadows */}
       <directionalLight 
         position={[12, 8, 0]} 
-        intensity={4}
+        intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight 
         position={[-12, 8, 0]} 
-        intensity={4}
+        intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight 
         position={[0, 8, 12]} 
-        intensity={4}
+        intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight 
         position={[0, 8, -12]} 
-        intensity={4}
+        intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Purple accent lights - brighter, no shadows */}
+      {/* Purple accent lights - subtle */}
       <spotLight
         position={[-10, 10, -10]}
         angle={Math.PI / 3}
         penumbra={0.6}
-        intensity={4}
+        intensity={2}
         color="#8b5cf6"
         castShadow={false}
       />
@@ -593,35 +593,35 @@ const Scene: React.FC = () => {
         position={[10, 8, 10]}
         angle={Math.PI / 4}
         penumbra={0.5}
-        intensity={3}
+        intensity={1.5}
         color="#a855f7"
         castShadow={false}
       />
       
-      {/* Front fill light to eliminate shadows on photos */}
+      {/* Front fill light */}
       <pointLight 
         position={[0, 5, 12]} 
-        intensity={8} 
+        intensity={3} 
         color="#ffffff" 
         distance={25}
-        decay={1}
+        decay={1.5}
       />
       
-      {/* Additional overhead fill lights */}
+      {/* Overhead fill lights */}
       <pointLight 
         position={[5, 18, 0]} 
-        intensity={6} 
+        intensity={2} 
         color="#ffffff" 
         distance={20}
-        decay={1.5}
+        decay={2}
       />
       
       <pointLight 
         position={[-5, 18, 0]} 
-        intensity={6} 
+        intensity={2} 
         color="#ffffff" 
         distance={20}
-        decay={1.5}
+        decay={2}
       />
       
       {/* Interactive Auto-Rotating Camera Controls */}
@@ -698,7 +698,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.8; // Higher exposure for brighter photos
+            gl.toneMappingExposure = 2.0; // More balanced exposure
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
