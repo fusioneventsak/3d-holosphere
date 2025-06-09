@@ -308,9 +308,9 @@ const GradientBackground: React.FC = () => {
     return new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
-        colorA: { value: new THREE.Color('#2a1f3d') }, // Lighter background
-        colorB: { value: new THREE.Color('#1e2a4a') }, // Lighter background
-        colorC: { value: new THREE.Color('#1a1a2e') }, // Lighter background
+        colorA: { value: new THREE.Color('#1a0a2e') },
+        colorB: { value: new THREE.Color('#16213e') },
+        colorC: { value: new THREE.Color('#0f1419') },
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -372,9 +372,9 @@ const Floor: React.FC = () => {
   );
 };
 
-// Grid helper for visual reference - brighter grid lines
+// Grid helper for visual reference
 const Grid: React.FC = () => {
-  return <gridHelper args={[35, 35, '#555555', '#444444']} position={[0, 0, 0]} />;
+  return <gridHelper args={[35, 35, '#333333', '#222222']} position={[0, 0, 0]} />;
 };
 
 // Particle system for ambient atmosphere
