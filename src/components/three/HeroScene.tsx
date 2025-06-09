@@ -226,9 +226,9 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Main photo - vertical format */}
+      {/* Main photo - larger vertical format for better view */}
       <mesh castShadow receiveShadow>
-        <planeGeometry args={[1, 1.5]} />
+        <planeGeometry args={[1.4, 2.1]} />
         <meshStandardMaterial 
           map={texture}
           transparent
@@ -240,8 +240,8 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       
       {/* Comment text overlay - attached to photo, same width as photo */}
       {comment && textTexture && (
-        <mesh position={[0, -0.9, 0.01]}>
-          <planeGeometry args={[1, 0.3]} />
+        <mesh position={[0, -1.2, 0.01]}>
+          <planeGeometry args={[1.4, 0.35]} />
           <meshBasicMaterial 
             map={textTexture} 
             transparent 
@@ -374,13 +374,13 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// Auto-rotating camera controller with interaction handling
+// Auto-rotating camera controller with simultaneous user rotation
 const AutoRotatingCamera: React.FC = () => {
   const controlsRef = useRef<any>();
   const { camera } = useThree();
   const isUserInteracting = useRef(false);
   const lastInteractionTime = useRef(0);
-  const autoRotateSpeed = 0.3;
+  const autoRotateSpeed = 0.2; // Slightly slower for better user control
 
   useFrame((state) => {
     if (!controlsRef.current) return;
@@ -388,12 +388,14 @@ const AutoRotatingCamera: React.FC = () => {
     const currentTime = Date.now();
     const timeSinceInteraction = currentTime - lastInteractionTime.current;
     
-    // Resume auto-rotation after 1 second of no interaction
-    if (!isUserInteracting.current && timeSinceInteraction > 1000) {
-      controlsRef.current.autoRotate = true;
-      controlsRef.current.autoRotateSpeed = autoRotateSpeed;
+    // Always auto-rotate, but slower when user is interacting
+    if (isUserInteracting.current) {
+      controlsRef.current.autoRotateSpeed = autoRotateSpeed * 0.3; // Much slower during interaction
+    } else {
+      controlsRef.current.autoRotateSpeed = autoRotateSpeed; // Normal speed when not interacting
     }
     
+    controlsRef.current.autoRotate = true; // Always rotating
     controlsRef.current.update();
   });
 
@@ -404,7 +406,6 @@ const AutoRotatingCamera: React.FC = () => {
     
     const handleStart = () => {
       isUserInteracting.current = true;
-      controls.autoRotate = false;
       lastInteractionTime.current = Date.now();
     };
 
@@ -425,16 +426,14 @@ const AutoRotatingCamera: React.FC = () => {
   return (
     <OrbitControls
       ref={controlsRef}
-      enablePan={true}
-      enableZoom={true}
-      enableRotate={true}
-      zoomSpeed={0.6}
-      panSpeed={0.8}
-      rotateSpeed={0.4}
-      minDistance={3}
-      maxDistance={20}
-      minPolarAngle={0}
-      maxPolarAngle={Math.PI}
+      enablePan={false} // Disable panning to avoid conflicts
+      enableZoom={false} // Disable scroll zoom to prevent page scroll conflicts
+      enableRotate={true} // Allow user rotation while auto-rotating
+      rotateSpeed={0.5}
+      minDistance={8} // Fixed distance for consistent view
+      maxDistance={12}
+      minPolarAngle={Math.PI / 6} // Prevent going too high
+      maxPolarAngle={Math.PI - Math.PI / 6} // Prevent going too low
       enableDamping={true}
       dampingFactor={0.05}
       autoRotate={true}
@@ -661,7 +660,7 @@ const HeroScene: React.FC = () => {
     <ErrorBoundary>
       <div className="absolute inset-0 w-full h-full">
         <Canvas
-          camera={{ position: [10, 4, 10], fov: 50 }}
+          camera={{ position: [10, 3, 10], fov: 45 }}
           shadows
           gl={{ 
             antialias: true, 
