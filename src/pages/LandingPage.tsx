@@ -2,9 +2,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
+import DemoRequestModal from '../components/modals/DemoRequestModal';
 import { ArrowRight, CameraIcon, CloudCog, Share2, ShieldCheck } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
+  const [isDemoModalOpen, setIsDemoModalOpen] = React.useState(false);
+
   return (
     <Layout>
       {/* Hero Section with WebGL Background */}
@@ -46,6 +49,12 @@ const LandingPage: React.FC = () => {
               >
                 Join Existing
               </Link>
+              <button
+                onClick={() => setIsDemoModalOpen(true)}
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-green-500/25"
+              >
+                Request Demo
+              </button>
             </div>
           </div>
         </div>
@@ -257,6 +266,12 @@ const LandingPage: React.FC = () => {
                   >
                     Create Your First Collage
                   </Link>
+                  <button
+                    onClick={() => setIsDemoModalOpen(true)}
+                    className="w-full inline-flex items-center justify-center px-6 py-3 border border-purple-500/50 text-base font-medium rounded-md text-purple-300 bg-transparent hover:bg-purple-500/10 transition-colors"
+                  >
+                    Schedule a Demo
+                  </button>
                   <p className="text-sm text-gray-500">No credit card required • Free to start</p>
                 </div>
               </div>
@@ -277,6 +292,12 @@ const LandingPage: React.FC = () => {
           </p>
         </div>
       </div>
+      
+      {/* Demo Request Modal */}
+      <DemoRequestModal 
+        isOpen={isDemoModalOpen} 
+        onClose={() => setIsDemoModalOpen(false)} 
+      />
     </Layout>
   );
 };

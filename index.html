@@ -9,5 +9,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Netlify Forms - Hidden form for demo requests -->
+    <form name="demo-request" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" />
+      <input type="email" name="email" />
+      <input type="tel" name="phone" />
+      <input type="date" name="eventDate" />
+      <textarea name="message"></textarea>
+    </form>
   </body>
 </html>
