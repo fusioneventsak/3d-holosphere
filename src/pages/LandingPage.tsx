@@ -37,21 +37,15 @@ const LandingPage: React.FC = () => {
             
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
               <Link
-                to="/dashboard"
+                to="/join"
                 className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
               >
-                Create Collage
+                Join Collage
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-              <Link
-                to="/join"
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
-              >
-                Join Existing
               </Link>
               <button
                 onClick={() => setIsDemoModalOpen(true)}
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-green-500/25"
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
               >
                 Request Demo
               </button>
