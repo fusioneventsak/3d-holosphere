@@ -671,6 +671,11 @@ const SceneSettings: React.FC<{
               />
               <p className="mt-1 text-xs text-gray-400">
                 Adjust gap between photos (0% = no gap, 100% = one photo width)
+                {settings.animationPattern === 'grid' && (
+                  <span className="block text-purple-400 mt-1">
+                    📐 Grid Wall: Controls spacing between connected photos
+                  </span>
+                )}
               </p>
             </div>
 
