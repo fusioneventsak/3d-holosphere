@@ -1,65 +1,31 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from '@react-three/drei';
 
-// Fun party and event photos - groups celebrating, dancing, parties, events, photobooths, selfies (vertical format)
-const DEMO_PHOTOS = [
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center', // concert crowd
-  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop&crop=center', // nightlife party
-  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=600&fit=crop&crop=center', // concert audience
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=600&fit=crop&crop=center', // nightclub party
-  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=600&fit=crop&crop=center', // friends celebrating
-  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=600&fit=crop&crop=center', // group party
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop&crop=center', // celebration cheers
-  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1516307365426-bea591f05011?w=400&h=600&fit=crop&crop=center', // concert party
-  'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=600&fit=crop&crop=center', // party crowd
-  'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=600&fit=crop&crop=center', // celebration event
-  'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=400&h=600&fit=crop&crop=center', // birthday party
-  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1485872299829-c673f5194813?w=400&h=600&fit=crop&crop=center', // group fun
-  'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400&h=600&fit=crop&crop=center', // celebration party
-  'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
-  // Additional photos for better coverage - focus on people having fun
-  'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1524159179951-0145ebc03e42?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=600&fit=crop&crop=center', // people cheering
-  'https://images.unsplash.com/photo-1564865878688-9a244444042a?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1567446537708-ac4aa75c9c28?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1583394838340-0c5c0d6d7d5b?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1584646098378-0874589d76b1?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1588392382834-a891154bca4d?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1589652717406-1c69efaf1ff8?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1592650450938-4d8b4b8c7c3b?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1594736797933-d0401ba5f9e4?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=400&h=600&fit=crop&crop=center', // group celebration
-];
+// Generate 100 party and event photos
+const generatePartyPhotos = () => {
+  const partyKeywords = [
+    'party-celebration', 'birthday-party', 'wedding-party', 'festival-crowd',
+    'concert-crowd', 'dance-party', 'new-year-party', 'celebration-event',
+    'party-lights', 'nightclub-party', 'outdoor-festival', 'music-festival',
+    'party-decorations', 'celebration-confetti', 'party-balloons', 'disco-party',
+    'beach-party', 'house-party', 'graduation-party', 'christmas-party'
+  ];
+  
+  const photos = [];
+  for (let i = 0; i < 100; i++) {
+    const keyword = partyKeywords[i % partyKeywords.length];
+    const seed = Math.floor(Math.random() * 10000);
+    photos.push(`https://source.unsplash.com/400x600/?${keyword},${seed}`);
+  }
+  return photos;
+};
 
-// Fun comments that might appear on photos in a real collage
+const DEMO_PHOTOS = generatePartyPhotos();
+
+// Fun comments that might appear on photos
 const PHOTO_COMMENTS = [
   "This is so much fun! 🎉",
   "Best night ever! ✨",
@@ -95,25 +61,49 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     [hasComment, index]
   );
   
-  // Load texture with error handling
+  // Load texture with error handling and retry mechanism
   React.useEffect(() => {
     const loader = new THREE.TextureLoader();
-    loader.load(
-      imageUrl,
-      (loadedTexture) => {
-        loadedTexture.minFilter = THREE.LinearFilter;
-        loadedTexture.magFilter = THREE.LinearFilter;
-        setTexture(loadedTexture);
-        setIsLoaded(true);
-        setLoadFailed(false);
-      },
-      undefined,
-      (error) => {
-        console.warn('Failed to load texture:', imageUrl, error);
-        setLoadFailed(true);
-        setIsLoaded(true);
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    const loadImage = () => {
+      // Add timestamp to prevent caching issues
+      const urlWithTimestamp = `${imageUrl}&t=${Date.now()}_${attempts}`;
+      
+      loader.load(
+        urlWithTimestamp,
+        (loadedTexture) => {
+          loadedTexture.minFilter = THREE.LinearFilter;
+          loadedTexture.magFilter = THREE.LinearFilter;
+          setTexture(loadedTexture);
+          setIsLoaded(true);
+          setLoadFailed(false);
+        },
+        undefined,
+        (error) => {
+          attempts++;
+          if (attempts < maxAttempts) {
+            // Retry with a different photo
+            const newIndex = Math.floor(Math.random() * DEMO_PHOTOS.length);
+            imageUrl = DEMO_PHOTOS[newIndex];
+            setTimeout(loadImage, 100); // Small delay before retry
+          } else {
+            console.warn('Failed to load texture after retries:', imageUrl);
+            setLoadFailed(true);
+            setIsLoaded(true);
+          }
+        }
+      );
+    };
+    
+    loadImage();
+    
+    return () => {
+      if (texture) {
+        texture.dispose();
       }
-    );
+    };
   }, [imageUrl]);
 
   // Create text texture for comments
@@ -157,18 +147,16 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     // Floating animation with different frequencies for each photo
     const floatOffset = Math.sin(time * 0.5 + index * 0.5) * 0.3;
     
-    // Make the entire group (photo + text) face the camera
-    groupRef.current.lookAt(state.camera.position);
-    
-    // Add subtle rotation variation while still facing camera
+    // Add subtle rotation variation
     const rotationOffset = Math.sin(time * 0.3 + index * 0.3) * 0.05;
-    groupRef.current.rotation.z += rotationOffset;
+    groupRef.current.rotation.z = rotation[2] + rotationOffset;
     
     groupRef.current.position.y = position[1] + floatOffset;
   });
 
-  if (!isLoaded) {
-    return null; // Don't render until loaded or failed
+  // Don't render if failed to load
+  if (loadFailed || !isLoaded) {
+    return null;
   }
 
   return (
@@ -177,23 +165,23 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       <mesh castShadow receiveShadow>
         <planeGeometry args={[1, 1.5]} />
         <meshStandardMaterial 
-          map={loadFailed ? null : texture}
+          map={texture}
           transparent
           side={THREE.DoubleSide}
           metalness={0.05}
           roughness={0.8}
-          color={loadFailed ? "#ff1493" : "#ffffff"} // Bright fuchsia fallback
         />
       </mesh>
       
-      {/* Comment text overlay - attached to photo, same width as photo */}
+      {/* Comment below photo if exists */}
       {comment && textTexture && (
-        <mesh position={[0, -0.9, 0.01]}>
-          <planeGeometry args={[1, 0.3]} />
+        <mesh position={[0, -1, 0.01]}>
+          <planeGeometry args={[1.2, 0.3]} />
           <meshBasicMaterial 
             map={textTexture} 
             transparent 
-            alphaTest={0.1}
+            opacity={0.9}
+            side={THREE.DoubleSide}
           />
         </mesh>
       )}
@@ -201,90 +189,17 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   );
 };
 
-const ParticleSystem: React.FC = () => {
-  const pointsRef = useRef<THREE.Points>(null);
-  
-  const particles = useMemo(() => {
-    const count = 150;
-    const positions = new Float32Array(count * 3);
-    
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 25;
-      positions[i * 3 + 1] = Math.random() * 15 + 2;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 15;
-    }
-    
-    return positions;
-  }, []);
-
-  useFrame((state) => {
-    if (!pointsRef.current) return;
-    
-    const time = state.clock.getElapsedTime();
-    pointsRef.current.rotation.y = time * 0.03;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          array={particles}
-          count={particles.length / 3}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        color="#8b5cf6"
-        size={0.015}
-        transparent
-        opacity={0.4}
-        sizeAttenuation
-      />
-    </points>
-  );
-};
-
-// Floor component with reflective material - lighter
-const Floor: React.FC = () => {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]} receiveShadow>
-      <planeGeometry args={[30, 30]} />
-      <meshStandardMaterial 
-        color="#1a1a2e"
-        metalness={0.7}
-        roughness={0.3}
-        envMapIntensity={0.8}
-      />
-    </mesh>
-  );
-};
-
-// Grid component - neon green
-const Grid: React.FC = () => {
-  const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
-    helper.position.y = -2.99;
-    
-    const material = helper.material as THREE.LineBasicMaterial;
-    material.transparent = true;
-    material.opacity = 0.8;
-    
-    return helper;
-  }, []);
-
-  return <primitive object={gridHelper} />;
-};
-
-// Background gradient component
+// More prominent gradient background
 const GradientBackground: React.FC = () => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   const gradientMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
-        colorTop: { value: new THREE.Color('#4c1d95') }, // Purple
+        colorTop: { value: new THREE.Color('#9333EA') }, // Bright purple
+        colorMid: { value: new THREE.Color('#6B46C1') }, // Medium purple
         colorBottom: { value: new THREE.Color('#000000') }, // Black
+        midPoint: { value: 0.5 } // Gradient starts halfway
       },
       vertexShader: `
         varying vec2 vUv;
@@ -295,10 +210,21 @@ const GradientBackground: React.FC = () => {
       `,
       fragmentShader: `
         uniform vec3 colorTop;
+        uniform vec3 colorMid;
         uniform vec3 colorBottom;
+        uniform float midPoint;
         varying vec2 vUv;
         void main() {
-          gl_FragColor = vec4(mix(colorBottom, colorTop, vUv.y), 1.0);
+          vec3 color;
+          if (vUv.y < midPoint) {
+            // Bottom half - pure black
+            color = colorBottom;
+          } else {
+            // Top half - gradient from purple to bright purple
+            float t = (vUv.y - midPoint) / (1.0 - midPoint);
+            color = mix(colorMid, colorTop, t);
+          }
+          gl_FragColor = vec4(color, 1.0);
         }
       `,
       side: THREE.BackSide,
@@ -312,96 +238,73 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-const CameraController: React.FC = () => {
-  const { camera } = useThree();
-  
-  useFrame((state) => {
-    const time = state.clock.getElapsedTime();
-    
-    // Smooth camera orbit
-    const radius = 8;
-    const x = Math.sin(time * 0.1) * radius;
-    const z = Math.cos(time * 0.1) * radius;
-    
-    camera.position.x = x;
-    camera.position.z = z;
-    camera.position.y = 2;
-    camera.lookAt(0, 0, 0);
-  });
-  
-  return null;
+// Interactive controls component
+const InteractiveControls: React.FC = () => {
+  return (
+    <OrbitControls 
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      zoomSpeed={1}
+      panSpeed={0.8}
+      rotateSpeed={0.5}
+      minDistance={3}
+      maxDistance={30}
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI}
+    />
+  );
 };
 
 const Scene: React.FC = () => {
-  // Generate photo positions with full height utilization and better coverage
+  // Generate 100 photo positions with better distribution
   const photoPositions = useMemo(() => {
     return DEMO_PHOTOS.map((photo, index) => {
-      // Create multiple layers with better height distribution
-      const layer = Math.floor(index / 12);
-      const indexInLayer = index % 12;
+      // Create a more dynamic distribution for 100 photos
+      const layer = Math.floor(index / 20); // 5 layers
+      const indexInLayer = index % 20;
       
       let x, y, z;
       
+      // Distribute photos in expanding spherical patterns
+      const baseAngle = (indexInLayer / 20) * Math.PI * 2;
+      const verticalSpread = (Math.random() - 0.5) * Math.PI * 0.6;
+      
       if (layer === 0) {
-        // Inner circle - full height range
-        const angle = (indexInLayer / 12) * Math.PI * 2;
-        const radius = 2.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.8) * 3) + 1; // Range: -2 to 4
+        // Inner sphere
+        const radius = 3 + Math.random() * 1;
+        x = Math.cos(baseAngle) * Math.cos(verticalSpread) * radius;
+        z = Math.sin(baseAngle) * Math.cos(verticalSpread) * radius;
+        y = Math.sin(verticalSpread) * radius + 1;
       } else if (layer === 1) {
-        // Mid circle - higher positions
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 12;
-        const radius = 4.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.6) * 2.5) + 2; // Range: -0.5 to 4.5
+        // Second layer
+        const radius = 5 + Math.random() * 1.5;
+        x = Math.cos(baseAngle + 0.2) * Math.cos(verticalSpread) * radius;
+        z = Math.sin(baseAngle + 0.2) * Math.cos(verticalSpread) * radius;
+        y = Math.sin(verticalSpread) * radius + 1.5;
       } else if (layer === 2) {
-        // Outer circle - varied heights
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 6;
-        const radius = 6.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.4) * 3.5) + 1.5; // Range: -2 to 5
+        // Third layer
+        const radius = 7 + Math.random() * 2;
+        x = Math.cos(baseAngle - 0.1) * Math.cos(verticalSpread) * radius;
+        z = Math.sin(baseAngle - 0.1) * Math.cos(verticalSpread) * radius;
+        y = Math.sin(verticalSpread) * radius + 0.5;
       } else if (layer === 3) {
-        // Background layer - lower but using full height
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 4;
-        const radius = 8.5;
-        x = Math.cos(angle) * radius;
-        z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.3) * 2.5) + 0.5; // Range: -2 to 3
+        // Fourth layer
+        const radius = 9 + Math.random() * 2.5;
+        x = Math.cos(baseAngle + 0.3) * Math.cos(verticalSpread) * radius;
+        z = Math.sin(baseAngle + 0.3) * Math.cos(verticalSpread) * radius;
+        y = Math.sin(verticalSpread) * radius + 2;
       } else {
-        // Extra scattered photos - maximize height usage
-        const angle = (index / DEMO_PHOTOS.length) * Math.PI * 10;
-        let radius = 3 + Math.sin(index * 0.5) * 4;
-        
-        // Better distribution with height focus
-        if (index % 4 === 0) {
-          // High floating photos
-          radius = 5 + Math.random() * 4;
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = 3 + Math.random() * 2; // High positions: 3 to 5
-        } else if (index % 4 === 1) {
-          // Lower right quadrant focus
-          radius = 6 + Math.random() * 3;
-          const biasAngle = angle + Math.PI * 0.25;
-          x = Math.cos(biasAngle) * radius;
-          z = Math.sin(biasAngle) * radius;
-          y = Math.random() * 3 - 1; // Range: -1 to 2
-        } else if (index % 4 === 2) {
-          // Very high background photos
-          radius = 7 + Math.random() * 2;
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = 4 + Math.random() * 1.5; // Very high: 4 to 5.5
-        } else {
-          // Medium height scattered
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = (Math.sin(index * 0.4) * 4) + 1; // Range: -3 to 5
-        }
+        // Outer scattered photos
+        const radius = 11 + Math.random() * 4;
+        const randomAngle = baseAngle + (Math.random() - 0.5) * 0.5;
+        x = Math.cos(randomAngle) * Math.cos(verticalSpread) * radius;
+        z = Math.sin(randomAngle) * Math.cos(verticalSpread) * radius;
+        y = Math.sin(verticalSpread) * radius + (Math.random() - 0.5) * 3;
       }
+      
+      // Add some height variation
+      y += Math.sin(index * 0.3) * 1.5;
       
       const rotationX = (Math.random() - 0.5) * 0.4;
       const rotationY = (Math.random() - 0.5) * 0.6;
@@ -417,13 +320,16 @@ const Scene: React.FC = () => {
 
   return (
     <>
-      {/* Gradient Background Sphere */}
+      {/* Gradient Background with more prominent purple */}
       <GradientBackground />
       
-      {/* Lighting Setup - Even Brighter with Dramatic Spotlight */}
-      <ambientLight intensity={0.8} color="#2d1b69" />
+      {/* Interactive Controls */}
+      <InteractiveControls />
       
-      {/* MAIN DRAMATIC SPOTLIGHT from directly above */}
+      {/* Enhanced Lighting */}
+      <ambientLight intensity={0.8} color="#6B46C1" />
+      
+      {/* Main spotlight */}
       <spotLight
         position={[0, 20, 0]}
         angle={Math.PI / 2}
@@ -432,91 +338,31 @@ const Scene: React.FC = () => {
         color="#ffffff"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-near={1}
-        shadow-camera-far={25}
       />
       
-      {/* Secondary spotlight for extra brightness */}
-      <spotLight
-        position={[0, 15, 5]}
-        angle={Math.PI / 3}
-        penumbra={0.4}
-        intensity={10}
-        color="#f8fafc"
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-      />
-      
-      {/* Fill lights for overall illumination */}
-      <directionalLight 
-        position={[8, 12, 8]} 
-        intensity={4}
-        color="#ffffff"
-      />
-      
-      <directionalLight 
-        position={[-8, 10, -8]} 
-        intensity={3.5}
-        color="#f1f5f9"
-      />
-      
-      {/* Purple accent lights - enhanced */}
+      {/* Purple accent lights */}
       <spotLight
         position={[-10, 10, -10]}
         angle={Math.PI / 3}
         penumbra={0.6}
-        intensity={6}
-        color="#8b5cf6"
+        intensity={8}
+        color="#9333EA"
         castShadow
-        shadow-mapSize={[512, 512]}
       />
       
       <spotLight
         position={[10, 8, 10]}
         angle={Math.PI / 4}
         penumbra={0.5}
-        intensity={5}
+        intensity={7}
         color="#a855f7"
-        shadow-mapSize={[512, 512]}
       />
       
-      {/* Front fill light to eliminate shadows on photos */}
-      <pointLight 
-        position={[0, 5, 12]} 
-        intensity={6} 
-        color="#ffffff" 
-        distance={20}
-        decay={1.5}
-      />
+      {/* Fill lights */}
+      <directionalLight position={[8, 12, 8]} intensity={4} color="#ffffff" />
+      <directionalLight position={[-8, 10, -8]} intensity={3.5} color="#f1f5f9" />
       
-      {/* Additional overhead fill lights */}
-      <pointLight 
-        position={[5, 18, 0]} 
-        intensity={4} 
-        color="#ffffff" 
-        distance={15}
-        decay={2}
-      />
-      
-      <pointLight 
-        position={[-5, 18, 0]} 
-        intensity={4} 
-        color="#ffffff" 
-        distance={15}
-        decay={2}
-      />
-      
-      {/* Camera Controller */}
-      <CameraController />
-      
-      {/* Floor and Grid */}
-      <Floor />
-      <Grid />
-      
-      {/* Particle System */}
-      <ParticleSystem />
-      
-      {/* Floating Photos */}
+      {/* Floating Photos - 100 of them */}
       {photoPositions.map((photo, index) => (
         <FloatingPhoto
           key={index}
@@ -527,12 +373,21 @@ const Scene: React.FC = () => {
         />
       ))}
       
-      {/* Purple gradient fog for depth and atmosphere */}
-      <fog attach="fog" args={['#2d1b69', 18, 40]} />
+      {/* Purple fog for atmosphere */}
+      <fog attach="fog" args={['#6B46C1', 15, 35]} />
     </>
   );
 };
 
+// Loading component
+const LoadingFallback: React.FC = () => (
+  <mesh>
+    <sphereGeometry args={[0.1, 8, 8]} />
+    <meshBasicMaterial color="#9333EA" />
+  </mesh>
+);
+
+// Error boundary
 const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [hasError, setHasError] = React.useState(false);
 
@@ -556,13 +411,6 @@ const ErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return <>{children}</>;
 };
 
-const LoadingFallback: React.FC = () => (
-  <mesh>
-    <sphereGeometry args={[0.1, 8, 8]} />
-    <meshBasicMaterial color="#8b5cf6" />
-  </mesh>
-);
-
 const HeroScene: React.FC = () => {
   return (
     <ErrorBoundary>
@@ -580,7 +428,7 @@ const HeroScene: React.FC = () => {
             gl.shadowMap.enabled = true;
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.2; // Increased for dramatic brightness
+            gl.toneMappingExposure = 2.2;
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
