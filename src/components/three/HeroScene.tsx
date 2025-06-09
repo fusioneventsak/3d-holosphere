@@ -30,6 +30,22 @@ const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1485872299829-c673f5194813?w=400&h=600&fit=crop&crop=center', // group fun
   'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400&h=600&fit=crop&crop=center', // celebration party
   'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
+  // Additional photos for better coverage
+  'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1524159179951-0145ebc03e42?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1524159179951-0145ebc03e42?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
 ];
 
 // Fun comments that might appear on photos in a real collage
@@ -306,36 +322,61 @@ const CameraController: React.FC = () => {
 };
 
 const Scene: React.FC = () => {
-  // Generate photo positions in multiple layers and patterns
+  // Generate photo positions in multiple layers and patterns for better coverage
   const photoPositions = useMemo(() => {
     return DEMO_PHOTOS.map((photo, index) => {
-      // Create multiple layers and patterns
-      const layer = Math.floor(index / 8);
-      const indexInLayer = index % 8;
+      // Create multiple layers and patterns with better distribution
+      const layer = Math.floor(index / 10);
+      const indexInLayer = index % 10;
       
       let x, y, z;
       
       if (layer === 0) {
-        // Inner circle
-        const angle = (indexInLayer / 8) * Math.PI * 2;
+        // Inner circle - close to center
+        const angle = (indexInLayer / 10) * Math.PI * 2;
         const radius = 2.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = Math.sin(index * 0.8) * 1.5;
       } else if (layer === 1) {
-        // Outer circle
-        const angle = (indexInLayer / 8) * Math.PI * 2 + Math.PI / 8;
+        // Mid circle
+        const angle = (indexInLayer / 10) * Math.PI * 2 + Math.PI / 10;
         const radius = 4.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = Math.sin(index * 0.6) * 2 + 1;
-      } else {
-        // Additional scattered photos
-        const angle = (index / DEMO_PHOTOS.length) * Math.PI * 6;
-        const radius = 3 + Math.sin(index * 0.5) * 2;
+      } else if (layer === 2) {
+        // Outer circle - farther out
+        const angle = (indexInLayer / 10) * Math.PI * 2 + Math.PI / 5;
+        const radius = 6.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = Math.sin(index * 0.4) * 2.5 + 0.5;
+        y = Math.sin(index * 0.4) * 1.8 + 0.5;
+      } else if (layer === 3) {
+        // Background layer - even farther, lower height
+        const angle = (indexInLayer / 10) * Math.PI * 2 + Math.PI / 3;
+        const radius = 8.5;
+        x = Math.cos(angle) * radius;
+        z = Math.sin(angle) * radius;
+        y = Math.sin(index * 0.3) * 1.2 - 0.5; // Lower Y position, stays above floor
+      } else {
+        // Extra scattered photos for gaps - focus on lower right and background
+        const angle = (index / DEMO_PHOTOS.length) * Math.PI * 8;
+        let radius = 3 + Math.sin(index * 0.5) * 3;
+        
+        // Bias towards lower right quadrant for gap filling
+        if (index % 3 === 0) {
+          radius = 5 + Math.random() * 4; // 5-9 units out
+          const biasAngle = angle + Math.PI * 0.25; // Bias towards lower right
+          x = Math.cos(biasAngle) * radius;
+          z = Math.sin(biasAngle) * radius;
+          y = Math.random() * 1.5 - 1; // Lower positions, above floor
+        } else {
+          // Normal scattered placement
+          x = Math.cos(angle) * radius;
+          z = Math.sin(angle) * radius;
+          y = Math.sin(index * 0.4) * 2.5 + 0.5;
+        }
       }
       
       const rotationX = (Math.random() - 0.5) * 0.4;
