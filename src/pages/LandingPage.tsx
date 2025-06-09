@@ -212,8 +212,20 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Floating UI Elements */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10 pointer-events-none">
+        {/* Mobile Scroll Hint - Only show on mobile */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10 pointer-events-none md:hidden">
+          <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2">
+            <div className="text-white/80 text-sm mb-2">Swipe up to explore features</div>
+            <div className="animate-bounce flex justify-center">
+              <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+                <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Interaction Hint - Only show on desktop */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10 pointer-events-none hidden md:block">
           <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2">
             <div className="text-white/80 text-sm mb-2">Drag to explore • Auto-rotating showcase</div>
             <div className="animate-bounce flex justify-center">
@@ -302,14 +314,14 @@ const LandingPage: React.FC = () => {
             <div className="space-y-6">
               <div className="relative rounded-xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://www.fusion-events.ca/wp-content/uploads/2025/06/3d-Selfies-1.png"
+                  src="https://www.fusion-events.ca/wp-content/uploads/2025/06/3d-Selfies.png"
                   alt="3D Selfie Holosphere Setup"
                   className="w-full h-auto object-cover"
                 />
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-semibold text-white mb-2">Easy Setup</h3>
-                <p className="text-gray-400">Use with state of the art AV equipment or at home on your big screen</p>
+                <h3 className="text-2xl font-semibold text-white mb-2">Professional Setup</h3>
+                <p className="text-gray-400">State-of-the-art equipment for premium event experiences</p>
               </div>
             </div>
           </div>
