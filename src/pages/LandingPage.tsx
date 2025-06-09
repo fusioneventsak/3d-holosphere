@@ -308,8 +308,8 @@ const LandingPage: React.FC = () => {
                 />
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-semibold text-white mb-2">Professional Setup</h3>
-                <p className="text-gray-400">State-of-the-art equipment for premium event experiences</p>
+                <h3 className="text-2xl font-semibold text-white mb-2">Easy Setup</h3>
+                <p className="text-gray-400">Use with state of the art AV equipment or at home on your big screen.</p>
               </div>
             </div>
           </div>
