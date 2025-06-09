@@ -226,17 +226,18 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Main photo - enhanced materials for better light interaction */}
+      {/* Main photo - subtly reflective materials for light interaction */}
       <mesh>
         <planeGeometry args={[1.4, 2.1]} />
         <meshStandardMaterial 
           map={texture}
           transparent
           side={THREE.DoubleSide}
-          metalness={0.1}
-          roughness={0.6}
-          emissive="#000000"
-          emissiveIntensity={0}
+          metalness={0.15}
+          roughness={0.7}
+          envMapIntensity={0.3}
+          clearcoat={0.1}
+          clearcoatRoughness={0.8}
         />
       </mesh>
       
@@ -299,16 +300,33 @@ const ParticleSystem: React.FC = () => {
   );
 };
 
-// Floor component with reflective material - no shadows
+// Solid reflective floor component beneath the grid
+const ReflectiveFloor: React.FC = () => {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3.05, 0]}>
+      <planeGeometry args={[35, 35]} />
+      <meshStandardMaterial 
+        color="#0f0f23"
+        metalness={0.9}
+        roughness={0.1}
+        envMapIntensity={1.0}
+      />
+    </mesh>
+  );
+};
+
+// Floor component with reflective material - positioned slightly above solid floor
 const Floor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]}>
       <planeGeometry args={[30, 30]} />
       <meshStandardMaterial 
         color="#1a1a2e"
-        metalness={0.7}
-        roughness={0.3}
-        envMapIntensity={0.8}
+        metalness={0.8}
+        roughness={0.2}
+        envMapIntensity={0.9}
+        transparent
+        opacity={0.8}
       />
     </mesh>
   );
@@ -599,7 +617,8 @@ const Scene: React.FC = () => {
       {/* Interactive Auto-Rotating Camera Controls */}
       <AutoRotatingCamera />
       
-      {/* Floor and Grid */}
+      {/* Reflective Floor and Grid */}
+      <ReflectiveFloor />
       <Floor />
       <Grid />
       
