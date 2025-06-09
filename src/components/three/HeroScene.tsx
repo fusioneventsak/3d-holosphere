@@ -374,83 +374,138 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-const CameraController: React.FC = () => {
+// Auto-rotating camera controller with interaction handling
+const AutoRotatingCamera: React.FC = () => {
+  const controlsRef = useRef<any>();
   const { camera } = useThree();
-  
+  const isUserInteracting = useRef(false);
+  const lastInteractionTime = useRef(0);
+  const autoRotateSpeed = 0.3;
+
   useFrame((state) => {
-    const time = state.clock.getElapsedTime();
+    if (!controlsRef.current) return;
     
-    // Smooth camera orbit
-    const radius = 8;
-    const x = Math.sin(time * 0.1) * radius;
-    const z = Math.cos(time * 0.1) * radius;
+    const currentTime = Date.now();
+    const timeSinceInteraction = currentTime - lastInteractionTime.current;
     
-    camera.position.x = x;
-    camera.position.z = z;
-    camera.position.y = 2;
-    camera.lookAt(0, 0, 0);
+    // Resume auto-rotation after 1 second of no interaction
+    if (!isUserInteracting.current && timeSinceInteraction > 1000) {
+      controlsRef.current.autoRotate = true;
+      controlsRef.current.autoRotateSpeed = autoRotateSpeed;
+    }
+    
+    controlsRef.current.update();
   });
-  
-  return null;
+
+  React.useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const controls = controlsRef.current;
+    
+    const handleStart = () => {
+      isUserInteracting.current = true;
+      controls.autoRotate = false;
+      lastInteractionTime.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      isUserInteracting.current = false;
+      lastInteractionTime.current = Date.now();
+    };
+
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, []);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      zoomSpeed={0.6}
+      panSpeed={0.8}
+      rotateSpeed={0.4}
+      minDistance={3}
+      maxDistance={20}
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI}
+      enableDamping={true}
+      dampingFactor={0.05}
+      autoRotate={true}
+      autoRotateSpeed={autoRotateSpeed}
+    />
+  );
 };
 
 const Scene: React.FC = () => {
-  // Generate photo positions for 100 photos with full height utilization and better coverage
+  // Generate photo positions for 100 photos with multiple distribution patterns
   const photoPositions = useMemo(() => {
-    return DEMO_PHOTOS.map((photo, index) => {
-      // Create multiple layers with better height distribution for 100 photos
-      const layer = Math.floor(index / 20); // 5 layers of 20 photos each
-      const indexInLayer = index % 20;
-      
+    const positions: Array<{
+      position: [number, number, number];
+      rotation: [number, number, number];
+      imageUrl: string;
+    }> = [];
+
+    DEMO_PHOTOS.forEach((photo, index) => {
+      // Multiple distribution strategies to ensure full coverage
       let x, y, z;
       
-      if (layer === 0) {
-        // Inner circle - full height range
-        const angle = (indexInLayer / 20) * Math.PI * 2;
+      if (index < 20) {
+        // Inner circle - 20 photos
+        const angle = (index / 20) * Math.PI * 2;
         const radius = 2.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.8) * 3) + 1; // Range: -2 to 4
-      } else if (layer === 1) {
-        // Mid circle - higher positions
-        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 20;
+        y = (Math.sin(index * 0.8) * 3) + 1;
+      } else if (index < 40) {
+        // Mid circle - 20 photos
+        const angle = ((index - 20) / 20) * Math.PI * 2 + Math.PI / 20;
         const radius = 4.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.6) * 2.5) + 2; // Range: -0.5 to 4.5
-      } else if (layer === 2) {
-        // Outer circle - varied heights
-        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 10;
+        y = (Math.sin(index * 0.6) * 2.5) + 2;
+      } else if (index < 60) {
+        // Outer circle - 20 photos
+        const angle = ((index - 40) / 20) * Math.PI * 2 + Math.PI / 10;
         const radius = 6.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.4) * 3.5) + 1.5; // Range: -2 to 5
-      } else if (layer === 3) {
-        // Far background layer
-        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 6.67;
+        y = (Math.sin(index * 0.4) * 3.5) + 1.5;
+      } else if (index < 80) {
+        // Far background - 20 photos
+        const angle = ((index - 60) / 20) * Math.PI * 2 + Math.PI / 6.67;
         const radius = 8.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.3) * 2.5) + 0.5; // Range: -2 to 3
+        y = (Math.sin(index * 0.3) * 2.5) + 0.5;
       } else {
-        // Very far background layer for depth
-        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 5;
+        // Very far background - 20 photos
+        const angle = ((index - 80) / 20) * Math.PI * 2 + Math.PI / 5;
         const radius = 10.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
-        y = (Math.sin(index * 0.2) * 2) + 1; // Range: -1 to 3
+        y = (Math.sin(index * 0.2) * 2) + 1;
       }
       
       const rotationX = (Math.random() - 0.5) * 0.4;
       const rotationY = (Math.random() - 0.5) * 0.6;
       const rotationZ = (Math.random() - 0.5) * 0.3;
       
-      return {
+      positions.push({
         position: [x, y, z] as [number, number, number],
         rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
         imageUrl: photo,
-      };
+      });
     });
+    
+    console.log(`Generated ${positions.length} photo positions`); // Debug log
+    return positions;
   }, []);
 
   return (
@@ -544,21 +599,8 @@ const Scene: React.FC = () => {
         decay={2}
       />
       
-      {/* Interactive Camera Controls */}
-      <OrbitControls
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        zoomSpeed={0.6}
-        panSpeed={0.8}
-        rotateSpeed={0.4}
-        minDistance={3}
-        maxDistance={20}
-        minPolarAngle={0}
-        maxPolarAngle={Math.PI}
-        enableDamping={true}
-        dampingFactor={0.05}
-      />
+      {/* Interactive Auto-Rotating Camera Controls */}
+      <AutoRotatingCamera />
       
       {/* Floor and Grid */}
       <Floor />
