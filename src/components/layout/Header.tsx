@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CameraIcon, Users } from 'lucide-react';
-import DemoRequestModal from '../DemoRequestModal';
+import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
