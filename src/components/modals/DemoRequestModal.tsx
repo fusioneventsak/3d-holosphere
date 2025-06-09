@@ -30,18 +30,18 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onClose }) 
     setIsSubmitting(true);
     
     try {
-      // Create form data for Netlify
-      const formData = new FormData();
-      formData.append('form-name', 'demo-request');
-      formData.append('name', formData.name);
-      formData.append('email', formData.email);
-      formData.append('phone', formData.phone);
-      formData.append('eventDate', formData.eventDate);
-      formData.append('message', formData.message);
+      // Create form data for Netlify with correct field names
+      const submitData = new FormData();
+      submitData.append('form-name', 'demo-request');
+      submitData.append('name', formData.name);
+      submitData.append('email', formData.email);
+      submitData.append('phone', formData.phone);
+      submitData.append('eventDate', formData.eventDate);
+      submitData.append('message', formData.message);
 
       const response = await fetch('/', {
         method: 'POST',
-        body: formData
+        body: submitData
       });
 
       if (response.ok) {
@@ -107,9 +107,14 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ isOpen, onClose }) 
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} data-netlify="true" name="demo-request" className="space-y-4">
+          <form onSubmit={handleSubmit} name="demo-request" method="POST" data-netlify="true" data-netlify-honeypot="bot-field" className="space-y-4">
             {/* Hidden field for Netlify */}
             <input type="hidden" name="form-name" value="demo-request" />
+            
+            {/* Honeypot field for spam protection */}
+            <div style={{ display: 'none' }}>
+              <label>Don't fill this out if you're human: <input name="bot-field" /></label>
+            </div>
             
             {/* Name Field */}
             <div>
