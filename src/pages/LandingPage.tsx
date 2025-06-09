@@ -617,18 +617,19 @@ const LandingPage: React.FC = () => {
             {/* CTA Card */}
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 md:p-12 hover:bg-white/10 transition-all duration-300">
               <div className="text-center space-y-6">
-                <h3 className="text-2xl md:text-3xl font-bold text-white">Start Creating Today</h3>
+                <h3 className="text-2xl md:text-3xl font-bold text-white">Ready to Get Started?</h3>
                 <p className="text-gray-300">
-                  Try our platform for free and see why event planners choose PhotoSphere for their 3D photo experiences.
+                  See how PhotoSphere can transform your events and boost engagement. Request a personalized demo to see all features in action.
                 </p>
                 <div className="space-y-4">
-                  <Link
-                    to="/dashboard"
+                  <button
+                    onClick={() => setIsDemoModalOpen(true)}
                     className="w-full inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors shadow-lg hover:shadow-purple-500/25"
                   >
-                    Create Your First Collage
-                  </Link>
-                  <p className="text-sm text-gray-500">No credit card required • Free to start</p>
+                    Request Demo
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </button>
+                  <p className="text-sm text-gray-500">Free demo • No commitment required</p>
                 </div>
               </div>
             </div>
