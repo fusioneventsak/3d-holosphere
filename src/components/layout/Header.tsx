@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CameraIcon, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import DemoRequestModal from '../modals/DemoRequestModal';
 
 const Header: React.FC = () => {
@@ -13,10 +13,11 @@ const Header: React.FC = () => {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
-                <CameraIcon className="h-8 w-8 text-purple-500" />
-                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 text-transparent bg-clip-text">
-                  PhotoSphere
-                </span>
+                <img 
+                  src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-design-15.png" 
+                  alt="Fusion Events Logo" 
+                  className="h-12 w-auto"
+                />
               </Link>
             </div>
             
