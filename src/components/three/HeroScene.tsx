@@ -156,6 +156,8 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       (loadedTexture) => {
         loadedTexture.minFilter = THREE.LinearFilter;
         loadedTexture.magFilter = THREE.LinearFilter;
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        loadedTexture.anisotropy = 16;
         setTexture(loadedTexture);
         setIsLoaded(true);
       },
@@ -226,18 +228,20 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Main photo - enhanced materials for better light interaction */}
+      {/* Main photo - enhanced materials for rich, vibrant appearance */}
       <mesh>
         <planeGeometry args={[1.4, 2.1]} />
         <meshStandardMaterial 
           map={texture}
           transparent
           side={THREE.DoubleSide}
-          metalness={0.1}
-          roughness={0.5}
-          envMapIntensity={0.5}
+          metalness={0}
+          roughness={0.3}
+          envMapIntensity={0.8}
           emissive="#ffffff"
-          emissiveIntensity={0.05}
+          emissiveIntensity={0.15}
+          emissiveMap={texture}
+          toneMapped={false}
         />
       </mesh>
       
