@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
-import DemoRequestModal from '../components/modals/DemoRequestModal';
+import DemoRequestModal from '../components/DemoRequestModal';
 import { ArrowRight, CameraIcon, CloudCog, Share2, ShieldCheck } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
-  const [isDemoModalOpen, setIsDemoModalOpen] = React.useState(false);
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   return (
     <Layout>
@@ -17,11 +17,11 @@ const LandingPage: React.FC = () => {
           <HeroScene />
         </div>
         
-        {/* Gradient Overlay for Better Text Readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent lg:from-black/90 lg:via-black/50 lg:to-black/20"></div>
+        {/* Gradient Overlay for Better Text Readability - allow pointer events to pass through */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent lg:from-black/90 lg:via-black/50 lg:to-black/20 pointer-events-none"></div>
         
         {/* Hero Content */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32 pointer-events-none">
           <div className="text-center lg:text-left lg:w-1/2">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
               <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
@@ -35,27 +35,27 @@ const LandingPage: React.FC = () => {
               No technical skills required.
             </p>
             
-            <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4">
-              <Link
-                to="/join"
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
-              >
-                Join Collage
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
+            <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
               <button
                 onClick={() => setIsDemoModalOpen(true)}
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
               >
                 Request Demo
+                <ArrowRight className="ml-2 h-5 w-5" />
               </button>
+              <Link
+                to="/join"
+                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
+              >
+                Join Existing
+              </Link>
             </div>
           </div>
         </div>
         
         {/* Floating UI Elements */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10">
-          <div className="text-white/60 text-sm mb-2">Scroll to explore features</div>
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10 pointer-events-none">
+          <div className="text-white/60 text-sm mb-2">Drag to explore • Auto-rotating showcase</div>
           <div className="animate-bounce">
             <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
               <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-pulse"></div>
@@ -63,7 +63,7 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Features Section */}
       <div className="py-16 bg-black/40 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -195,7 +195,7 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Contact & CTA Section */}
       <div className="py-16 bg-gradient-to-b from-black/10 to-black/40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -260,12 +260,6 @@ const LandingPage: React.FC = () => {
                   >
                     Create Your First Collage
                   </Link>
-                  <button
-                    onClick={() => setIsDemoModalOpen(true)}
-                    className="w-full inline-flex items-center justify-center px-6 py-3 border border-purple-500/50 text-base font-medium rounded-md text-purple-300 bg-transparent hover:bg-purple-500/10 transition-colors"
-                  >
-                    Schedule a Demo
-                  </button>
                   <p className="text-sm text-gray-500">No credit card required • Free to start</p>
                 </div>
               </div>
@@ -273,7 +267,7 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Trust Section */}
       <div className="py-16 bg-black/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -286,7 +280,7 @@ const LandingPage: React.FC = () => {
           </p>
         </div>
       </div>
-      
+
       {/* Demo Request Modal */}
       <DemoRequestModal 
         isOpen={isDemoModalOpen} 
