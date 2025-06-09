@@ -277,15 +277,10 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Photo mesh - using meshStandardMaterial to respond to lighting */}
+      {/* Photo mesh - increased size */}
       <mesh>
         <planeGeometry args={[1.8, 2.4]} />
-        <meshStandardMaterial 
-          map={texture} 
-          metalness={0.0}
-          roughness={0.8}
-          side={THREE.DoubleSide}
-        />
+        <meshLambertMaterial map={texture} />
       </mesh>
       
       {/* Comment text if available - adjust position for larger photos */}
@@ -840,7 +835,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.8; // Maximum brightness exposure
+            gl.toneMappingExposure = 2.2; // Increased brightness exposure further
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
