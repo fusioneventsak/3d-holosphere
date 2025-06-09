@@ -314,14 +314,14 @@ const LandingPage: React.FC = () => {
             <div className="space-y-6">
               <div className="relative rounded-xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://www.fusion-events.ca/wp-content/uploads/2025/06/3d-Selfies-1.png"
+                  src="https://www.fusion-events.ca/wp-content/uploads/2025/06/3d-Selfies.png"
                   alt="3D Selfie Holosphere Setup"
                   className="w-full h-auto object-cover"
                 />
               </div>
               <div className="text-center">
-                <h3 className="text-2xl font-semibold text-white mb-2">Easy Setup</h3>
-                <p className="text-gray-400">Use state-of-the-art equipment or your flat-screen at home</p>
+                <h3 className="text-2xl font-semibold text-white mb-2">Professional Setup</h3>
+                <p className="text-gray-400">State-of-the-art equipment for premium event experiences</p>
               </div>
             </div>
           </div>
