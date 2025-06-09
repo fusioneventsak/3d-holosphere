@@ -345,29 +345,28 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// Enhanced reflective floor component with better reflection properties
+// Reflective floor component
 const ReflectiveFloor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
       <planeGeometry args={[35, 35]} />
       <meshStandardMaterial
-        color="#2a2a3e"
-        metalness={0.8}
-        roughness={0.1}
+        color="#1a1a2e"
+        metalness={0.1}
+        roughness={0.7}
         transparent
-        opacity={0.7}
-        envMapIntensity={2.0}
+        opacity={0.3}
       />
     </mesh>
   );
 };
 
-// Floor grid for reference - brighter
+// Floor grid for reference
 const Floor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[35, 35]} />
-      <meshLambertMaterial color="#1a1a1a" transparent opacity={0.2} />
+      <meshLambertMaterial color="#0a0a0a" transparent opacity={0.1} />
     </mesh>
   );
 };
@@ -645,117 +644,88 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* MAXIMUM LIGHTING SETUP - Ensure no dark areas anywhere */}
+      {/* ENHANCED LIGHTING SETUP - Comprehensive lighting for all areas including background */}
       
-      {/* Very strong ambient light base - maximum brightness for all areas */}
-      <ambientLight intensity={1.8} color="#ffffff" />
+      {/* Very strong ambient light base - ensures all photos are well lit everywhere */}
+      <ambientLight intensity={1.2} color="#ffffff" />
       
-      {/* Key Light - Main directional light from above - maximum brightness */}
+      {/* Key Light - Main directional light from above - much brighter */}
       <directionalLight
         position={[5, 15, 5]}
-        intensity={2.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Fill Light - Opposite side to eliminate shadows - very bright */}
-      <directionalLight
-        position={[-5, 12, -5]}
         intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Multiple side lights for complete 360-degree coverage - all very bright */}
+      {/* Fill Light - Opposite side to eliminate shadows - brighter */}
+      <directionalLight
+        position={[-5, 12, -5]}
+        intensity={1.0}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Multiple side lights for complete 360-degree coverage */}
       <directionalLight
         position={[15, 10, 0]}
-        intensity={1.2}
+        intensity={0.8}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[-15, 10, 0]}
-        intensity={1.2}
+        intensity={0.8}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[0, 10, 15]}
-        intensity={1.2}
+        intensity={0.8}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[0, 10, -15]}
-        intensity={1.2}
+        intensity={0.8}
         color="#f8f9fa"
         castShadow={false}
       />
       
-      {/* Corner lights for diagonal coverage - bright */}
+      {/* Corner lights for diagonal coverage */}
       <directionalLight
         position={[10, 8, 10]}
-        intensity={1.0}
+        intensity={0.6}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-10, 8, -10]}
-        intensity={1.0}
+        intensity={0.6}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[10, 8, -10]}
-        intensity={1.0}
+        intensity={0.6}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-10, 8, 10]}
-        intensity={1.0}
+        intensity={0.6}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Top-down light for photos - very bright */}
+      {/* Top-down light for photos */}
       <directionalLight
         position={[0, 25, 0]}
-        intensity={1.5}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Additional background lighting - specifically for distant areas */}
-      <directionalLight
-        position={[20, 15, 20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-20, 15, -20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[20, 15, -20]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-20, 15, 20]}
         intensity={1.0}
         color="#ffffff"
         castShadow={false}
