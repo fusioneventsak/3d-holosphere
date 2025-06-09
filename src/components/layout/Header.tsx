@@ -1,14 +1,10 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { CameraIcon, Calendar } from 'lucide-react';
-import DemoRequestModal from '../modals/DemoRequestModal';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CameraIcon, Users } from 'lucide-react';
+import DemoRequestModal from '../DemoRequestModal';
 
 const Header: React.FC = () => {
-  const [isDemoModalOpen, setIsDemoModalOpen] = React.useState(false);
-  const location = useLocation();
-  
-  // Don't show the demo button on the landing page to avoid duplication
-  const showDemoButton = location.pathname !== '/';
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
 
   return (
     <>
@@ -27,32 +23,23 @@ const Header: React.FC = () => {
             <nav className="flex items-center space-x-1">
               <Link
                 to="/join"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors"
+                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors flex items-center"
               >
+                <Users className="h-4 w-4 mr-1" />
                 Join Collage
               </Link>
               
-              <Link
-                to="/dashboard"
-                className="px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-purple-500/20 hover:text-white transition-colors"
+              <button
+                onClick={() => setIsDemoModalOpen(true)}
+                className="ml-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-500 rounded-md hover:from-purple-700 hover:to-blue-600 transition-colors"
               >
-                Dashboard
-              </Link>
-              
-              {showDemoButton && (
-                <button
-                  onClick={() => setIsDemoModalOpen(true)}
-                  className="ml-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-500 rounded-md hover:from-green-700 hover:to-emerald-600 transition-colors flex items-center"
-                >
-                  <Calendar className="h-4 w-4 mr-1" />
-                  Request Demo
-                </button>
-              )}
+                Request Demo
+              </button>
             </nav>
           </div>
         </div>
       </header>
-      
+
       {/* Demo Request Modal */}
       <DemoRequestModal 
         isOpen={isDemoModalOpen} 
