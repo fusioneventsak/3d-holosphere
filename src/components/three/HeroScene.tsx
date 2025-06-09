@@ -449,13 +449,13 @@ const AutoRotatingCamera: React.FC = () => {
   const lastInteractionTime = useRef(0);
   const autoRotationEnabled = useRef(true);
   const savedCameraState = useRef({
-    position: new THREE.Vector3(18, 12, 18), // Higher starting position
+    position: new THREE.Vector3(25, 15, 25), // Further out starting position
     target: new THREE.Vector3(0, 3, 0) // Look at photos height, not floor
   });
 
-  // Initialize camera position - start much higher
+  // Initialize camera position - start much higher and further out
   useEffect(() => {
-    const initialPosition = new THREE.Vector3(18, 12, 18); // Much higher starting position
+    const initialPosition = new THREE.Vector3(25, 15, 25); // Further out and higher
     camera.position.copy(initialPosition);
     savedCameraState.current.position.copy(initialPosition);
     
@@ -473,18 +473,18 @@ const AutoRotatingCamera: React.FC = () => {
     
     // Check if enough time has passed since last interaction to resume auto-rotation
     const timeSinceInteraction = currentTime - lastInteractionTime.current;
-    const shouldAutoRotate = !isUserInteracting.current && timeSinceInteraction > 3000; // 3 seconds delay
+    const shouldAutoRotate = !isUserInteracting.current && timeSinceInteraction > 2000; // Reduced to 2 seconds
     
     if (shouldAutoRotate && autoRotationEnabled.current) {
       // Smooth wide sine wave orbit pattern around the scene
-      const baseRadius = 20; // Base distance from center
-      const radiusVariation = 5; // How much the radius varies
-      const baseHeight = 12; // Base height
-      const heightVariation = 4; // How much height varies
+      const baseRadius = 28; // Increased base distance from center (was 20)
+      const radiusVariation = 6; // How much the radius varies
+      const baseHeight = 15; // Increased base height (was 12)
+      const heightVariation = 5; // How much height varies
       
       // Create wide sine wave pattern - very slow and smooth
-      const horizontalSpeed = 0.0008; // Very slow horizontal movement
-      const verticalSpeed = 0.0012; // Slightly faster vertical for nice wave pattern
+      const horizontalSpeed = 0.0005; // Even slower horizontal movement
+      const verticalSpeed = 0.0008; // Slower vertical for nice wave pattern
       
       // Calculate position using sine waves for smooth orbital motion
       const horizontalAngle = time * horizontalSpeed;
@@ -493,7 +493,7 @@ const AutoRotatingCamera: React.FC = () => {
       
       // Final position calculation
       const currentRadius = baseRadius + radiusWave;
-      const currentHeight = Math.max(8, baseHeight + verticalWave); // Never go below height 8
+      const currentHeight = Math.max(10, baseHeight + verticalWave); // Never go below height 10
       
       // Calculate X and Z using horizontal angle for circular motion
       const newX = Math.cos(horizontalAngle) * currentRadius;
@@ -503,6 +503,12 @@ const AutoRotatingCamera: React.FC = () => {
       
       // Always look at the scene center at photos height
       camera.lookAt(0, 5, 0);
+      
+      // Update controls target to match
+      if (controlsRef.current) {
+        controlsRef.current.target.set(0, 5, 0);
+        controlsRef.current.update();
+      }
     } else {
       // Update saved state when user is interacting
       savedCameraState.current.position.copy(camera.position);
@@ -526,10 +532,10 @@ const AutoRotatingCamera: React.FC = () => {
     const handleEnd = () => {
       isUserInteracting.current = false;
       lastInteractionTime.current = Date.now();
-      // Don't re-enable auto-rotation immediately - let the useFrame handle the delay
+      // Re-enable auto-rotation immediately when user stops interacting
       setTimeout(() => {
         autoRotationEnabled.current = true;
-      }, 1000); // 1 second buffer
+      }, 500); // Reduced buffer time
     };
 
     const handleChange = () => {
@@ -557,8 +563,8 @@ const AutoRotatingCamera: React.FC = () => {
       enableRotate={true}
       rotateSpeed={0.5}
       panSpeed={0.8}
-      minDistance={12}
-      maxDistance={30}
+      minDistance={18} // Increased minimum distance
+      maxDistance={40} // Increased maximum distance
       minPolarAngle={Math.PI / 4} // Prevent camera from going too low - no birds eye view
       maxPolarAngle={Math.PI - Math.PI / 8} // Prevent camera from going too high
       enableDamping={true}
@@ -788,7 +794,7 @@ const HeroScene: React.FC = () => {
     <ErrorBoundary>
       <div className="absolute inset-0 w-full h-full">
         <Canvas
-          camera={{ position: [18, 12, 18], fov: 45 }}
+          camera={{ position: [25, 15, 25], fov: 45 }}
           shadows={false}
           gl={{ 
             antialias: true, 
