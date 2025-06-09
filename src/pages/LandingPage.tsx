@@ -173,10 +173,13 @@ const LandingPage: React.FC = () => {
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32 pointer-events-none">
           <div className="text-center lg:text-left lg:w-1/2">
-            {/* Minimal gradient overlay only behind text */}
+            {/* Abstract diffused gradient overlay behind text */}
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent lg:from-black/70 lg:via-black/40 lg:to-black/10 rounded-lg backdrop-blur-sm"></div>
-              <div className="relative p-6">
+              <div className="absolute -inset-8 bg-gradient-radial from-black/50 via-black/30 to-transparent opacity-80 blur-xl"></div>
+              <div className="absolute -inset-4 bg-gradient-to-br from-black/40 via-transparent to-black/20 opacity-60 blur-lg"></div>
+              <div className="absolute -inset-2 bg-gradient-to-r from-black/30 via-black/10 to-transparent opacity-70 blur-md"></div>
+              
+              <div className="relative">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
                   <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
                     Share Your Memories
