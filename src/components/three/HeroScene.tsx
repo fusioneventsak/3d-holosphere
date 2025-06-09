@@ -3,33 +3,49 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
-// Fun event and nightlife photos - people together having fun, photobooths, selfies
+// Fun event and nightlife photos - people together having fun, photobooths, selfies (vertical format)
 const DEMO_PHOTOS = [
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1506629905607-64af794ab61c?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1554727242-741c14fa561c?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=400&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=400&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1506629905607-64af794ab61c?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1554727242-741c14fa561c?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center',
+];
+
+// Fun comments that might appear on photos in a real collage
+const PHOTO_COMMENTS = [
+  "This is so much fun! 🎉",
+  "Best night ever! ✨",
+  "Squad goals! 💖",
+  "Making memories! 📸",
+  "Party vibes! 🕺",
+  "Love this moment! ❤️",
+  "Can't stop laughing! 😂",
+  "Epic celebration! 🎊",
+  "Good times! 🌟",
+  "So happy right now! 😊",
+  "Unforgettable! 🙌",
+  "Living our best life! 💃"
 ];
 
 interface PhotoProps {
@@ -41,8 +57,17 @@ interface PhotoProps {
 
 const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, index }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const textRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
   const [isLoaded, setIsLoaded] = React.useState(false);
+  
+  // Randomly decide if this photo should have a comment (about 40% chance)
+  const hasComment = React.useMemo(() => Math.random() < 0.4, []);
+  const comment = React.useMemo(() => 
+    hasComment ? PHOTO_COMMENTS[index % PHOTO_COMMENTS.length] : null, 
+    [hasComment, index]
+  );
   
   // Load texture with error handling
   React.useEffect(() => {
@@ -54,14 +79,49 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
         loadedTexture.magFilter = THREE.LinearFilter;
         setTexture(loadedTexture);
         setIsLoaded(true);
+        setLoadFailed(false);
       },
       undefined,
       (error) => {
         console.warn('Failed to load texture:', imageUrl, error);
-        setIsLoaded(true); // Still show the frame even if image fails
+        setLoadFailed(true);
+        setIsLoaded(true);
       }
     );
   }, [imageUrl]);
+
+  // Create text texture for comments
+  const textTexture = React.useMemo(() => {
+    if (!comment) return null;
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    
+    canvas.width = 512;
+    canvas.height = 128;
+    
+    // Clear canvas
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw rounded rectangle background
+    context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    context.beginPath();
+    context.roundRect(10, 10, canvas.width - 20, canvas.height - 20, 15);
+    context.fill();
+    
+    // Draw text
+    context.fillStyle = 'white';
+    context.font = 'bold 28px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(comment, canvas.width / 2, canvas.height / 2);
+    
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }, [comment]);
 
   useFrame((state) => {
     if (!meshRef.current) return;
@@ -79,6 +139,12 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     meshRef.current.rotation.z += rotationOffset;
     
     meshRef.current.position.y = position[1] + floatOffset;
+    
+    // Animate text if it exists
+    if (textRef.current) {
+      textRef.current.lookAt(state.camera.position);
+      textRef.current.position.y = position[1] + floatOffset - 1; // Position below photo
+    }
   });
 
   if (!isLoaded) {
@@ -86,20 +152,32 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   }
 
   return (
-    <mesh ref={meshRef} position={position} rotation={rotation} castShadow receiveShadow>
-      {/* Main photo - no border, clean look */}
-      <mesh position={[0, 0, 0]}>
-        <planeGeometry args={[1.3, 1.3]} />
+    <group ref={meshRef} position={position} rotation={rotation}>
+      {/* Main photo - vertical format */}
+      <mesh castShadow receiveShadow>
+        <planeGeometry args={[1, 1.5]} />
         <meshStandardMaterial 
-          map={texture} 
+          map={loadFailed ? null : texture}
           transparent
           side={THREE.DoubleSide}
           metalness={0.05}
           roughness={0.8}
-          color={texture ? "#ffffff" : "#333333"}
+          color={loadFailed ? "#ff1493" : "#ffffff"} // Bright fuchsia fallback
         />
       </mesh>
-    </mesh>
+      
+      {/* Comment text overlay */}
+      {comment && textTexture && (
+        <mesh ref={textRef} position={[0, -1, 0.01]}>
+          <planeGeometry args={[1.8, 0.4]} />
+          <meshBasicMaterial 
+            map={textTexture} 
+            transparent 
+            alphaTest={0.1}
+          />
+        </mesh>
+      )}
+    </group>
   );
 };
 
@@ -162,15 +240,15 @@ const Floor: React.FC = () => {
   );
 };
 
-// Grid component - brighter
+// Grid component - neon green
 const Grid: React.FC = () => {
   const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#a855f7', '#6b46c1');
+    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
     helper.position.y = -2.99;
     
     const material = helper.material as THREE.LineBasicMaterial;
     material.transparent = true;
-    material.opacity = 0.6;
+    material.opacity = 0.8;
     
     return helper;
   }, []);
@@ -245,61 +323,89 @@ const Scene: React.FC = () => {
 
   return (
     <>
-      {/* Background */}
+      {/* Background with gradient effect using fog and lighting */}
       <color attach="background" args={['#000000']} />
       
-      {/* Lighting Setup - Much Brighter */}
-      <ambientLight intensity={0.6} color="#4c1d95" />
+      {/* Lighting Setup - Even Brighter with Dramatic Spotlight */}
+      <ambientLight intensity={0.8} color="#2d1b69" />
       
-      {/* Main spotlight from above - Much brighter */}
+      {/* MAIN DRAMATIC SPOTLIGHT from directly above */}
       <spotLight
-        position={[0, 12, 0]}
-        angle={Math.PI / 2.5}
-        penumbra={0.3}
-        intensity={8}
+        position={[0, 20, 0]}
+        angle={Math.PI / 2}
+        penumbra={0.2}
+        intensity={15}
         color="#ffffff"
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[2048, 2048]}
         shadow-camera-near={1}
-        shadow-camera-far={20}
+        shadow-camera-far={25}
       />
       
-      {/* Additional fill lights for better illumination */}
+      {/* Secondary spotlight for extra brightness */}
+      <spotLight
+        position={[0, 15, 5]}
+        angle={Math.PI / 3}
+        penumbra={0.4}
+        intensity={10}
+        color="#f8fafc"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+      />
+      
+      {/* Fill lights for overall illumination */}
       <directionalLight 
-        position={[5, 8, 5]} 
-        intensity={3}
+        position={[8, 12, 8]} 
+        intensity={4}
         color="#ffffff"
       />
       
       <directionalLight 
-        position={[-5, 6, -5]} 
-        intensity={2.5}
-        color="#f8fafc"
+        position={[-8, 10, -8]} 
+        intensity={3.5}
+        color="#f1f5f9"
       />
       
-      {/* Purple accent lights - brighter */}
+      {/* Purple accent lights - enhanced */}
       <spotLight
-        position={[-8, 8, -8]}
+        position={[-10, 10, -10]}
         angle={Math.PI / 3}
         penumbra={0.6}
-        intensity={4}
+        intensity={6}
         color="#8b5cf6"
         castShadow
         shadow-mapSize={[512, 512]}
       />
       
       <spotLight
-        position={[8, 6, 8]}
+        position={[10, 8, 10]}
         angle={Math.PI / 4}
         penumbra={0.5}
-        intensity={3.5}
+        intensity={5}
         color="#a855f7"
         shadow-mapSize={[512, 512]}
       />
       
-      {/* Front fill light to illuminate photos */}
+      {/* Front fill light to eliminate shadows on photos */}
       <pointLight 
-        position={[0, 3, 8]} 
+        position={[0, 5, 12]} 
+        intensity={6} 
+        color="#ffffff" 
+        distance={20}
+        decay={1.5}
+      />
+      
+      {/* Additional overhead fill lights */}
+      <pointLight 
+        position={[5, 18, 0]} 
+        intensity={4} 
+        color="#ffffff" 
+        distance={15}
+        decay={2}
+      />
+      
+      <pointLight 
+        position={[-5, 18, 0]} 
         intensity={4} 
         color="#ffffff" 
         distance={15}
@@ -327,8 +433,8 @@ const Scene: React.FC = () => {
         />
       ))}
       
-      {/* Fog for depth - lighter */}
-      <fog attach="fog" args={['#1a1a2e', 12, 30]} />
+      {/* Purple gradient fog for depth and background effect */}
+      <fog attach="fog" args={['#1a0a2e', 15, 35]} />
     </>
   );
 };
@@ -380,7 +486,7 @@ const HeroScene: React.FC = () => {
             gl.shadowMap.enabled = true;
             gl.shadowMap.type = THREE.PCFSoftShadowMap;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.8; // Increased exposure for brightness
+            gl.toneMappingExposure = 2.2; // Increased for dramatic brightness
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
