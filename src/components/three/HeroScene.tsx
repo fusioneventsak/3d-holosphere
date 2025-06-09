@@ -486,50 +486,48 @@ const Scene: React.FC = () => {
       imageUrl: string;
     }> = [];
 
-    // Create a grid pattern that covers the entire floor (35x35 units)
-    const gridSize = 12; // 12x12 grid = 144 positions
-    const spacing = 2.8; // Space between photos
-    const startX = -(gridSize * spacing) / 2;
-    const startZ = -(gridSize * spacing) / 2;
+    // Floor is 35x35 units, we want to cover it evenly
+    // Let's create a 10x10 grid to get exactly 100 photos
+    const gridSize = 10;
+    const floorSize = 30; // Slightly smaller than floor to have margin
+    const spacing = floorSize / (gridSize - 1); // Even spacing
     
     let photoIndex = 0;
     
     for (let row = 0; row < gridSize; row++) {
       for (let col = 0; col < gridSize; col++) {
-        // Skip some positions randomly to avoid overcrowding (keep about 100 photos)
-        if (Math.random() > 0.7 && positions.length > 80) continue;
+        // Calculate position to center the grid on the floor
+        const x = (col - (gridSize - 1) / 2) * spacing;
+        const z = (row - (gridSize - 1) / 2) * spacing;
         
-        const x = startX + col * spacing + (Math.random() - 0.5) * 0.8; // Small random offset
-        const z = startZ + row * spacing + (Math.random() - 0.5) * 0.8;
+        // Add small random offset for organic feel (but keep photos in their grid positions)
+        const xOffset = (Math.random() - 0.5) * 0.5;
+        const zOffset = (Math.random() - 0.5) * 0.5;
         
-        // Vary height based on distance from center for visual interest
-        const distFromCenter = Math.sqrt(x * x + z * z);
+        // Vary height in a wave pattern across the grid
         const baseHeight = 1.5;
-        const heightVariation = Math.sin(distFromCenter * 0.15) * 2 + Math.random() * 1;
-        const y = baseHeight + heightVariation;
+        const waveHeight = Math.sin(row * 0.3) * Math.cos(col * 0.3) * 1.5;
+        const randomHeight = Math.random() * 0.8;
+        const y = baseHeight + waveHeight + randomHeight;
         
         // Random rotations for natural look
         const rotationX = (Math.random() - 0.5) * 0.3;
         const rotationY = (Math.random() - 0.5) * 0.6;
         const rotationZ = (Math.random() - 0.5) * 0.2;
         
-        // Cycle through party photos, reusing them as needed
+        // Cycle through party photos
         const imageUrl = DEMO_PHOTOS[photoIndex % DEMO_PHOTOS.length];
         photoIndex++;
         
         positions.push({
-          position: [x, y, z] as [number, number, number],
+          position: [x + xOffset, y, z + zOffset] as [number, number, number],
           rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
           imageUrl: imageUrl,
         });
-        
-        // Stop if we have enough photos
-        if (positions.length >= 100) break;
       }
-      if (positions.length >= 100) break;
     }
     
-    console.log(`Generated ${positions.length} photo positions`); // Debug log
+    console.log(`Generated ${positions.length} photo positions in ${gridSize}x${gridSize} grid`);
     return positions;
   }, []);
 
