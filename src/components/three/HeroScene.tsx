@@ -226,15 +226,15 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Main photo - larger vertical format for better view */}
-      <mesh castShadow receiveShadow>
+      {/* Main photo - larger vertical format for better view, no shadows */}
+      <mesh>
         <planeGeometry args={[1.4, 2.1]} />
         <meshStandardMaterial 
           map={texture}
           transparent
           side={THREE.DoubleSide}
-          metalness={0.05}
-          roughness={0.8}
+          metalness={0.02}
+          roughness={0.9}
         />
       </mesh>
       
@@ -297,10 +297,10 @@ const ParticleSystem: React.FC = () => {
   );
 };
 
-// Floor component with reflective material - lighter
+// Floor component with reflective material - no shadows
 const Floor: React.FC = () => {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]}>
       <planeGeometry args={[30, 30]} />
       <meshStandardMaterial 
         color="#1a1a2e"
@@ -512,90 +512,116 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* Lighting Setup - Even Brighter with Dramatic Spotlight */}
-      <ambientLight intensity={0.8} color="#2d1b69" />
+      {/* Lighting Setup - Even Brighter with No Shadows on Photos */}
+      <ambientLight intensity={1.2} color="#f8fafc" />
       
-      {/* MAIN DRAMATIC SPOTLIGHT from directly above */}
+      {/* MAIN DRAMATIC SPOTLIGHT from directly above - no shadows */}
       <spotLight
         position={[0, 20, 0]}
         angle={Math.PI / 2}
         penumbra={0.2}
-        intensity={15}
+        intensity={12}
         color="#ffffff"
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-near={1}
-        shadow-camera-far={25}
+        castShadow={false}
       />
       
-      {/* Secondary spotlight for extra brightness */}
+      {/* Secondary spotlight for extra brightness - no shadows */}
       <spotLight
         position={[0, 15, 5]}
         angle={Math.PI / 3}
         penumbra={0.4}
-        intensity={10}
+        intensity={8}
         color="#f8fafc"
-        castShadow
-        shadow-mapSize={[1024, 1024]}
+        castShadow={false}
       />
       
-      {/* Fill lights for overall illumination */}
+      {/* Fill lights for overall illumination - much brighter */}
       <directionalLight 
         position={[8, 12, 8]} 
-        intensity={4}
+        intensity={6}
         color="#ffffff"
+        castShadow={false}
       />
       
       <directionalLight 
         position={[-8, 10, -8]} 
-        intensity={3.5}
+        intensity={5}
         color="#f1f5f9"
+        castShadow={false}
       />
       
-      {/* Purple accent lights - enhanced */}
+      {/* 360-degree lighting to eliminate all shadows */}
+      <directionalLight 
+        position={[12, 8, 0]} 
+        intensity={4}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight 
+        position={[-12, 8, 0]} 
+        intensity={4}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight 
+        position={[0, 8, 12]} 
+        intensity={4}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight 
+        position={[0, 8, -12]} 
+        intensity={4}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Purple accent lights - brighter, no shadows */}
       <spotLight
         position={[-10, 10, -10]}
         angle={Math.PI / 3}
         penumbra={0.6}
-        intensity={6}
+        intensity={4}
         color="#8b5cf6"
-        castShadow
-        shadow-mapSize={[512, 512]}
+        castShadow={false}
       />
       
       <spotLight
         position={[10, 8, 10]}
         angle={Math.PI / 4}
         penumbra={0.5}
-        intensity={5}
+        intensity={3}
         color="#a855f7"
-        shadow-mapSize={[512, 512]}
+        castShadow={false}
       />
       
       {/* Front fill light to eliminate shadows on photos */}
       <pointLight 
         position={[0, 5, 12]} 
+        intensity={8} 
+        color="#ffffff" 
+        distance={25}
+        decay={1}
+      />
+      
+      {/* Additional overhead fill lights */}
+      <pointLight 
+        position={[5, 18, 0]} 
         intensity={6} 
         color="#ffffff" 
         distance={20}
         decay={1.5}
       />
       
-      {/* Additional overhead fill lights */}
-      <pointLight 
-        position={[5, 18, 0]} 
-        intensity={4} 
-        color="#ffffff" 
-        distance={15}
-        decay={2}
-      />
-      
       <pointLight 
         position={[-5, 18, 0]} 
-        intensity={4} 
+        intensity={6} 
         color="#ffffff" 
-        distance={15}
-        decay={2}
+        distance={20}
+        decay={1.5}
       />
       
       {/* Interactive Auto-Rotating Camera Controls */}
@@ -659,9 +685,10 @@ const HeroScene: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="absolute inset-0 w-full h-full">
+      return (
         <Canvas
           camera={{ position: [10, 3, 10], fov: 45 }}
-          shadows
+          shadows={false}
           gl={{ 
             antialias: true, 
             alpha: true,
@@ -669,10 +696,9 @@ const HeroScene: React.FC = () => {
           }}
           style={{ background: 'transparent' }}
           onCreated={({ gl }) => {
-            gl.shadowMap.enabled = true;
-            gl.shadowMap.type = THREE.PCFSoftShadowMap;
+            gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.2; // Increased for dramatic brightness
+            gl.toneMappingExposure = 2.8; // Higher exposure for brighter photos
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
