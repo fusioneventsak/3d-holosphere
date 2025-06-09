@@ -3,33 +3,33 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
-// Fun event and nightlife photos - people together having fun, photobooths, selfies (vertical format)
+// Fun party and event photos - groups celebrating, dancing, parties, events (vertical format)
 const DEMO_PHOTOS = [
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1506629905607-64af794ab61c?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1545167622-3a6ac756afa4?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1554727242-741c14fa561c?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=600&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center', // concert crowd
+  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop&crop=center', // nightlife party
+  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=600&fit=crop&crop=center', // concert audience
+  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=600&fit=crop&crop=center', // nightclub party
+  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=600&fit=crop&crop=center', // friends celebrating
+  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=600&fit=crop&crop=center', // group party
+  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop&crop=center', // celebration cheers
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1516307365426-bea591f05011?w=400&h=600&fit=crop&crop=center', // concert party
+  'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=600&fit=crop&crop=center', // party crowd
+  'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=600&fit=crop&crop=center', // celebration event
+  'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=400&h=600&fit=crop&crop=center', // birthday party
+  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1485872299829-c673f5194813?w=400&h=600&fit=crop&crop=center', // group fun
+  'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400&h=600&fit=crop&crop=center', // celebration party
+  'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
 ];
 
 // Fun comments that might appear on photos in a real collage
@@ -172,6 +172,20 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       )}
     </group>
   );
+// Grid component - neon green
+const Grid: React.FC = () => {
+  const gridHelper = useMemo(() => {
+    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
+    helper.position.y = -2.99;
+    
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.transparent = true;
+    material.opacity = 0.8;
+    
+    return helper;
+  }, []);
+
+  return <primitive object={gridHelper} />;
 };
 
 const ParticleSystem: React.FC = () => {
@@ -233,20 +247,40 @@ const Floor: React.FC = () => {
   );
 };
 
-// Grid component - neon green
-const Grid: React.FC = () => {
-  const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
-    helper.position.y = -2.99;
-    
-    const material = helper.material as THREE.LineBasicMaterial;
-    material.transparent = true;
-    material.opacity = 0.8;
-    
-    return helper;
+// Background gradient component
+const GradientBackground: React.FC = () => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  const gradientMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        colorTop: { value: new THREE.Color('#4c1d95') }, // Purple
+        colorBottom: { value: new THREE.Color('#000000') }, // Black
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 colorTop;
+        uniform vec3 colorBottom;
+        varying vec2 vUv;
+        void main() {
+          gl_FragColor = vec4(mix(colorBottom, colorTop, vUv.y), 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+    });
   }, []);
 
-  return <primitive object={gridHelper} />;
+  return (
+    <mesh ref={meshRef} material={gradientMaterial}>
+      <sphereGeometry args={[50, 32, 32]} />
+    </mesh>
+  );
 };
 
 const CameraController: React.FC = () => {
@@ -316,8 +350,8 @@ const Scene: React.FC = () => {
 
   return (
     <>
-      {/* Background with gradient effect using fog and lighting */}
-      <color attach="background" args={['#000000']} />
+      {/* Gradient Background Sphere */}
+      <GradientBackground />
       
       {/* Lighting Setup - Even Brighter with Dramatic Spotlight */}
       <ambientLight intensity={0.8} color="#2d1b69" />
@@ -426,8 +460,8 @@ const Scene: React.FC = () => {
         />
       ))}
       
-      {/* Purple gradient fog for depth and background effect */}
-      <fog attach="fog" args={['#1a0a2e', 15, 35]} />
+      {/* Purple gradient fog for depth and atmosphere */}
+      <fog attach="fog" args={['#2d1b69', 18, 40]} />
     </>
   );
 };
