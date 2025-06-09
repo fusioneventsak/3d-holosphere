@@ -56,8 +56,7 @@ interface PhotoProps {
 }
 
 const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, index }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const textRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
   const [loadFailed, setLoadFailed] = React.useState(false);
   const [isLoaded, setIsLoaded] = React.useState(false);
@@ -124,27 +123,21 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   }, [comment]);
 
   useFrame((state) => {
-    if (!meshRef.current) return;
+    if (!groupRef.current) return;
     
     const time = state.clock.getElapsedTime();
     
     // Floating animation with different frequencies for each photo
     const floatOffset = Math.sin(time * 0.5 + index * 0.5) * 0.3;
     
-    // Make photos face the camera
-    meshRef.current.lookAt(state.camera.position);
+    // Make the entire group (photo + text) face the camera
+    groupRef.current.lookAt(state.camera.position);
     
     // Add subtle rotation variation while still facing camera
     const rotationOffset = Math.sin(time * 0.3 + index * 0.3) * 0.05;
-    meshRef.current.rotation.z += rotationOffset;
+    groupRef.current.rotation.z += rotationOffset;
     
-    meshRef.current.position.y = position[1] + floatOffset;
-    
-    // Animate text if it exists
-    if (textRef.current) {
-      textRef.current.lookAt(state.camera.position);
-      textRef.current.position.y = position[1] + floatOffset - 1; // Position below photo
-    }
+    groupRef.current.position.y = position[1] + floatOffset;
   });
 
   if (!isLoaded) {
@@ -152,7 +145,7 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   }
 
   return (
-    <group ref={meshRef} position={position} rotation={rotation}>
+    <group ref={groupRef} position={position} rotation={rotation}>
       {/* Main photo - vertical format */}
       <mesh castShadow receiveShadow>
         <planeGeometry args={[1, 1.5]} />
@@ -166,9 +159,9 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
         />
       </mesh>
       
-      {/* Comment text overlay */}
+      {/* Comment text overlay - attached to photo */}
       {comment && textTexture && (
-        <mesh ref={textRef} position={[0, -1, 0.01]}>
+        <mesh position={[0, -0.9, 0.01]}>
           <planeGeometry args={[1.8, 0.4]} />
           <meshBasicMaterial 
             map={textTexture} 
