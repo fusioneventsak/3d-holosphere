@@ -170,48 +170,53 @@ const LandingPage: React.FC = () => {
           <HeroScene />
         </div>
         
-        {/* Gradient Overlay for Better Text Readability - allow pointer events to pass through */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent lg:from-black/90 lg:via-black/50 lg:to-black/20 pointer-events-none"></div>
-        
         {/* Hero Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 lg:py-32 pointer-events-none">
           <div className="text-center lg:text-left lg:w-1/2">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-              <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
-                Share Your Memories
-              </span>
-              <span className="block drop-shadow-lg">In Beautiful 3D</span>
-            </h1>
-            
-            <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
-              Create stunning 3D photo collages and share them with friends and family.
-              No technical skills required.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
-              <button
-                onClick={() => setIsDemoModalOpen(true)}
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
-              >
-                Request Demo
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
-              <Link
-                to="/join"
-                className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
-              >
-                Join Existing
-              </Link>
+            {/* Minimal gradient overlay only behind text */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent lg:from-black/70 lg:via-black/40 lg:to-black/10 rounded-lg backdrop-blur-sm"></div>
+              <div className="relative p-6">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+                  <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
+                    Share Your Memories
+                  </span>
+                  <span className="block drop-shadow-lg">In Beautiful 3D</span>
+                </h1>
+                
+                <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
+                  Create stunning 3D photo collages and share them with friends and family.
+                  No technical skills required.
+                </p>
+                
+                <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
+                  <button
+                    onClick={() => setIsDemoModalOpen(true)}
+                    className="px-8 py-3 text-base font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 transition-colors flex items-center justify-center shadow-lg hover:shadow-purple-500/25"
+                  >
+                    Request Demo
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </button>
+                  <Link
+                    to="/join"
+                    className="px-8 py-3 text-base font-medium rounded-md text-white bg-black/50 backdrop-blur-sm border border-white/30 hover:bg-white/20 transition-colors flex items-center justify-center shadow-lg"
+                  >
+                    Join Existing
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
         {/* Floating UI Elements */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center z-10 pointer-events-none">
-          <div className="text-white/60 text-sm mb-2">Drag to explore • Auto-rotating showcase</div>
-          <div className="animate-bounce">
-            <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
-              <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-pulse"></div>
+          <div className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2">
+            <div className="text-white/80 text-sm mb-2">Drag to explore • Auto-rotating showcase</div>
+            <div className="animate-bounce flex justify-center">
+              <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+                <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-pulse"></div>
+              </div>
             </div>
           </div>
         </div>
