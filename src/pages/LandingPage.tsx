@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HeroScene from '../components/three/HeroScene';
-import DemoRequestModal from '../components/DemoRequestModal';
 import { ArrowRight, CameraIcon, CloudCog, Share2, ShieldCheck } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
