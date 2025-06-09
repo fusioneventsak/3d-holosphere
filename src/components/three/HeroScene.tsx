@@ -4,6 +4,23 @@ import { OrbitControls } from '@react-three/drei';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
+// Mobile detection hook
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = React.useState(false);
+  
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+};
+
 // 100 Fun party and event photos - groups celebrating, dancing, parties, events, photobooths, selfies (vertical format)
 const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center', // group celebration
@@ -403,12 +420,13 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// Auto-rotating camera controller with smooth rotation and height variation
+// Auto-rotating camera controller with mobile support
 const AutoRotatingCamera: React.FC = () => {
   const controlsRef = useRef<any>();
   const { camera } = useThree();
   const isUserInteracting = useRef(false);
   const lastInteractionTime = useRef(0);
+  const isMobile = useIsMobile();
 
   useFrame((state) => {
     if (!controlsRef.current) return;
@@ -416,8 +434,8 @@ const AutoRotatingCamera: React.FC = () => {
     const currentTime = Date.now();
     const time = currentTime * 0.0001; // Much slower for smooth rotation
     
-    // If user isn't interacting, apply smooth rotation with height variation
-    if (!isUserInteracting.current) {
+    // If user isn't interacting (or on mobile where interaction is disabled), apply smooth rotation
+    if (!isUserInteracting.current || isMobile) {
       const radius = 15; // Fixed distance, further from photos
       const heightBase = 5; // Base height
       const heightVariation = 1; // Subtle height change
@@ -441,13 +459,17 @@ const AutoRotatingCamera: React.FC = () => {
     const controls = controlsRef.current;
     
     const handleStart = () => {
-      isUserInteracting.current = true;
-      lastInteractionTime.current = Date.now();
+      if (!isMobile) { // Only allow interaction on desktop
+        isUserInteracting.current = true;
+        lastInteractionTime.current = Date.now();
+      }
     };
 
     const handleEnd = () => {
-      isUserInteracting.current = false;
-      lastInteractionTime.current = Date.now();
+      if (!isMobile) {
+        isUserInteracting.current = false;
+        lastInteractionTime.current = Date.now();
+      }
     };
 
     controls.addEventListener('start', handleStart);
@@ -457,22 +479,27 @@ const AutoRotatingCamera: React.FC = () => {
       controls.removeEventListener('start', handleStart);
       controls.removeEventListener('end', handleEnd);
     };
-  }, []);
+  }, [isMobile]);
 
   return (
     <OrbitControls
       ref={controlsRef}
       enablePan={false}
       enableZoom={false}
-      enableRotate={true}
+      enableRotate={!isMobile} // Disable rotation on mobile
       rotateSpeed={0.5}
-      minDistance={12} // Minimum distance increased
-      maxDistance={18} // Maximum distance increased
+      minDistance={12}
+      maxDistance={18}
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
       dampingFactor={0.05}
-      autoRotate={false} // We're handling rotation manually for better control
+      autoRotate={false}
+      // Disable touch controls on mobile
+      touches={{
+        ONE: isMobile ? THREE.TOUCH.NONE : THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.NONE
+      }}
     />
   );
 };
@@ -706,7 +733,8 @@ const LoadingFallback: React.FC = () => (
 const HeroScene: React.FC = () => {
   return (
     <ErrorBoundary>
-      <div className="absolute inset-0 w-full h-full">
+      {/* Mobile: pointer-events-none, Desktop: pointer-events-auto */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none md:pointer-events-auto">
         <Canvas
           camera={{ position: [15, 5, 15], fov: 45 }}
           shadows={false}
