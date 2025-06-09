@@ -23,12 +23,93 @@ type PhotoWithPosition = Photo & {
   targetPosition: [number, number, number];
   targetRotation: [number, number, number];
   displayIndex?: number;
+  slotIndex: number; // Added for stable slot assignment
 };
 
 // Adjusted smoothing values for float pattern
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30; // Distance threshold to detect teleportation
+
+// Stable slot assignment system
+class SlotManager {
+  private slotAssignments = new Map<string, number>(); // photoId -> slotIndex
+  private occupiedSlots = new Set<number>();
+  private availableSlots: number[] = [];
+  private totalSlots = 0;
+
+  constructor(totalSlots: number) {
+    this.updateSlotCount(totalSlots);
+  }
+
+  updateSlotCount(newTotal: number) {
+    if (newTotal === this.totalSlots) return;
+    
+    this.totalSlots = newTotal;
+    
+    // Clear slots that are beyond the new limit
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (slotIndex >= newTotal) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+    
+    // Rebuild available slots
+    this.rebuildAvailableSlots();
+  }
+
+  private rebuildAvailableSlots() {
+    this.availableSlots = [];
+    for (let i = 0; i < this.totalSlots; i++) {
+      if (!this.occupiedSlots.has(i)) {
+        this.availableSlots.push(i);
+      }
+    }
+    // Shuffle for better distribution
+    this.shuffleArray(this.availableSlots);
+  }
+
+  private shuffleArray(array: number[]) {
+    // Fisher-Yates shuffle for even distribution
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  assignSlots(photos: Photo[]): Map<string, number> {
+    // Remove assignments for photos that no longer exist
+    const currentPhotoIds = new Set(photos.map(p => p.id));
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (!currentPhotoIds.has(photoId)) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+
+    // Rebuild available slots after cleanup
+    this.rebuildAvailableSlots();
+
+    // Assign slots to new photos in order of creation (oldest first for stability)
+    const sortedPhotos = [...photos].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    for (const photo of sortedPhotos) {
+      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        const slotIndex = this.availableSlots.shift()!;
+        this.slotAssignments.set(photo.id, slotIndex);
+        this.occupiedSlots.add(slotIndex);
+      }
+    }
+
+    return new Map(this.slotAssignments);
+  }
+}
 
 // VolumetricSpotlight component
 const VolumetricSpotlight: React.FC<{
@@ -115,7 +196,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   // Calculate proper spotlight positions with better spread
   const spotlights = useMemo(() => {
     const lights = [];
-    const count = Math.min(settings.spotlightCount, 4);
+    const count = Math.min(settings.spotlightCount || 3, 4);
     
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
@@ -124,14 +205,14 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       const distanceVariation = 0.9 + Math.random() * 0.2; // 0.9-1.1 variation
       const heightVariation = 0.95 + Math.random() * 0.1; // 0.95-1.05 variation
       
-      const x = Math.cos(angle) * settings.spotlightDistance * distanceVariation;
-      const z = Math.sin(angle) * settings.spotlightDistance * distanceVariation;
-      const y = settings.spotlightHeight * heightVariation;
+      const x = Math.cos(angle) * (settings.spotlightDistance || 50) * distanceVariation;
+      const z = Math.sin(angle) * (settings.spotlightDistance || 50) * distanceVariation;
+      const y = (settings.spotlightHeight || 30) * heightVariation;
       
       lights.push({
         key: `spotlight-${i}`,
         position: [x, y, z] as [number, number, number],
-        target: [0, settings.wallHeight / 2, 0] as [number, number, number],
+        target: [0, (settings.wallHeight || 0) / 2, 0] as [number, number, number],
         // Add slight variations in angle and intensity for realism
         angleVariation: 0.95 + Math.random() * 0.1,
         intensityVariation: 0.9 + Math.random() * 0.2,
@@ -144,7 +225,7 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
     <group ref={groupRef}>
       {/* Enhanced Ambient light with increased intensity range */}
       <ambientLight 
-        intensity={settings.ambientLightIntensity * 0.8} 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.8} 
         color="#ffffff" 
       />
       
@@ -173,8 +254,8 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         targetRef.current.position.set(...light.target);
         
         // Calculate spotlight parameters
-        const adjustedAngle = settings.spotlightWidth * light.angleVariation;
-        const baseIntensity = settings.spotlightIntensity * 0.2;
+        const adjustedAngle = (settings.spotlightWidth || 0.3) * light.angleVariation;
+        const baseIntensity = (settings.spotlightIntensity || 1) * 0.2;
         const adjustedIntensity = baseIntensity * light.intensityVariation;
         
         return (
@@ -183,16 +264,16 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               position={light.position}
               target={targetRef.current}
               angle={Math.max(0.1, adjustedAngle)}
-              penumbra={settings.spotlightPenumbra}
+              penumbra={settings.spotlightPenumbra || 0.5}
               intensity={adjustedIntensity * 5}
-              color={settings.spotlightColor}
-              distance={settings.spotlightDistance * 2}
+              color={settings.spotlightColor || '#ffffff'}
+              distance={(settings.spotlightDistance || 50) * 2}
               decay={1.5}
               castShadow
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
               shadow-camera-near={0.5}
-              shadow-camera-far={settings.spotlightDistance * 4}
+              shadow-camera-far={(settings.spotlightDistance || 50) * 4}
               shadow-bias={-0.0001}
               power={100}
               shadow-camera-fov={Math.max(30, Math.min(120, adjustedAngle * 180 / Math.PI * 2))}
@@ -201,10 +282,10 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
               position={light.position}
               target={light.target}
               angle={adjustedAngle}
-              color={settings.spotlightColor}
-              intensity={settings.spotlightIntensity * light.intensityVariation}
-              distance={settings.spotlightDistance}
-              penumbra={settings.spotlightPenumbra}
+              color={settings.spotlightColor || '#ffffff'}
+              intensity={(settings.spotlightIntensity || 1) * light.intensityVariation}
+              distance={settings.spotlightDistance || 50}
+              penumbra={settings.spotlightPenumbra || 0.5}
             />
             <primitive object={targetRef.current} />
           </group>
@@ -392,8 +473,8 @@ const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
       color: settings.floorColor,
       transparent: settings.floorOpacity < 1,
       opacity: settings.floorOpacity,
-      metalness: Math.min(settings.floorMetalness, 0.9),
-      roughness: Math.max(settings.floorRoughness, 0.1),
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
       side: THREE.DoubleSide,
       envMapIntensity: 0.5,
     });
@@ -491,7 +572,7 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
       const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
       const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      spherical.theta += settings.cameraRotationSpeed * delta;
+      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
       
       const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
       camera.position.copy(newPosition);
@@ -515,109 +596,67 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   ) : null;
 };
 
-// AnimationController component
+// Improved AnimationController with stable slot management
 const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
-  const photoSlotMap = useRef<Map<number, Photo>>(new Map());
-  const lastPhotoChangeTime = useRef(Date.now());
-  const currentPhotoIndex = useRef(0);
+  const slotManagerRef = useRef(new SlotManager(settings.photoCount));
+  const lastPhotoCount = useRef(settings.photoCount);
   
-  // Create display photos with cycling logic
-  const displayPhotos = useMemo(() => {
-    if (photos.length <= settings.photoCount) {
-      return photos;
-    }
-    
-    // For cycling through photos when there are more than photoCount
-    const cycleDuration = 10000; // 10 seconds per cycle
-    const photosPerCycle = Math.min(settings.photoCount, photos.length);
-    const totalCycles = Math.ceil(photos.length / photosPerCycle);
-    
-    const now = Date.now();
-    const timeSinceStart = now % (cycleDuration * totalCycles);
-    const currentCycle = Math.floor(timeSinceStart / cycleDuration);
-    
-    const startIndex = currentCycle * photosPerCycle;
-    const endIndex = Math.min(startIndex + photosPerCycle, photos.length);
-    
-    return photos.slice(startIndex, endIndex);
-  }, [photos, settings.photoCount]);
-
-  // Update photo slot mapping
+  // Update slot manager when photo count changes
   useEffect(() => {
-    if (photos.length <= settings.photoCount) {
-      // Simple mapping when we have fewer photos than slots
-      const newMap = new Map<number, Photo>();
-      photos.forEach((photo, index) => {
-        newMap.set(index, photo);
-      });
-      photoSlotMap.current = newMap;
-    } else {
-      // More complex mapping for cycling photos
-      photoSlotMap.current.clear();
-      displayPhotos.forEach((photo, index) => {
-        photoSlotMap.current.set(index, photo);
-      });
+    if (settings.photoCount !== lastPhotoCount.current) {
+      slotManagerRef.current.updateSlotCount(settings.photoCount);
+      lastPhotoCount.current = settings.photoCount;
     }
-  }, [displayPhotos, photos.length, settings.photoCount]);
+  }, [settings.photoCount]);
 
   useFrame((state) => {
     const time = settings.animationEnabled ? 
-      state.clock.elapsedTime * (settings.animationSpeed / 50) : 
-      settings.animationEnabled ? state.clock.elapsedTime : 0;
+      state.clock.elapsedTime * (settings.animationSpeed / 50) : 0;
     
-    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, displayPhotos);
+    // Get stable slot assignments
+    const slotAssignments = slotManagerRef.current.assignSlots(photos);
+    
+    // Generate pattern positions for all slots
+    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
     const patternState = pattern.generatePositions(time);
     
     const photosWithPositions: PhotoWithPosition[] = [];
     
-    if (photos.length <= settings.photoCount) {
-      // Use the slot map for positioning when we have fewer photos than slots
-      for (let i = 0; i < settings.photoCount; i++) {
-        const photo = photoSlotMap.current.get(i);
-        if (photo) {
-          photosWithPositions.push({
-            ...photo,
-            targetPosition: patternState.positions[i] || [0, 0, 0],
-            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-            displayIndex: i,
-          });
-        } else {
-          // Add placeholder for empty slot
-          photosWithPositions.push({
-            id: `placeholder-${i}`,
-            url: '',
-            targetPosition: patternState.positions[i] || [0, 0, 0],
-            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-            displayIndex: i,
-          });
-        }
-      }
-    } else {
-      // When cycling through more photos than slots
-      for (let i = 0; i < displayPhotos.length && i < settings.photoCount; i++) {
+    // Create photos with assigned slots
+    for (const photo of photos) {
+      const slotIndex = slotAssignments.get(photo.id);
+      if (slotIndex !== undefined && slotIndex < settings.photoCount) {
         photosWithPositions.push({
-          ...displayPhotos[i],
-          targetPosition: patternState.positions[i] || [0, 0, 0],
-          targetRotation: patternState.rotations?.[i] || [0, 0, 0],
-          displayIndex: i,
+          ...photo,
+          targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
+          targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
+          displayIndex: slotIndex,
+          slotIndex,
         });
       }
-      
-      // Add placeholders for any remaining empty slots
-      for (let i = displayPhotos.length; i < settings.photoCount; i++) {
+    }
+    
+    // Add empty slots for remaining positions
+    for (let i = 0; i < settings.photoCount; i++) {
+      const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
+      if (!hasPhoto) {
         photosWithPositions.push({
           id: `placeholder-${i}`,
           url: '',
           targetPosition: patternState.positions[i] || [0, 0, 0],
           targetRotation: patternState.rotations?.[i] || [0, 0, 0],
           displayIndex: i,
+          slotIndex: i,
         });
       }
     }
+    
+    // Sort by slot index for consistent rendering order
+    photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
     
     onPositionsUpdate(photosWithPositions);
   });
@@ -657,11 +696,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
       return {
-        background: `linear-gradient(${settings.backgroundGradientAngle}deg, ${settings.backgroundGradientStart}, ${settings.backgroundGradientEnd})`
+        background: `linear-gradient(${settings.backgroundGradientAngle || 45}deg, ${settings.backgroundGradientStart || '#000000'}, ${settings.backgroundGradientEnd || '#000000'})`
       };
     }
     return {
-      background: settings.backgroundColor
+      background: settings.backgroundColor || '#000000'
     };
   }, [
     settings.backgroundGradient,
@@ -707,7 +746,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         
         {photosWithPositions.map((photo) => (
           <PhotoMesh
-            key={photo.id}
+            key={`${photo.id}-${photo.slotIndex}`}
             photo={photo}
             size={settings.photoSize}
             emptySlotColor={settings.emptySlotColor}
