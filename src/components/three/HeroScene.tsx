@@ -1,9 +1,10 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 
-// Fun party and event photos - groups celebrating, dancing, parties, events, photobooths, selfies (vertical format)
+// 100 Fun party and event photos - groups celebrating, dancing, parties, events, photobooths, selfies (vertical format)
 const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center', // group celebration
   'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center', // party dancing
@@ -30,7 +31,6 @@ const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1485872299829-c673f5194813?w=400&h=600&fit=crop&crop=center', // group fun
   'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400&h=600&fit=crop&crop=center', // celebration party
   'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
-  // Additional photos for better coverage - focus on people having fun
   'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
   'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=600&fit=crop&crop=center', // party dancing
@@ -56,7 +56,61 @@ const DEMO_PHOTOS = [
   'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&h=600&fit=crop&crop=center', // group selfie
   'https://images.unsplash.com/photo-1592650450938-4d8b4b8c7c3b?w=400&h=600&fit=crop&crop=center', // celebration
   'https://images.unsplash.com/photo-1594736797933-d0401ba5f9e4?w=400&h=600&fit=crop&crop=center', // party fun
+  // Additional 50 party photos to reach 100 total
   'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1600298881974-6be191ceeda1?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1601933470096-0e67b2e3c796?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1603186921213-d2ca7c207b89?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1604594849809-dfedbc827105?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1605640840605-14ac1855827b?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1609086814533-1e3b8f28c81c?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1610216705422-caa3fcb6d158?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1611348586804-61bf6c080437?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1612472324236-8bd67c8cb2c4?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1613603346037-62ee778e0b1f?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1614628486389-6cbbda8ff4cf?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1615751072497-5f5169febe17?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1616781382395-1e18e4fcb7b0?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1617854818583-09e7f077a156?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1618932260643-eee4a2f652a6?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1619985240536-f64b035ce2c1?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1622037576898-d710baf8fd2b?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1623071379464-7a9f5bb0736c?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1624165008446-83877d7f7b2d?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1625225233840-695456021cde?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1626284648318-1b6c7c4e3a7f?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1628367726634-ad8e8391c5d2?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1629398550148-fb59e76d8b1e?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1630457619827-e4b8b6c15a45?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1631518178077-5a9ba7969e95?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1632577846987-c9d4c3e8b3d6?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1633608678846-c5b9e9b8b3d7?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1634638877954-e5b9e9b8b3d8?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1635699008876-f5b9e9b8b3d9?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1636759104897-g6c0e0b8b3da?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1637819195918-h7d1f1b8b3db?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1638880286939-i8e2g2b8b3dc?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1639940397960-j9f3h3b8b3dd?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1641000508981-k0g4i4b8b3de?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1642060620002-l1h5j5b8b3df?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1643120731023-m2i6k6b8b3e0?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1644180842044-n3j7l7b8b3e1?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1645240953065-o4k8m8b8b3e2?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1646301064086-p5l9n9b8b3e3?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1647361175107-q6m0o0b8b3e4?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1648421286128-r7n1p1b8b3e5?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1649481397149-s8o2q2b8b3e6?w=400&h=600&fit=crop&crop=center', // celebration
+  'https://images.unsplash.com/photo-1650541508170-t9p3r3b8b3e7?w=400&h=600&fit=crop&crop=center', // party fun
+  'https://images.unsplash.com/photo-1651601619191-u0q4s4b8b3e8?w=400&h=600&fit=crop&crop=center', // group selfie
+  'https://images.unsplash.com/photo-1652661730212-v1r5t5b8b3e9?w=400&h=600&fit=crop&crop=center', // party celebration
+  'https://images.unsplash.com/photo-1653721841233-w2s6u6b8b3ea?w=400&h=600&fit=crop&crop=center', // group celebration
+  'https://images.unsplash.com/photo-1654781952254-x3t7v7b8b3eb?w=400&h=600&fit=crop&crop=center', // party dancing
+  'https://images.unsplash.com/photo-1655842063275-y4u8w8b8b3ec?w=400&h=600&fit=crop&crop=center', // celebration
 ];
 
 // Fun comments that might appear on photos in a real collage
@@ -85,7 +139,6 @@ interface PhotoProps {
 const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, index }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
-  const [loadFailed, setLoadFailed] = React.useState(false);
   const [isLoaded, setIsLoaded] = React.useState(false);
   
   // Randomly decide if this photo should have a comment (about 40% chance)
@@ -95,7 +148,7 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     [hasComment, index]
   );
   
-  // Load texture with error handling
+  // Load texture with error handling - only show if successfully loaded
   React.useEffect(() => {
     const loader = new THREE.TextureLoader();
     loader.load(
@@ -105,13 +158,12 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
         loadedTexture.magFilter = THREE.LinearFilter;
         setTexture(loadedTexture);
         setIsLoaded(true);
-        setLoadFailed(false);
       },
       undefined,
       (error) => {
         console.warn('Failed to load texture:', imageUrl, error);
-        setLoadFailed(true);
-        setIsLoaded(true);
+        // Don't set isLoaded to true if failed - photo won't render
+        setIsLoaded(false);
       }
     );
   }, [imageUrl]);
@@ -167,8 +219,9 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     groupRef.current.position.y = position[1] + floatOffset;
   });
 
-  if (!isLoaded) {
-    return null; // Don't render until loaded or failed
+  // Only render if photo loaded successfully AND has texture
+  if (!isLoaded || !texture) {
+    return null;
   }
 
   return (
@@ -177,12 +230,11 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
       <mesh castShadow receiveShadow>
         <planeGeometry args={[1, 1.5]} />
         <meshStandardMaterial 
-          map={loadFailed ? null : texture}
+          map={texture}
           transparent
           side={THREE.DoubleSide}
           metalness={0.05}
           roughness={0.8}
-          color={loadFailed ? "#ff1493" : "#ffffff"} // Bright fuchsia fallback
         />
       </mesh>
       
@@ -276,14 +328,15 @@ const Grid: React.FC = () => {
   return <primitive object={gridHelper} />;
 };
 
-// Background gradient component
+// Background gradient component - more noticeable purple starting halfway
 const GradientBackground: React.FC = () => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   const gradientMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
-        colorTop: { value: new THREE.Color('#4c1d95') }, // Purple
+        colorTop: { value: new THREE.Color('#7c3aed') }, // Brighter purple
+        colorMid: { value: new THREE.Color('#3730a3') }, // Mid purple  
         colorBottom: { value: new THREE.Color('#000000') }, // Black
       },
       vertexShader: `
@@ -295,10 +348,19 @@ const GradientBackground: React.FC = () => {
       `,
       fragmentShader: `
         uniform vec3 colorTop;
+        uniform vec3 colorMid;
         uniform vec3 colorBottom;
         varying vec2 vUv;
         void main() {
-          gl_FragColor = vec4(mix(colorBottom, colorTop, vUv.y), 1.0);
+          vec3 color;
+          if (vUv.y > 0.5) {
+            // Top half: interpolate from mid to top (purple gradient)
+            color = mix(colorMid, colorTop, (vUv.y - 0.5) * 2.0);
+          } else {
+            // Bottom half: interpolate from bottom to mid (black to purple)
+            color = mix(colorBottom, colorMid, vUv.y * 2.0);
+          }
+          gl_FragColor = vec4(color, 1.0);
         }
       `,
       side: THREE.BackSide,
@@ -333,74 +395,50 @@ const CameraController: React.FC = () => {
 };
 
 const Scene: React.FC = () => {
-  // Generate photo positions with full height utilization and better coverage
+  // Generate photo positions for 100 photos with full height utilization and better coverage
   const photoPositions = useMemo(() => {
     return DEMO_PHOTOS.map((photo, index) => {
-      // Create multiple layers with better height distribution
-      const layer = Math.floor(index / 12);
-      const indexInLayer = index % 12;
+      // Create multiple layers with better height distribution for 100 photos
+      const layer = Math.floor(index / 20); // 5 layers of 20 photos each
+      const indexInLayer = index % 20;
       
       let x, y, z;
       
       if (layer === 0) {
         // Inner circle - full height range
-        const angle = (indexInLayer / 12) * Math.PI * 2;
+        const angle = (indexInLayer / 20) * Math.PI * 2;
         const radius = 2.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = (Math.sin(index * 0.8) * 3) + 1; // Range: -2 to 4
       } else if (layer === 1) {
         // Mid circle - higher positions
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 12;
+        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 20;
         const radius = 4.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = (Math.sin(index * 0.6) * 2.5) + 2; // Range: -0.5 to 4.5
       } else if (layer === 2) {
         // Outer circle - varied heights
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 6;
+        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 10;
         const radius = 6.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = (Math.sin(index * 0.4) * 3.5) + 1.5; // Range: -2 to 5
       } else if (layer === 3) {
-        // Background layer - lower but using full height
-        const angle = (indexInLayer / 12) * Math.PI * 2 + Math.PI / 4;
+        // Far background layer
+        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 6.67;
         const radius = 8.5;
         x = Math.cos(angle) * radius;
         z = Math.sin(angle) * radius;
         y = (Math.sin(index * 0.3) * 2.5) + 0.5; // Range: -2 to 3
       } else {
-        // Extra scattered photos - maximize height usage
-        const angle = (index / DEMO_PHOTOS.length) * Math.PI * 10;
-        let radius = 3 + Math.sin(index * 0.5) * 4;
-        
-        // Better distribution with height focus
-        if (index % 4 === 0) {
-          // High floating photos
-          radius = 5 + Math.random() * 4;
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = 3 + Math.random() * 2; // High positions: 3 to 5
-        } else if (index % 4 === 1) {
-          // Lower right quadrant focus
-          radius = 6 + Math.random() * 3;
-          const biasAngle = angle + Math.PI * 0.25;
-          x = Math.cos(biasAngle) * radius;
-          z = Math.sin(biasAngle) * radius;
-          y = Math.random() * 3 - 1; // Range: -1 to 2
-        } else if (index % 4 === 2) {
-          // Very high background photos
-          radius = 7 + Math.random() * 2;
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = 4 + Math.random() * 1.5; // Very high: 4 to 5.5
-        } else {
-          // Medium height scattered
-          x = Math.cos(angle) * radius;
-          z = Math.sin(angle) * radius;
-          y = (Math.sin(index * 0.4) * 4) + 1; // Range: -3 to 5
-        }
+        // Very far background layer for depth
+        const angle = (indexInLayer / 20) * Math.PI * 2 + Math.PI / 5;
+        const radius = 10.5;
+        x = Math.cos(angle) * radius;
+        z = Math.sin(angle) * radius;
+        y = (Math.sin(index * 0.2) * 2) + 1; // Range: -1 to 3
       }
       
       const rotationX = (Math.random() - 0.5) * 0.4;
@@ -506,8 +544,21 @@ const Scene: React.FC = () => {
         decay={2}
       />
       
-      {/* Camera Controller */}
-      <CameraController />
+      {/* Interactive Camera Controls */}
+      <OrbitControls
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        zoomSpeed={0.6}
+        panSpeed={0.8}
+        rotateSpeed={0.4}
+        minDistance={3}
+        maxDistance={20}
+        minPolarAngle={0}
+        maxPolarAngle={Math.PI}
+        enableDamping={true}
+        dampingFactor={0.05}
+      />
       
       {/* Floor and Grid */}
       <Floor />
@@ -528,7 +579,7 @@ const Scene: React.FC = () => {
       ))}
       
       {/* Purple gradient fog for depth and atmosphere */}
-      <fog attach="fog" args={['#2d1b69', 18, 40]} />
+      <fog attach="fog" args={['#3730a3', 20, 45]} />
     </>
   );
 };
