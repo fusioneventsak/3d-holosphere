@@ -243,33 +243,30 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
     
     const time = state.clock.getElapsedTime();
     
-    // MUCH slower, gentler floating animation
+    // Enhanced floating animation with MORE variance in heights
     // Each photo gets a unique frequency and amplitude
-    const baseFreq = 0.15; // Reduced from 0.5 to 0.15 - much slower
-    const freqVariance = (index % 17) * 0.03; // Reduced variance
+    const baseFreq = 0.5;
+    const freqVariance = (index % 17) * 0.1; // More unique frequencies
     const frequency = baseFreq + freqVariance;
     
-    const baseAmp = 0.3; // Reduced from 0.8 to 0.3 - gentler movement
-    const ampVariance = (index % 19) * 0.15; // Reduced variance
+    const baseAmp = 0.8; // Increased base amplitude
+    const ampVariance = (index % 19) * 0.4; // More height variance
     const amplitude = baseAmp + ampVariance;
     
-    // Additional wave component for more complex movement - also slower
-    const secondaryWave = Math.sin(time * (frequency * 1.2) + index * 0.7) * (amplitude * 0.2);
+    // Additional wave component for more complex movement
+    const secondaryWave = Math.sin(time * (frequency * 1.3) + index * 0.7) * (amplitude * 0.3);
     const primaryWave = Math.sin(time * frequency + index * 0.5) * amplitude;
     
     const floatOffset = primaryWave + secondaryWave;
     
-    // Ensure photos never go below floor level (y = 0)
-    const finalY = Math.max(0.5, position[1] + floatOffset); // Minimum height of 0.5 above floor
-    
     // Make the entire group (photo + text) face the camera
     groupRef.current.lookAt(state.camera.position);
     
-    // Add subtle rotation variation while still facing camera - also slower
-    const rotationOffset = Math.sin(time * 0.1 + index * 0.3) * 0.02; // Much slower rotation
+    // Add subtle rotation variation while still facing camera
+    const rotationOffset = Math.sin(time * 0.3 + index * 0.3) * 0.05;
     groupRef.current.rotation.z += rotationOffset;
     
-    groupRef.current.position.y = finalY;
+    groupRef.current.position.y = position[1] + floatOffset;
   });
 
   // Only render if texture loaded successfully
@@ -277,16 +274,16 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
 
   return (
     <group ref={groupRef} position={position} rotation={rotation}>
-      {/* Photo mesh - increased size */}
+      {/* Photo mesh */}
       <mesh>
-        <planeGeometry args={[1.8, 2.4]} />
+        <planeGeometry args={[1.2, 1.6]} />
         <meshLambertMaterial map={texture} />
       </mesh>
       
-      {/* Comment text if available - adjust position for larger photos */}
+      {/* Comment text if available */}
       {textTexture && (
-        <mesh position={[0, 1.6, 0.01]}>
-          <planeGeometry args={[2.4, 0.6]} />
+        <mesh position={[0, 1.2, 0.01]}>
+          <planeGeometry args={[2, 0.5]} />
           <meshBasicMaterial map={textTexture} transparent />
         </mesh>
       )}
@@ -449,16 +446,13 @@ const AutoRotatingCamera: React.FC = () => {
   const lastInteractionTime = useRef(0);
   const autoRotationEnabled = useRef(true);
   const savedCameraState = useRef({
-    position: new THREE.Vector3(25, 15, 25), // Further out starting position
-    target: new THREE.Vector3(0, 3, 0) // Look at photos height, not floor
+    position: new THREE.Vector3(15, 5, 15),
+    target: new THREE.Vector3(0, 0, 0)
   });
 
-  // Initialize camera position - start much higher and further out
+  // Initialize camera position
   useEffect(() => {
-    const initialPosition = new THREE.Vector3(25, 15, 25); // Further out and higher
-    camera.position.copy(initialPosition);
-    savedCameraState.current.position.copy(initialPosition);
-    
+    camera.position.copy(savedCameraState.current.position);
     if (controlsRef.current) {
       controlsRef.current.target.copy(savedCameraState.current.target);
       controlsRef.current.update();
@@ -473,42 +467,31 @@ const AutoRotatingCamera: React.FC = () => {
     
     // Check if enough time has passed since last interaction to resume auto-rotation
     const timeSinceInteraction = currentTime - lastInteractionTime.current;
-    const shouldAutoRotate = !isUserInteracting.current && timeSinceInteraction > 2000; // Reduced to 2 seconds
+    const shouldAutoRotate = !isUserInteracting.current && timeSinceInteraction > 3000; // 3 seconds delay
     
     if (shouldAutoRotate && autoRotationEnabled.current) {
-      // Smooth wide sine wave orbit pattern around the scene
-      const baseRadius = 28; // Increased base distance from center (was 20)
-      const radiusVariation = 6; // How much the radius varies
-      const baseHeight = 15; // Increased base height (was 12)
-      const heightVariation = 5; // How much height varies
-      
-      // Create wide sine wave pattern - very slow and smooth
-      const horizontalSpeed = 0.0005; // Even slower horizontal movement
-      const verticalSpeed = 0.0008; // Slower vertical for nice wave pattern
-      
-      // Calculate position using sine waves for smooth orbital motion
-      const horizontalAngle = time * horizontalSpeed;
-      const verticalWave = Math.sin(time * verticalSpeed) * heightVariation;
-      const radiusWave = Math.cos(time * verticalSpeed * 0.7) * radiusVariation;
-      
-      // Final position calculation
-      const currentRadius = baseRadius + radiusWave;
-      const currentHeight = Math.max(10, baseHeight + verticalWave); // Never go below height 10
-      
-      // Calculate X and Z using horizontal angle for circular motion
-      const newX = Math.cos(horizontalAngle) * currentRadius;
-      const newZ = Math.sin(horizontalAngle) * currentRadius;
-      
-      camera.position.set(newX, currentHeight, newZ);
-      
-      // Always look at the scene center at photos height
-      camera.lookAt(0, 5, 0);
-      
-      // Update controls target to match
-      if (controlsRef.current) {
-        controlsRef.current.target.set(0, 5, 0);
-        controlsRef.current.update();
+      // Save current state when starting auto-rotation
+      if (timeSinceInteraction === 3000) {
+        savedCameraState.current.position.copy(camera.position);
+        savedCameraState.current.target.copy(controlsRef.current.target);
       }
+      
+      // Apply smooth rotation from current position
+      const radius = savedCameraState.current.position.distanceTo(savedCameraState.current.target);
+      const heightBase = savedCameraState.current.position.y;
+      const heightVariation = 1;
+      
+      // Get current spherical coordinates relative to target
+      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const spherical = new THREE.Spherical().setFromVector3(offset);
+      
+      // Smooth rotation
+      spherical.theta += 0.002; // Slow rotation speed
+      spherical.phi += Math.sin(time * 2) * 0.0005; // Subtle vertical variation
+      spherical.radius = Math.max(12, Math.min(18, spherical.radius)); // Keep distance in bounds
+      
+      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
+      camera.position.copy(newPosition);
     } else {
       // Update saved state when user is interacting
       savedCameraState.current.position.copy(camera.position);
@@ -532,10 +515,10 @@ const AutoRotatingCamera: React.FC = () => {
     const handleEnd = () => {
       isUserInteracting.current = false;
       lastInteractionTime.current = Date.now();
-      // Re-enable auto-rotation immediately when user stops interacting
+      // Don't re-enable auto-rotation immediately - let the useFrame handle the delay
       setTimeout(() => {
         autoRotationEnabled.current = true;
-      }, 500); // Reduced buffer time
+      }, 1000); // 1 second buffer
     };
 
     const handleChange = () => {
@@ -559,14 +542,15 @@ const AutoRotatingCamera: React.FC = () => {
     <OrbitControls
       ref={controlsRef}
       enablePan={true}
-      enableZoom={false}
+      enableZoom={true}
       enableRotate={true}
       rotateSpeed={0.5}
+      zoomSpeed={0.8}
       panSpeed={0.8}
-      minDistance={18} // Increased minimum distance
-      maxDistance={40} // Increased maximum distance
-      minPolarAngle={Math.PI / 4} // Prevent camera from going too low - no birds eye view
-      maxPolarAngle={Math.PI - Math.PI / 8} // Prevent camera from going too high
+      minDistance={8}
+      maxDistance={25}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
       enableDamping={true}
       dampingFactor={0.05}
       autoRotate={false} // We're handling rotation manually for better control
@@ -601,22 +585,22 @@ const Scene: React.FC = () => {
         const xOffset = (Math.random() - 0.5) * 0.8;
         const zOffset = (Math.random() - 0.5) * 0.8;
         
-        // ENHANCED height variance - but ensure all photos stay above floor
-        const baseHeight = 2.5; // Increased minimum height to keep photos well above floor
+        // ENHANCED height variance - much more dramatic waves and randomness
+        const baseHeight = 1.5;
         
         // Multiple wave layers for complex height patterns
-        const primaryWave = Math.sin(row * 0.4) * Math.cos(col * 0.4) * 2.0; // Slightly reduced
-        const secondaryWave = Math.sin(row * 0.8 + Math.PI/3) * Math.cos(col * 0.6) * 1.0;
-        const tertiaryWave = Math.sin(row * 1.2 + Math.PI/2) * Math.sin(col * 1.1) * 0.6;
+        const primaryWave = Math.sin(row * 0.4) * Math.cos(col * 0.4) * 2.5; // Larger amplitude
+        const secondaryWave = Math.sin(row * 0.8 + Math.PI/3) * Math.cos(col * 0.6) * 1.2;
+        const tertiaryWave = Math.sin(row * 1.2 + Math.PI/2) * Math.sin(col * 1.1) * 0.8;
         
-        // Individual random height for each photo - ensure positive
-        const randomHeight = Math.random() * 2.5; // Always positive, 0 to 2.5
+        // Individual random height for each photo (much more variance)
+        const randomHeight = (Math.random() - 0.5) * 3; // Increased from 0.8 to 3
         
-        // Distance-based height variation
+        // Distance-based height variation (photos further from center are higher/lower)
         const distanceFromCenter = Math.sqrt((x * x) + (z * z));
-        const distanceHeight = Math.sin(distanceFromCenter * 0.3) * 1.0;
+        const distanceHeight = Math.sin(distanceFromCenter * 0.3) * 1.5;
         
-        const y = baseHeight + primaryWave + secondaryWave + tertiaryWave + randomHeight + Math.abs(distanceHeight);
+        const y = baseHeight + primaryWave + secondaryWave + tertiaryWave + randomHeight + distanceHeight;
         
         // Random rotations for natural look
         const rotationX = (Math.random() - 0.5) * 0.4;
@@ -644,90 +628,24 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* ENHANCED LIGHTING SETUP - Comprehensive lighting for all areas including background */}
+      {/* ENHANCED LIGHTING SETUP - Complete coverage with no dark spots */}
       
-      {/* Very strong ambient light base - ensures all photos are well lit everywhere */}
-      <ambientLight intensity={1.2} color="#ffffff" />
+      {/* Strong ambient light base - ensures minimum brightness everywhere */}
+      <ambientLight intensity={0.4} color="#ffffff" />
       
-      {/* Key Light - Main directional light from above - much brighter */}
+      {/* Key Light - Main directional light from above */}
       <directionalLight
-        position={[5, 15, 5]}
-        intensity={1.5}
+        position={[5, 10, 5]}
+        intensity={0.5}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Fill Light - Opposite side to eliminate shadows - brighter */}
+      {/* Fill Light - Opposite side to eliminate shadows */}
       <directionalLight
-        position={[-5, 12, -5]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Multiple side lights for complete 360-degree coverage */}
-      <directionalLight
-        position={[15, 10, 0]}
-        intensity={0.8}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-15, 10, 0]}
-        intensity={0.8}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[0, 10, 15]}
-        intensity={0.8}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[0, 10, -15]}
-        intensity={0.8}
-        color="#f8f9fa"
-        castShadow={false}
-      />
-      
-      {/* Corner lights for diagonal coverage */}
-      <directionalLight
-        position={[10, 8, 10]}
-        intensity={0.6}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-10, 8, -10]}
-        intensity={0.6}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[10, 8, -10]}
-        intensity={0.6}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      <directionalLight
-        position={[-10, 8, 10]}
-        intensity={0.6}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Top-down light for photos */}
-      <directionalLight
-        position={[0, 25, 0]}
-        intensity={1.0}
-        color="#ffffff"
+        position={[-5, 8, -5]}
+        intensity={0.3}
+        color="#a855f7"
         castShadow={false}
       />
       
@@ -794,7 +712,7 @@ const HeroScene: React.FC = () => {
     <ErrorBoundary>
       <div className="absolute inset-0 w-full h-full">
         <Canvas
-          camera={{ position: [25, 15, 25], fov: 45 }}
+          camera={{ position: [15, 5, 15], fov: 45 }}
           shadows={false}
           gl={{ 
             antialias: true, 
@@ -805,7 +723,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.2; // Increased brightness exposure further
+            gl.toneMappingExposure = 1.2; // Reduced to prevent overexposure
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
