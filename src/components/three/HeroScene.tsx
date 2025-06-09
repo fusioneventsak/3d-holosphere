@@ -315,11 +315,11 @@ const ReflectiveFloor: React.FC = () => {
   );
 };
 
-// Floor component with reflective material - positioned slightly above solid floor
+// Floor component with reflective material - same size as grid
 const Floor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -3, 0]}>
-      <planeGeometry args={[30, 30]} />
+      <planeGeometry args={[35, 35]} />
       <meshStandardMaterial 
         color="#1a1a2e"
         metalness={0.8}
@@ -332,10 +332,10 @@ const Floor: React.FC = () => {
   );
 };
 
-// Grid component - neon green
+// Grid component - neon green, same size as floor
 const Grid: React.FC = () => {
   const gridHelper = useMemo(() => {
-    const helper = new THREE.GridHelper(30, 30, '#00ff41', '#00cc33');
+    const helper = new THREE.GridHelper(35, 35, '#00ff41', '#00cc33');
     helper.position.y = -2.99;
     
     const material = helper.material as THREE.LineBasicMaterial;
@@ -348,16 +348,16 @@ const Grid: React.FC = () => {
   return <primitive object={gridHelper} />;
 };
 
-// Background gradient component - more noticeable purple starting halfway
+// Background gradient component - blacker top, royal purple
 const GradientBackground: React.FC = () => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   const gradientMaterial = useMemo(() => {
     return new THREE.ShaderMaterial({
       uniforms: {
-        colorTop: { value: new THREE.Color('#7c3aed') }, // Brighter purple
-        colorMid: { value: new THREE.Color('#3730a3') }, // Mid purple  
-        colorBottom: { value: new THREE.Color('#000000') }, // Black
+        colorTop: { value: new THREE.Color('#000000') }, // Pure black at top
+        colorMid: { value: new THREE.Color('#4c1d95') }, // Royal purple mid
+        colorBottom: { value: new THREE.Color('#000000') }, // Black at bottom
       },
       vertexShader: `
         varying vec2 vUv;
@@ -373,12 +373,17 @@ const GradientBackground: React.FC = () => {
         varying vec2 vUv;
         void main() {
           vec3 color;
-          if (vUv.y > 0.5) {
-            // Top half: interpolate from mid to top (purple gradient)
-            color = mix(colorMid, colorTop, (vUv.y - 0.5) * 2.0);
+          if (vUv.y > 0.6) {
+            // Top 40%: pure black
+            color = colorTop;
+          } else if (vUv.y > 0.3) {
+            // Middle 30%: blend from royal purple to black
+            float factor = (vUv.y - 0.3) / 0.3;
+            color = mix(colorMid, colorTop, factor);
           } else {
-            // Bottom half: interpolate from bottom to mid (black to purple)
-            color = mix(colorBottom, colorMid, vUv.y * 2.0);
+            // Bottom 30%: blend from black to royal purple
+            float factor = vUv.y / 0.3;
+            color = mix(colorBottom, colorMid, factor);
           }
           gl_FragColor = vec4(color, 1.0);
         }
