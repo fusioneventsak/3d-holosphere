@@ -308,9 +308,9 @@ const GradientBackground: React.FC = () => {
     return new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
-        colorA: { value: new THREE.Color('#1a0a2e') },
-        colorB: { value: new THREE.Color('#16213e') },
-        colorC: { value: new THREE.Color('#0f1419') },
+        colorA: { value: new THREE.Color('#2a1f3d') }, // Lighter background
+        colorB: { value: new THREE.Color('#1e2a4a') }, // Lighter background
+        colorC: { value: new THREE.Color('#1a1a2e') }, // Lighter background
       },
       vertexShader: `
         varying vec3 vPosition;
@@ -345,35 +345,36 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// Reflective floor component
+// Enhanced reflective floor component with better reflection properties
 const ReflectiveFloor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
       <planeGeometry args={[35, 35]} />
       <meshStandardMaterial
-        color="#1a1a2e"
-        metalness={0.1}
-        roughness={0.7}
+        color="#2a2a3e"
+        metalness={0.8}
+        roughness={0.1}
         transparent
-        opacity={0.3}
+        opacity={0.7}
+        envMapIntensity={2.0}
       />
     </mesh>
   );
 };
 
-// Floor grid for reference
+// Floor grid for reference - brighter
 const Floor: React.FC = () => {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[35, 35]} />
-      <meshLambertMaterial color="#0a0a0a" transparent opacity={0.1} />
+      <meshLambertMaterial color="#1a1a1a" transparent opacity={0.2} />
     </mesh>
   );
 };
 
-// Grid helper for visual reference
+// Grid helper for visual reference - brighter grid lines
 const Grid: React.FC = () => {
-  return <gridHelper args={[35, 35, '#333333', '#222222']} position={[0, 0, 0]} />;
+  return <gridHelper args={[35, 35, '#555555', '#444444']} position={[0, 0, 0]} />;
 };
 
 // Particle system for ambient atmosphere
@@ -644,88 +645,117 @@ const Scene: React.FC = () => {
       {/* Gradient Background Sphere */}
       <GradientBackground />
       
-      {/* ENHANCED LIGHTING SETUP - Comprehensive lighting for all areas including background */}
+      {/* MAXIMUM LIGHTING SETUP - Ensure no dark areas anywhere */}
       
-      {/* Very strong ambient light base - ensures all photos are well lit everywhere */}
-      <ambientLight intensity={1.2} color="#ffffff" />
+      {/* Very strong ambient light base - maximum brightness for all areas */}
+      <ambientLight intensity={1.8} color="#ffffff" />
       
-      {/* Key Light - Main directional light from above - much brighter */}
+      {/* Key Light - Main directional light from above - maximum brightness */}
       <directionalLight
         position={[5, 15, 5]}
+        intensity={2.0}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Fill Light - Opposite side to eliminate shadows - very bright */}
+      <directionalLight
+        position={[-5, 12, -5]}
         intensity={1.5}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Fill Light - Opposite side to eliminate shadows - brighter */}
-      <directionalLight
-        position={[-5, 12, -5]}
-        intensity={1.0}
-        color="#ffffff"
-        castShadow={false}
-      />
-      
-      {/* Multiple side lights for complete 360-degree coverage */}
+      {/* Multiple side lights for complete 360-degree coverage - all very bright */}
       <directionalLight
         position={[15, 10, 0]}
-        intensity={0.8}
+        intensity={1.2}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[-15, 10, 0]}
-        intensity={0.8}
+        intensity={1.2}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[0, 10, 15]}
-        intensity={0.8}
+        intensity={1.2}
         color="#f8f9fa"
         castShadow={false}
       />
       
       <directionalLight
         position={[0, 10, -15]}
-        intensity={0.8}
+        intensity={1.2}
         color="#f8f9fa"
         castShadow={false}
       />
       
-      {/* Corner lights for diagonal coverage */}
+      {/* Corner lights for diagonal coverage - bright */}
       <directionalLight
         position={[10, 8, 10]}
-        intensity={0.6}
+        intensity={1.0}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-10, 8, -10]}
-        intensity={0.6}
+        intensity={1.0}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[10, 8, -10]}
-        intensity={0.6}
+        intensity={1.0}
         color="#ffffff"
         castShadow={false}
       />
       
       <directionalLight
         position={[-10, 8, 10]}
-        intensity={0.6}
+        intensity={1.0}
         color="#ffffff"
         castShadow={false}
       />
       
-      {/* Top-down light for photos */}
+      {/* Top-down light for photos - very bright */}
       <directionalLight
         position={[0, 25, 0]}
+        intensity={1.5}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      {/* Additional background lighting - specifically for distant areas */}
+      <directionalLight
+        position={[20, 15, 20]}
+        intensity={1.0}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-20, 15, -20]}
+        intensity={1.0}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[20, 15, -20]}
+        intensity={1.0}
+        color="#ffffff"
+        castShadow={false}
+      />
+      
+      <directionalLight
+        position={[-20, 15, 20]}
         intensity={1.0}
         color="#ffffff"
         castShadow={false}
@@ -805,7 +835,7 @@ const HeroScene: React.FC = () => {
           onCreated={({ gl }) => {
             gl.shadowMap.enabled = false;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 2.2; // Increased brightness exposure further
+            gl.toneMappingExposure = 2.8; // Maximum brightness exposure
           }}
         >
           <Suspense fallback={<LoadingFallback />}>
