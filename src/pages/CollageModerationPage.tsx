@@ -1,4 +1,4 @@
-// src/pages/CollageModerationPage.tsx - COMPLETE WORKING VERSION
+// src/pages/CollageModerationPage.tsx - ENHANCED VERSION WITH BETTER DELETION
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2 } from 'lucide-react';
@@ -17,7 +17,8 @@ const CollageModerationPage: React.FC = () => {
     setupRealtimeSubscription, 
     cleanupRealtimeSubscription, 
     refreshPhotos,
-    isRealtimeConnected 
+    isRealtimeConnected,
+    removePhotoFromState
   } = useCollageStore();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -71,11 +72,24 @@ const CollageModerationPage: React.FC = () => {
     setDeletingPhotos(prev => new Set(prev).add(photoId));
     
     try {
+      console.log('🗑️ MODERATION: Starting photo deletion:', photoId);
+      
+      // Remove from UI immediately for better UX
+      removePhotoFromState(photoId);
+      
+      // Delete from server
       await deletePhoto(photoId);
+      
       console.log('🛡️ MODERATION: Photo deleted successfully:', photoId);
-      // Realtime subscription will handle the UI update automatically
+      
     } catch (error: any) {
       console.error('🛡️ MODERATION: Failed to delete photo:', error);
+      
+      // Re-fetch photos to restore UI state if deletion failed
+      if (currentCollage?.id) {
+        await refreshPhotos(currentCollage.id);
+      }
+      
       alert(`Failed to delete photo: ${error.message}`);
     } finally {
       setDeletingPhotos(prev => {
@@ -198,13 +212,31 @@ const CollageModerationPage: React.FC = () => {
               <span className="text-white ml-2">{currentCollage.id.slice(-8)}</span>
             </div>
             <div>
-              <button 
-                onClick={() => console.log('🛡️ MODERATION PHOTOS:', photos)}
-                className="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 rounded text-xs text-white"
-              >
-                Log Photos
-              </button>
+              <span className="text-yellow-200">Deleting:</span>
+              <span className="text-white ml-2">{deletingPhotos.size}</span>
             </div>
+          </div>
+          <div className="mt-2">
+            <button 
+              onClick={() => {
+                console.log('🛡️ MODERATION PHOTOS:', photos);
+                console.log('🛡️ DELETING PHOTOS:', Array.from(deletingPhotos));
+              }}
+              className="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 rounded text-xs text-white mr-2"
+            >
+              Log Photos
+            </button>
+            <button 
+              onClick={() => {
+                if (currentCollage?.id) {
+                  console.log('🔄 Force refreshing photos...');
+                  refreshPhotos(currentCollage.id);
+                }
+              }}
+              className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-xs text-white"
+            >
+              Force Refresh
+            </button>
           </div>
         </div>
 
@@ -219,51 +251,59 @@ const CollageModerationPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {photos.map((photo) => (
-              <div 
-                key={photo.id}
-                className="group relative aspect-square rounded-lg overflow-hidden border border-gray-700 bg-gray-800"
-              >
-                {/* Photo */}
-                <img 
-                  src={photo.url} 
-                  alt="Uploaded photo" 
-                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                  loading="lazy"
-                />
-                
-                {/* Overlay with delete button */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                  <div className="flex flex-col items-center space-y-2">
-                    <button
-                      onClick={() => handleDeletePhoto(photo.id)}
-                      disabled={deletingPhotos.has(photo.id)}
-                      className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-md transition-colors flex items-center space-x-2 text-sm"
-                    >
-                      {deletingPhotos.has(photo.id) ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Deleting...</span>
-                        </>
-                      ) : (
-                        <>
+            {photos.map((photo) => {
+              const isDeleting = deletingPhotos.has(photo.id);
+              
+              return (
+                <div 
+                  key={photo.id}
+                  className={`group relative aspect-square rounded-lg overflow-hidden border border-gray-700 bg-gray-800 transition-all duration-200 ${
+                    isDeleting ? 'opacity-50 scale-95' : ''
+                  }`}
+                >
+                  {/* Photo */}
+                  <img 
+                    src={photo.url} 
+                    alt="Uploaded photo" 
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  
+                  {/* Deleting overlay */}
+                  {isDeleting && (
+                    <div className="absolute inset-0 bg-red-900/50 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                        <p className="text-xs">Deleting...</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Hover overlay with delete button */}
+                  {!isDeleting && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                      <div className="flex flex-col items-center space-y-2">
+                        <button
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors flex items-center space-x-2 text-sm"
+                        >
                           <Trash2 className="w-4 h-4" />
                           <span>Delete</span>
-                        </>
-                      )}
-                    </button>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Photo info */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="text-xs text-white space-y-1">
+                      <p>ID: {photo.id.slice(-8)}</p>
+                      <p>Uploaded: {new Date(photo.created_at).toLocaleString()}</p>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Photo info */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <div className="text-xs text-white space-y-1">
-                    <p>ID: {photo.id.slice(-8)}</p>
-                    <p>Uploaded: {new Date(photo.created_at).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -273,7 +313,8 @@ const CollageModerationPage: React.FC = () => {
           <ul className="text-gray-300 space-y-1 text-sm">
             <li>• Photos appear here in real-time as they are uploaded to the collage</li>
             <li>• Hover over any photo to see the delete option</li>
-            <li>• Deleted photos are removed from both the moderation panel and the live collage immediately</li>
+            <li>• Photos are removed immediately from the UI when deleted</li>
+            <li>• If deletion fails, the photo will reappear after a refresh</li>
             <li>• Use the refresh button if you need to manually sync the photo list</li>
             <li>• The collage display updates automatically when photos are added or removed</li>
             <li>• Real-time status indicator shows connection health</li>
