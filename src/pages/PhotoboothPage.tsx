@@ -1,4 +1,299 @@
-import React, { useEffect, useRef, useState } from 'react';
+const startCamera = async (deviceId?: string) => {
+    console.log('=== Starting camera initialization ===');
+    console.log('Device ID requested:', deviceId);
+    
+    // Force cleanup of any existing streams
+    if (stream) {
+      console.log('Cleaning up existing stream');
+      stream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+      }
+      setStream(null);
+    }
+
+    setLoading(true);
+    setError(null);
+    setCameraStarted(false);
+
+    try {
+      console.log('Requesting camera permissions...');
+      
+      // Detect platform
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      const isMobile = isIOS || isAndroid;
+      
+      console.log('Platform detected:', { isIOS, isAndroid, isMobile });
+      
+      let constraints;
+      
+      if (isIOS) {
+        // iOS-specific constraints
+        console.log('Using iOS-specific constraints');
+        if (deviceId) {
+          constraints = {
+            video: {
+              deviceId: { exact: deviceId },
+              facingMode: "user",
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            },
+            audio: false
+          };
+        } else {
+          // For iOS, always start with front camera
+          constraints = {
+            video: {
+              facingMode: "user",
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            },
+            audio: false
+          };
+        }
+      } else if (isAndroid) {
+        // Android-specific constraints
+        console.log('Using Android-specific constraints');
+        if (deviceId) {
+          constraints = {
+            video: {
+              deviceId: { exact: deviceId },
+              facingMode: "user"
+            },
+            audio: false
+          };
+        } else {
+          constraints = {
+            video: {
+              facingMode: "user"
+            },
+            audio: false
+          };
+        }
+      } else {
+        // Desktop constraints
+        console.log('Using desktop constraints');
+        if (deviceId) {
+          constraints = {
+            video: {
+              deviceId: { exact: deviceId }
+            },
+            audio: false
+          };
+        } else {
+          constraints = {
+            video: true,
+            audio: false
+          };
+        }
+      }
+      
+      console.log('Using constraints:', constraints);
+      
+      // Get user media
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('Got media stream:', mediaStream);
+      console.log('Stream active:', mediaStream.active);
+      console.log('Video tracks:', mediaStream.getVideoTracks().length);
+      
+      // Get devices after we have permission
+      try {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = allDevices
+          .filter(device => device.kind === 'videoinput')
+          .map(device => ({
+            deviceId: device.deviceId,
+            label: device.label || `Camera ${device.deviceId}`
+          }));
+        
+        console.log('Available video devices:', videoDevices);
+        setDevices(videoDevices);
+        
+        // Set selected device if we don't have one
+        if (!selectedDevice && videoDevices.length > 0) {
+          if (isIOS || isAndroid) {
+            // Try to find front camera
+            const frontCamera = videoDevices.find(device => 
+              device.label.toLowerCase().includes('front') ||
+              device.label.toLowerCase().includes('user') ||
+              device.label.toLowerCase().includes('selfie') ||
+              device.label.toLowerCase().includes('facetime')
+            );
+            
+            if (frontCamera) {
+              console.log('Auto-selecting front camera:', frontCamera.label);
+              setSelectedDevice(frontCamera.deviceId);
+            } else {
+              console.log('No front camera found, using first device');
+              setSelectedDevice(videoDevices[0].deviceId);
+            }
+          } else {
+            console.log('Desktop: using first available device');
+            setSelectedDevice(videoDevices[0].deviceId);
+          }
+        }
+      } catch (deviceError) {
+        console.warn('Could not enumerate devices:', deviceError);
+      }
+      
+      // Set up video element
+      if (videoRef.current && mediaStream) {
+        console.log('Setting up video element...');
+        
+        const video = videoRef.current;
+        
+        // iOS-specific video setup
+        if (isIOS) {
+          video.setAttribute('webkit-playsinline', 'true');
+          video.setAttribute('playsinline', 'true');
+          video.muted = true;
+          video.autoplay = true;
+          video.controls = false;
+          video.style.objectFit = 'cover';
+        } else {
+          video.muted = true;
+          video.autoplay = true;
+          video.playsInline = true;
+          video.controls = false;
+        }
+        
+        video.srcObject = mediaStream;
+        
+        console.log('Video element configured');
+        console.log('Video readyState:', video.readyState);
+        
+        // Wait for video to load
+        await new Promise<void>((resolve, reject) => {
+          const handleLoadedMetadata = () => {
+            console.log('Video metadata loaded');
+            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+            console.log('Video readyState:', video.readyState);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('error', handleError);
+            resolve();
+          };
+          
+          const handleError = (e: any) => {
+            console.error('Video error:', e);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('error', handleError);
+            reject(new Error('Video failed to load'));
+          };
+          
+          video.addEventListener('loadedmetadata', handleLoadedMetadata);
+          video.addEventListener('error', handleError);
+          
+          // Check if already loaded
+          if (video.readyState >= 1) {
+            console.log('Video already has metadata');
+            handleLoadedMetadata();
+          }
+          
+          // Timeout fallback
+          setTimeout(() => {
+            if (video.readyState >= 1) {
+              console.log('Video ready via timeout');
+              handleLoadedMetadata();
+            } else {
+              console.warn('Video not ready after timeout, readyState:', video.readyState);
+              reject(new Error('Video load timeout'));
+            }
+          }, 5000);
+        });
+        
+        // Try to play
+        try {
+          console.log('Attempting to play video...');
+          const playPromise = video.play();
+          
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('Video playing successfully');
+          } else {
+            console.log('Video play() returned undefined');
+          }
+        } catch (playError) {
+          console.warn('Video play failed:', playError);
+          
+          // For iOS, sometimes we need user interaction
+          if (isIOS) {
+            console.log('iOS play failed - may need user interaction');
+            // Don't throw error, just log it
+          } else {
+            throw playError;
+          }
+        }
+        
+        setStream(mediaStream);
+        setError(null);
+        setCameraStarted(true);
+        console.log('Camera initialization complete');
+        
+      } else {
+        throw new Error('Video element or media stream not available');
+      }
+
+    } catch (err: any) {
+      console.error('Camera initialization failed:', err);
+      let errorMessage = 'Failed to access camera';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Camera access denied. Please allow camera access and refresh the page.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found. Please check your camera and try again.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
+      } else if (err.name === 'OverconstrainedError') {
+        errorMessage = 'Camera settings not supported. Trying basic settings...';
+        
+        // Fallback for overconstrained error
+        try {
+          console.log('Trying fallback constraints...');
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+          });
+          
+          if (videoRef.current) {
+            const video = videoRef.current;
+            video.srcObject = fallbackStream;
+            video.muted = true;
+            video.autoplay = true;
+            video.playsInline = true;
+            
+            try {
+              await video.play();
+              console.log('Fallback camera working');
+              setStream(fallbackStream);
+              setError(null);
+              setCameraStarted(true);
+              return;
+            } catch (fallbackPlayError) {
+              console.warn('Fallback play failed:', fallbackPlayError);
+            }
+          }
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
+          errorMessage = 'Camera not compatible with this device.';
+        }
+      } else {
+        errorMessage = `Camera error: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      setCameraStarted(false);
+    } finally {
+      setLoading(false);
+    }
+  }; {
+          await video.play();
+          console.log('Video playing successfully');
+        } catchimport React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Download, Send, X, RefreshCw } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
@@ -857,10 +1152,12 @@ const PhotoboothPage: React.FC = () => {
                   playsInline
                   muted
                   controls={false}
+                  webkit-playsinline="true"
                   className="w-full h-full object-cover"
                   onCanPlay={() => console.log('Video can play')}
                   onPlay={() => console.log('Video started playing')}
                   onError={(e) => console.error('Video error:', e)}
+                  onLoadedMetadata={() => console.log('Video metadata loaded')}
                 />
               )}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
