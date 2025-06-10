@@ -36,10 +36,9 @@ const CollageViewerPage: React.FC = () => {
     fetchCollageByCode, 
     loading, 
     error, 
-    setupRealtimeSubscription, 
-    cleanupRealtimeSubscription,
     isRealtimeConnected,
-    refreshPhotos
+    refreshPhotos,
+    cleanupRealtimeSubscription
   } = useCollageStore();
   
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -82,24 +81,18 @@ const CollageViewerPage: React.FC = () => {
     }
   };
 
-  // CRITICAL: Use global subscription for all collage viewers
+  // Simple subscription setup
   useEffect(() => {
     if (code) {
-      console.log('🔥 VIEWER: Fetching collage and subscribing globally:', code);
-      fetchCollageByCode(code).then((collage) => {
-        if (collage?.id) {
-          const { subscribeToCollage } = useCollageStore.getState();
-          subscribeToCollage(collage.id);
-        }
-      });
+      console.log('🔥 VIEWER: Fetching collage:', code);
+      fetchCollageByCode(code);
     }
     
     return () => {
-      console.log('🔥 VIEWER: Unsubscribing from global updates');
-      const { unsubscribeFromCollage } = useCollageStore.getState();
-      unsubscribeFromCollage();
+      console.log('🔥 VIEWER: Cleaning up subscription');
+      cleanupRealtimeSubscription();
     };
-  }, [code, fetchCollageByCode]);
+  }, [code, fetchCollageByCode, cleanupRealtimeSubscription]);
 
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {
@@ -152,34 +145,18 @@ const CollageViewerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Enhanced Debug Panel */}
+      {/* Simple Debug Panel */}
       <div className="fixed top-4 right-4 z-50 bg-red-900/80 text-white p-3 rounded-lg text-xs max-w-sm">
-        <h3 className="font-bold mb-1">GLOBAL SUBSCRIPTION DEBUG:</h3>
+        <h3 className="font-bold mb-1">SIMPLE DEBUG:</h3>
         <p>Photos: {photos.length}</p>
         <p>Realtime: {isRealtimeConnected ? '✅ Connected' : '⚠️ Polling'}</p>
-        <p>Subscribers: {useCollageStore.getState().subscriberCount}</p>
-        <p>Global Collage ID: {useCollageStore.getState().currentCollageId?.slice(-8) || 'None'}</p>
         <p>Last photo: {photos[0] ? new Date(photos[0].created_at).toLocaleTimeString() : 'None'}</p>
-        <div className="flex gap-1 mt-1">
-          <button 
-            onClick={handleManualRefresh}
-            className="px-2 py-1 bg-blue-600 rounded text-xs"
-          >
-            Refresh
-          </button>
-          <button 
-            onClick={() => {
-              console.log('🌍 GLOBAL STORE STATE:');
-              console.log('Photos:', useCollageStore.getState().photos);
-              console.log('Subscribers:', useCollageStore.getState().subscriberCount);
-              console.log('Realtime:', useCollageStore.getState().isRealtimeConnected);
-              console.log('Channel:', useCollageStore.getState().realtimeChannel);
-            }}
-            className="px-2 py-1 bg-green-600 rounded text-xs"
-          >
-            Log State
-          </button>
-        </div>
+        <button 
+          onClick={handleManualRefresh}
+          className="mt-1 px-2 py-1 bg-blue-600 rounded text-xs"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* Main Scene - CRITICAL: Pass photos directly with key for re-rendering */}
