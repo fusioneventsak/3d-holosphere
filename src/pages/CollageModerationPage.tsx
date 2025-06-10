@@ -1,5 +1,5 @@
-// src/pages/CollageModerationPage.tsx - FIXED FOR UPDATED STORE
-import React, { useEffect } from 'react';
+// src/pages/CollageModerationPage.tsx - FIXED VERSION
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2 } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
@@ -20,9 +20,9 @@ const CollageModerationPage: React.FC = () => {
     isRealtimeConnected 
   } = useCollageStore();
   
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [fetchError, setFetchError] = React.useState<string | null>(null);
-  const [deletingPhotos, setDeletingPhotos] = React.useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
@@ -210,33 +210,35 @@ const CollageModerationPage: React.FC = () => {
 
         {/* Photos Grid */}
         {photos.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-gray-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">No photos to moderate</h3>
+          <div className="text-center py-12 bg-gray-900/50 backdrop-blur-sm rounded-lg border border-gray-700">
+            <Shield className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">No Photos to Moderate</h3>
             <p className="text-gray-400">
-              Photos uploaded to this collage will appear here for moderation.
+              Photos will appear here when users upload them to the collage.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {photos.map((photo) => (
-              <div key={photo.id} className="group relative">
-                <div className="aspect-square bg-gray-800 rounded-lg overflow-hidden">
-                  <img
-                    src={photo.url}
-                    alt="Uploaded photo"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  
-                  {/* Overlay with delete button */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <div 
+                key={photo.id}
+                className="group relative aspect-square rounded-lg overflow-hidden border border-gray-700 bg-gray-800"
+              >
+                {/* Photo */}
+                <img 
+                  src={photo.url} 
+                  alt="Uploaded photo" 
+                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  loading="lazy"
+                />
+                
+                {/* Overlay with delete button */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                  <div className="flex flex-col items-center space-y-2">
                     <button
                       onClick={() => handleDeletePhoto(photo.id)}
                       disabled={deletingPhotos.has(photo.id)}
-                      className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-md transition-colors flex items-center space-x-1 text-sm"
+                      className="px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white rounded-md transition-colors flex items-center space-x-2 text-sm"
                     >
                       {deletingPhotos.has(photo.id) ? (
                         <>
@@ -254,9 +256,11 @@ const CollageModerationPage: React.FC = () => {
                 </div>
                 
                 {/* Photo info */}
-                <div className="mt-2 text-xs text-gray-400">
-                  <p>ID: {photo.id.slice(-8)}</p>
-                  <p>Uploaded: {new Date(photo.created_at).toLocaleString()}</p>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="text-xs text-white space-y-1">
+                    <p>ID: {photo.id.slice(-8)}</p>
+                    <p>Uploaded: {new Date(photo.created_at).toLocaleString()}</p>
+                  </div>
                 </div>
               </div>
             ))}
