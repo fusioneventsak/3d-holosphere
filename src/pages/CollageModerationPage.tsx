@@ -1,13 +1,17 @@
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw } from 'lucide-react';
-import { useCollageStore } from '../store/collageStore';
+import { useCollageStore, Photo } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
+import { supabase } from '../lib/supabase';
 
 const CollageModerationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentCollage, photos, fetchCollageById, loading, error, subscribeToPhotos } = useCollageStore();
+  const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
+  const [localPhotos, setLocalPhotos] = React.useState<Photo[]>([]);
+  const [realtimeChannel, setRealtimeChannel] = React.useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   useEffect(() => {
     if (id) {
@@ -15,19 +19,81 @@ const CollageModerationPage: React.FC = () => {
     }
   }, [id, fetchCollageById]);
 
-  // Set up real-time subscription for photos
+  // Setup realtime subscription for photos
   useEffect(() => {
-    if (currentCollage?.id) {
-      const unsubscribe = subscribeToPhotos(currentCollage.id);
-      return () => {
-        unsubscribe();
-      };
+    if (!currentCollage?.id) return;
+    
+    console.log('🔄 Setting up realtime subscription for moderation:', currentCollage.id);
+    
+    // Initial fetch to get photos
+    const fetchPhotos = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('photos')
+          .select('*')
+          .eq('collage_id', currentCollage.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setLocalPhotos(data as Photo[]);
+      } catch (err) {
+        console.error('Error fetching photos:', err);
+      }
+    };
+    
+    fetchPhotos();
+    
+    // Set up realtime subscription
+    const channel = supabase
+      .channel(`moderation-photos-${currentCollage.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${currentCollage.id}`
+      }, (payload) => {
+        console.log('🔔 New photo inserted:', payload.new);
+        const newPhoto = payload.new as Photo;
+        setLocalPhotos(prev => [newPhoto, ...prev]);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${currentCollage.id}`
+      }, (payload) => {
+        console.log('🔔 Photo deleted:', payload.old);
+        setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
+      })
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+    
+    setRealtimeChannel(channel);
+    
+    // Cleanup subscription
+    return () => {
+      console.log('🧹 Cleaning up realtime subscription');
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     }
-  }, [currentCollage?.id, subscribeToPhotos]);
+  }, [currentCollage?.id]);
+
+  // Initialize local photos from store when they first load
+  useEffect(() => {
+    if (photos.length > 0 && localPhotos.length === 0) {
+      setLocalPhotos(photos);
+    }
+  }, [photos, localPhotos.length]);
 
   const handleRefresh = () => {
     if (id) {
-      fetchCollageById(id);
+      setIsRefreshing(true);
+      fetchCollageById(id)
+        .finally(() => {
+          setTimeout(() => setIsRefreshing(false), 500);
+        });
     }
   };
 
@@ -90,9 +156,9 @@ const CollageModerationPage: React.FC = () => {
               <button
                 onClick={handleRefresh}
                 className="inline-flex items-center px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                disabled={loading}
+                disabled={loading || isRefreshing}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
               <div className="flex items-center text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full">
@@ -104,7 +170,7 @@ const CollageModerationPage: React.FC = () => {
         </div>
 
         <PhotoModerationModal
-          photos={photos}
+          photos={localPhotos}
           onClose={() => {
             // Since this is a dedicated page, closing should return to the editor
             window.location.href = `/dashboard/collage/${currentCollage.id}`;

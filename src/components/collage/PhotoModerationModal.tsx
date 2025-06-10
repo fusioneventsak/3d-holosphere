@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useCollageStore } from '../../store/collageStore';
+import { useCollageStore, Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
-
-type Photo = {
-  id: string;
-  url: string;
-  collage_id?: string;
-};
 
 type PhotoModerationModalProps = {
   photos: Photo[];
@@ -19,7 +13,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
+  const { deletePhoto } = useCollageStore();
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
@@ -43,18 +37,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   
   const handleRefresh = async () => {
     if (!collageId) return;
-    
     setRefreshing(true);
     setError(null);
-    
-    try {
-      await fetchPhotosByCollageId(collageId);
-    } catch (error: any) {
-      console.error('Failed to refresh photos:', error);
-      setError(`Failed to refresh photos: ${error.message}`);
-    } finally {
+    // Just show the refresh animation for a moment
+    // The realtime subscription will handle updates
+    setTimeout(() => {
       setRefreshing(false);
-    }
+    }, 1000);
   };
 
   return (
