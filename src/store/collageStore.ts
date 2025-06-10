@@ -628,39 +628,40 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // CRITICAL: Enhanced deletePhoto with multiple safety mechanisms
+  // CRITICAL: Enhanced deletePhoto with proper error handling
   deletePhoto: async (photoId: string) => {
     try {
       console.log('🗑️ STARTING CRITICAL DELETION for photo:', photoId);
       
-      // STEP 1: Remove from UI immediately for all components
-      console.log('🗑️ STEP 1: Immediate UI removal');
-      get().removePhotoFromState(photoId);
-      
-      // STEP 2: Get photo data for storage cleanup
-      console.log('🗑️ STEP 2: Getting photo data for cleanup');
+      // STEP 1: Get photo data for storage cleanup BEFORE deletion
+      console.log('🗑️ STEP 1: Getting photo data for cleanup');
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
         .select('url')
         .eq('id', photoId)
         .single();
 
+      // Don't throw on fetch error - photo might already be deleted
       if (fetchError) {
-        console.error('❌ Failed to fetch photo for deletion:', fetchError);
-        // Continue with deletion even if fetch fails
+        console.warn('⚠️ Photo not found in DB (might already be deleted):', fetchError);
       }
 
-      // STEP 3: Delete from database (this triggers realtime)
-      console.log('🗑️ STEP 3: Deleting from database');
+      // STEP 2: Delete from database first (this triggers realtime)
+      console.log('🗑️ STEP 2: Deleting from database');
       const { error: deleteError } = await supabase
         .from('photos')
         .delete()
         .eq('id', photoId);
 
-      if (deleteError) {
+      // Only throw if it's not a "no rows" error (photo already deleted)
+      if (deleteError && !deleteError.message.includes('0 rows')) {
         console.error('❌ CRITICAL: Database deletion failed:', deleteError);
         throw deleteError;
       }
+
+      // STEP 3: Remove from UI immediately for all components
+      console.log('🗑️ STEP 3: Immediate UI removal');
+      get().removePhotoFromState(photoId);
 
       // STEP 4: Cleanup storage (non-critical)
       if (photo?.url) {
@@ -687,7 +688,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
           console.log('🔄 POST-DELETE: Force refreshing to ensure consistency');
           get().refreshPhotos(currentCollage.id);
         }
-      }, 2000);
+      }, 1000);
 
       console.log('🗑️ ✅ DELETION COMPLETED for photo:', photoId);
       set({ error: null });
