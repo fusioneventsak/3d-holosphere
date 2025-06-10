@@ -192,28 +192,99 @@ const PhotoboothPage: React.FC = () => {
       const context = canvas.getContext('2d');
 
       if (context) {
-        // Set canvas size to match video aspect ratio (9:16)
+        // Set canvas size to match video
         const width = video.videoWidth;
-        const height = (width * 16) / 9;
+        const height = video.videoHeight;
         canvas.width = width;
         canvas.height = height;
 
         // Draw video frame
         context.drawImage(video, 0, 0, width, height);
 
-        // Add text if present
+        // Add text if present - clean style in lower third, no container
         if (text) {
-          context.font = 'bold 48px Arial';
+          // Calculate responsive font size - bigger and bolder
+          const baseFontSize = Math.min(width, height) * 0.06; // 6% of smallest dimension
+          const fontSize = Math.max(baseFontSize, 48); // Minimum 48px for readability
+          
+          // Set up text styling - clean white text with black outline
+          context.font = `bold ${fontSize}px Arial, sans-serif`;
           context.fillStyle = 'white';
           context.strokeStyle = 'black';
-          context.lineWidth = 2;
+          context.lineWidth = Math.max(3, fontSize * 0.06); // Thicker outline for better visibility
           context.textAlign = 'center';
-          context.strokeText(text, width / 2, height - 50);
-          context.fillText(text, width / 2, height - 50);
+          context.textBaseline = 'middle';
+          
+          // Add subtle shadow for extra depth
+          context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          context.shadowBlur = fontSize * 0.1;
+          context.shadowOffsetX = 2;
+          context.shadowOffsetY = 2;
+          
+          // Calculate maximum text width (90% of image width for padding)
+          const maxTextWidth = width * 0.9;
+          
+          // Function to measure text width
+          const measureText = (text: string) => {
+            return context.measureText(text).width;
+          };
+          
+          // Split text into words for intelligent wrapping
+          const words = text.split(' ');
+          let lines: string[] = [];
+          let currentLine = '';
+          
+          // Wrap text to fit in image width, max 2 lines
+          for (const word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            if (measureText(testLine) <= maxTextWidth || currentLine === '') {
+              currentLine = testLine;
+            } else {
+              if (currentLine) lines.push(currentLine);
+              currentLine = word;
+              if (lines.length >= 2) break; // Limit to 2 lines
+            }
+          }
+          if (currentLine) lines.push(currentLine);
+          
+          // If we have more than 2 lines, truncate the second line with ellipsis
+          if (lines.length > 2) {
+            lines = lines.slice(0, 2);
+            let secondLine = lines[1];
+            while (measureText(secondLine + '...') > maxTextWidth && secondLine.length > 0) {
+              secondLine = secondLine.slice(0, -1);
+            }
+            lines[1] = secondLine + '...';
+          }
+          
+          // Position text in lower third of image
+          const lineHeight = fontSize * 1.3; // Slightly more spacing between lines
+          const totalTextHeight = lines.length * lineHeight;
+          const lowerThirdStart = height * 0.67; // Lower third starts at 67% down
+          const lowerThirdHeight = height * 0.33; // Lower third is 33% of image height
+          
+          // Center text vertically in the lower third
+          const startY = lowerThirdStart + (lowerThirdHeight - totalTextHeight) / 2 + lineHeight / 2;
+          
+          // Draw each line
+          lines.forEach((line, index) => {
+            const textY = startY + (index * lineHeight);
+            const textX = width / 2; // Center horizontally
+            
+            // Draw text with stroke first, then fill
+            context.strokeText(line, textX, textY);
+            context.fillText(line, textX, textY);
+          });
+          
+          // Reset shadow
+          context.shadowColor = 'transparent';
+          context.shadowBlur = 0;
+          context.shadowOffsetX = 0;
+          context.shadowOffsetY = 0;
         }
 
-        // Convert to data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        // Convert to data URL with high quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         setPhoto(dataUrl);
       }
     }
@@ -327,8 +398,9 @@ const PhotoboothPage: React.FC = () => {
                   type="text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="Add text to your photo..."
+                  placeholder="Add text to your photo (2 lines max)..."
                   className="w-full mb-4 px-4 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400"
+                  maxLength={100}
                 />
                 <div className="flex space-x-2">
                   {devices.length > 0 && (
@@ -342,7 +414,7 @@ const PhotoboothPage: React.FC = () => {
                   )}
                   <button
                     onClick={takePhoto}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors font-semibold"
                   >
                     <Camera className="w-5 h-5 mr-2" />
                     Take Photo
@@ -354,7 +426,7 @@ const PhotoboothPage: React.FC = () => {
             <>
               <img
                 src={photo}
-                alt="Preview"
+                alt="Photo preview with text"
                 className="w-full h-full object-cover"
               />
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
@@ -369,20 +441,21 @@ const PhotoboothPage: React.FC = () => {
                   <button
                     onClick={downloadPhoto}
                     className="flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    title="Download photo"
                   >
                     <Download className="w-5 h-5" />
                   </button>
                   <button
                     onClick={uploadToCollage}
                     disabled={uploading}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                   >
                     {uploading ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
                     ) : (
                       <>
                         <Send className="w-5 h-5 mr-2" />
-                        Upload
+                        Upload to Collage
                       </>
                     )}
                   </button>
@@ -393,6 +466,14 @@ const PhotoboothPage: React.FC = () => {
         </div>
 
         <canvas ref={canvasRef} className="hidden" />
+
+        {/* Instructions */}
+        <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
+          <p className="text-gray-300 text-sm">
+            <strong>Tips:</strong> Add text to your photo using the input field above. 
+            Text will appear in the lower third of your photo with a clean, bold style. Long text will wrap to 2 lines automatically (100 characters max).
+          </p>
+        </div>
       </div>
     </Layout>
   );
