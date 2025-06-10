@@ -418,7 +418,7 @@ const PhotoMesh: React.FC<{
       });
       
       // Apply brightness by modifying the material color - only for photos with textures
-      brightnessMaterial.color.setScalar(brightness);
+      brightnessMaterial.color.setScalar(brightness || 1.0);
       
       return brightnessMaterial;
     } else {
@@ -429,7 +429,7 @@ const PhotoMesh: React.FC<{
       const ctx = canvas.getContext('2d')!;
       
       // Fill with background color
-      ctx.fillStyle = emptySlotColor;
+      ctx.fillStyle = emptySlotColor || '#1A1A1A';
       ctx.fillRect(0, 0, 512, 512);
       
       // Add pattern
@@ -467,7 +467,7 @@ const PhotoMesh: React.FC<{
       receiveShadow
     >
       {/* Add a very slight bevel to the plane for better light response */}
-      <planeGeometry args={[size * (9/16), size]} />
+      <planeGeometry args={[(size || 4.0) * (9/16), size || 4.0]} />
     </mesh>
   );
 };
@@ -795,11 +795,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           <PhotoMesh
             key={`${photo.id}-${photo.slotIndex}-${photos.length}-v3`}
             photo={photo}
-            size={settings.photoSize}
-            emptySlotColor={settings.emptySlotColor}
-            pattern={settings.animationPattern}
-            shouldFaceCamera={settings.photoRotation}
-            brightness={settings.photoBrightness}
+            size={settings.photoSize || 4.0}
+            emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
+            pattern={settings.animationPattern || 'grid'}
+            shouldFaceCamera={settings.photoRotation || false}
+            brightness={settings.photoBrightness || 1.0}
           />
         ))}
       </Canvas>
