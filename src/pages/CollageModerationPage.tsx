@@ -14,11 +14,8 @@ const CollageModerationPage: React.FC = () => {
     deletePhoto, 
     loading, 
     error, 
-    setupRealtimeSubscription, 
-    cleanupRealtimeSubscription, 
     refreshPhotos,
-    isRealtimeConnected,
-    removePhotoFromState
+    isRealtimeConnected 
   } = useCollageStore();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,25 +74,25 @@ const CollageModerationPage: React.FC = () => {
     try {
       console.log('🗑️ MODERATION: Starting CRITICAL deletion:', photoId);
       
-      // Delete from server first (this handles UI removal internally)
+      // Delete from server (global store handles UI updates)
       await deletePhoto(photoId);
       
-      console.log('🛡️ MODERATION: Photo deleted successfully and removed from ALL views:', photoId);
+      console.log('🛡️ MODERATION: Photo deleted successfully from ALL views:', photoId);
       
     } catch (error: any) {
       console.error('🛡️ MODERATION: CRITICAL DELETION FAILED:', error);
       
-      // Only show error if it's not a "photo already deleted" error
+      // Only show error if it's a real error (not "already deleted")
       if (!error.message.includes('0 rows') && !error.message.includes('PGRST116')) {
         alert(`CRITICAL: Failed to delete photo: ${error.message}`);
-        
-        // Re-fetch photos to restore UI state if deletion failed
-        if (currentCollage?.id) {
-          console.log('🔄 DELETION FAILED: Restoring photo state');
-          await refreshPhotos(currentCollage.id);
-        }
       } else {
         console.log('✅ Photo was already deleted (race condition handled)');
+      }
+      
+      // Force refresh on any error
+      if (currentCollage?.id) {
+        console.log('🔄 DELETION ERROR: Force refreshing to ensure consistency');
+        await refreshPhotos(currentCollage.id);
       }
     } finally {
       setDeletingPhotos(prev => {
