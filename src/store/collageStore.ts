@@ -1,4 +1,4 @@
-// src/store/collageStore.ts - SIMPLIFIED WITH POLLING FALLBACK
+// src/store/collageStore.ts - COMPLETE UPDATED VERSION WITH FIXED DELETION
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
@@ -95,7 +95,7 @@ interface CollageStore {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
   refreshPhotos: (collageId: string) => Promise<void>;
   
-  // Simplified realtime/polling methods
+  // Realtime/polling methods
   setupRealtimeSubscription: (collageId: string) => void;
   cleanupRealtimeSubscription: () => void;
   addPhotoToState: (photo: Photo) => void;
@@ -195,7 +195,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // Simplified realtime subscription (tries realtime, falls back to polling)
+  // FIXED: Enhanced realtime subscription with proper DELETE handling
   setupRealtimeSubscription: (collageId: string) => {
     const currentChannel = get().realtimeChannel;
     
@@ -215,7 +215,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     console.log('🚀 Attempting realtime subscription for collage:', collageId);
 
     // Try realtime first
-    const channelName = `photos_simple_${Date.now()}`;
+    const channelName = `photos_enhanced_${Date.now()}`;
     
     const channel = supabase
       .channel(channelName)
@@ -229,12 +229,30 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         },
         (payload) => {
           console.log('🔔 Realtime event received:', payload.eventType, payload);
+          console.log('🔔 Payload details:', JSON.stringify(payload, null, 2));
           
           try {
             if (payload.eventType === 'INSERT' && payload.new) {
               get().addPhotoToState(payload.new as Photo);
-            } else if (payload.eventType === 'DELETE' && payload.old) {
-              get().removePhotoFromState(payload.old.id);
+            } else if (payload.eventType === 'DELETE') {
+              // For DELETE events, the photo ID is in payload.old
+              const photoId = payload.old?.id;
+              if (photoId) {
+                console.log('🗑️ Realtime DELETE detected for photo:', photoId);
+                get().removePhotoFromState(photoId);
+              } else {
+                console.warn('⚠️ DELETE event received but no photo ID found in payload.old');
+                console.log('⚠️ Full DELETE payload:', payload);
+              }
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              // Handle updates by replacing the photo
+              const updatedPhoto = payload.new as Photo;
+              set((state) => ({
+                photos: state.photos.map(p => 
+                  p.id === updatedPhoto.id ? updatedPhoto : p
+                ),
+                lastRefreshTime: Date.now()
+              }));
             }
           } catch (error) {
             console.error('❌ Error processing realtime event:', error);
@@ -537,8 +555,11 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
+  // FIXED: Enhanced deletePhoto with better error handling
   deletePhoto: async (photoId: string) => {
     try {
+      console.log('🗑️ Starting photo deletion:', photoId);
+      
       // Get photo data first to extract file path
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
@@ -546,7 +567,10 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         .eq('id', photoId)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('❌ Failed to fetch photo for deletion:', fetchError);
+        throw fetchError;
+      }
 
       // Extract file path from URL for storage deletion
       let filePath = '';
@@ -563,26 +587,37 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         }
       }
 
-      const deletePromises = [];
-      
-      // Delete from storage if we have a valid path
-      if (filePath) {
-        console.log('🗑️ Deleting file from storage:', filePath);
-        deletePromises.push(
-          supabase.storage.from('photos').remove([filePath])
-        );
+      // Delete from database first (this triggers the realtime event)
+      const { error: deleteError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('id', photoId);
+
+      if (deleteError) {
+        console.error('❌ Failed to delete photo from database:', deleteError);
+        throw deleteError;
       }
 
-      // Delete from database
-      deletePromises.push(
-        supabase.from('photos').delete().eq('id', photoId)
-      );
-
-      await Promise.allSettled(deletePromises);
+      // Delete from storage (less critical, can fail without breaking the flow)
+      if (filePath) {
+        console.log('🗑️ Deleting file from storage:', filePath);
+        try {
+          const { error: storageError } = await supabase.storage
+            .from('photos')
+            .remove([filePath]);
+          
+          if (storageError) {
+            console.warn('⚠️ Storage deletion failed (non-critical):', storageError);
+          }
+        } catch (storageErr) {
+          console.warn('⚠️ Storage deletion error (non-critical):', storageErr);
+        }
+      }
 
       console.log('🗑️ Photo deleted successfully:', photoId);
       
-      // ALWAYS remove from state immediately (don't wait for realtime/polling)
+      // Remove from state immediately for responsive UI
+      // (Realtime subscription will also handle this, but immediate removal is better UX)
       get().removePhotoFromState(photoId);
       
       set({ error: null });
