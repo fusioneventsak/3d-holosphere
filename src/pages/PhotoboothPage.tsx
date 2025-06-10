@@ -215,30 +215,34 @@ const PhotoboothPage: React.FC = () => {
       
       // CRITICAL FIX: Always prioritize front camera on mobile if no specific device requested
       if (!targetDeviceId) {
-        const frontCamera = videoDevices.find(device => 
-          device.label.toLowerCase().includes('front') || 
-          device.label.toLowerCase().includes('user') ||
-          device.label.toLowerCase().includes('selfie') ||
-          device.label.toLowerCase().includes('facetime')
-        );
+        // First try to find front camera by common keywords
+        const frontCamera = videoDevices.find(device => {
+          const label = device.label.toLowerCase();
+          return label.includes('front') || 
+                 label.includes('user') ||
+                 label.includes('selfie') ||
+                 label.includes('facetime') ||
+                 label.includes('face');
+        });
         
         if (frontCamera) {
           targetDeviceId = frontCamera.deviceId;
           setSelectedDevice(frontCamera.deviceId);
           console.log('Mobile: Auto-selected front camera on startup:', frontCamera.label);
         } else {
-          targetDeviceId = videoDevices[0].deviceId;
-          setSelectedDevice(videoDevices[0].deviceId);
-          console.log('Mobile: No front camera found, using first available:', videoDevices[0].label);
+          // If no obvious front camera, try using facingMode: "user" first
+          console.log('Mobile: No obvious front camera found, will try facingMode user first');
         }
       } else if (!videoDevices.find(d => d.deviceId === targetDeviceId)) {
         // If specified device doesn't exist, fall back to front camera
-        const frontCamera = videoDevices.find(device => 
-          device.label.toLowerCase().includes('front') || 
-          device.label.toLowerCase().includes('user') ||
-          device.label.toLowerCase().includes('selfie') ||
-          device.label.toLowerCase().includes('facetime')
-        );
+        const frontCamera = videoDevices.find(device => {
+          const label = device.label.toLowerCase();
+          return label.includes('front') || 
+                 label.includes('user') ||
+                 label.includes('selfie') ||
+                 label.includes('facetime') ||
+                 label.includes('face');
+        });
         
         if (frontCamera) {
           targetDeviceId = frontCamera.deviceId;
@@ -254,8 +258,39 @@ const PhotoboothPage: React.FC = () => {
       // Try multiple approaches for mobile camera initialization
       let mediaStream: MediaStream | null = null;
       
-      // Approach 1: Try with specific device ID and front-facing preference
-      if (targetDeviceId) {
+      // Approach 1: Try with facingMode user first (most reliable for front camera)
+      if (!targetDeviceId || !mediaStream) {
+        try {
+          console.log('Mobile: Trying facingMode user preference (most reliable)');
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            },
+            audio: false
+          });
+          console.log('Mobile: Success with facingMode user');
+          
+          // If this works, try to identify which device was actually used
+          if (mediaStream && videoDevices.length > 0) {
+            const track = mediaStream.getVideoTracks()[0];
+            const settings = track.getSettings();
+            if (settings.deviceId) {
+              const matchedDevice = videoDevices.find(d => d.deviceId === settings.deviceId);
+              if (matchedDevice) {
+                setSelectedDevice(matchedDevice.deviceId);
+                console.log('Mobile: Detected front camera device:', matchedDevice.label);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Mobile: FacingMode user failed:', err);
+        }
+      }
+      
+      // Approach 2: Try with specific device ID and front-facing preference
+      if (!mediaStream && targetDeviceId) {
         try {
           console.log('Mobile: Trying specific device with front preference:', targetDeviceId);
           mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -271,24 +306,6 @@ const PhotoboothPage: React.FC = () => {
           console.log('Mobile: Success with specific device and front preference');
         } catch (err) {
           console.warn('Mobile: Specific device with front preference failed:', err);
-        }
-      }
-      
-      // Approach 2: Try with just facingMode user (let browser pick front camera)
-      if (!mediaStream) {
-        try {
-          console.log('Mobile: Trying facingMode user preference');
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "user",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
-            },
-            audio: false
-          });
-          console.log('Mobile: Success with facingMode user');
-        } catch (err) {
-          console.warn('Mobile: FacingMode user failed:', err);
         }
       }
       
@@ -679,7 +696,21 @@ const PhotoboothPage: React.FC = () => {
   }, [code, fetchCollageByCode]);
 
   useEffect(() => {
-    startCamera();
+    // Initialize camera on component mount with front camera preference for mobile
+    const initializeCamera = async () => {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        console.log('Mobile: Initial camera setup with front camera preference');
+        // For mobile, start with front camera preference immediately
+        await startCamera();
+      } else {
+        // For desktop, use normal initialization
+        await startCamera();
+      }
+    };
+    
+    initializeCamera();
 
     return () => {
       // Enhanced cleanup on component unmount
@@ -696,7 +727,7 @@ const PhotoboothPage: React.FC = () => {
         setCameraStarted(false);
       }
     };
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
   // Handle page visibility changes to release camera when tab is hidden
   useEffect(() => {
@@ -727,19 +758,23 @@ const PhotoboothPage: React.FC = () => {
 
   // Handle device selection for both mobile and desktop
   useEffect(() => {
-    if (selectedDevice && !stream && devices.length > 0) {
-      console.log('Device selection changed, starting camera with device:', selectedDevice);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Only restart camera if user manually changed device selection
+    // Don't interfere with initial front camera auto-selection on mobile
+    if (selectedDevice && !stream && devices.length > 0 && cameraStarted) {
+      console.log('Device selection changed by user, starting camera with device:', selectedDevice);
       startCamera(selectedDevice);
     }
-  }, [selectedDevice, devices.length, stream]);
+  }, [selectedDevice, devices.length, stream, cameraStarted]);
 
-  // Auto-select front camera on mobile when devices are loaded
+  // Auto-select front camera on mobile when devices are loaded (but don't restart camera)
   useEffect(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Only run this effect on mobile and only if we don't already have a selected device
+    // Only update selected device state, don't restart camera
+    // The camera should already be started with front camera preference
     if (isMobile && devices.length > 0 && !selectedDevice) {
-      // Try to find and auto-select front camera
       const frontCamera = devices.find(device => 
         device.label.toLowerCase().includes('front') || 
         device.label.toLowerCase().includes('user') ||
@@ -748,10 +783,10 @@ const PhotoboothPage: React.FC = () => {
       );
       
       if (frontCamera) {
-        console.log('Mobile: Auto-selecting front camera from devices:', frontCamera.label);
+        console.log('Mobile: Setting front camera as selected device (no restart):', frontCamera.label);
         setSelectedDevice(frontCamera.deviceId);
-      } else {
-        console.log('Mobile: No front camera found in devices, selecting first available');
+      } else if (devices.length > 0) {
+        console.log('Mobile: No front camera found, setting first available (no restart)');
         setSelectedDevice(devices[0].deviceId);
       }
     }
@@ -815,6 +850,7 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
+        {/* Camera device selector - show on both mobile and desktop when multiple cameras available */}
         {devices.length > 1 && (
           <div className="mb-2">
             <select
@@ -831,6 +867,28 @@ const PhotoboothPage: React.FC = () => {
             </select>
           </div>
         )}
+
+        {/* Mobile camera flip button - only show on mobile when multiple cameras available */}
+        {(() => {
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          return isMobile && devices.length > 1 && (
+            <div className="mb-2 flex justify-center">
+              <button
+                onClick={() => {
+                  // Find the next camera (cycle through available cameras)
+                  const currentIndex = devices.findIndex(d => d.deviceId === selectedDevice);
+                  const nextIndex = (currentIndex + 1) % devices.length;
+                  setSelectedDevice(devices[nextIndex].deviceId);
+                }}
+                className="px-3 py-2 bg-white/10 border border-white/20 rounded text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
+                title="Switch Camera"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Flip Camera
+              </button>
+            </div>
+          );
+        })()}
 
         <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative md:max-h-[70vh] max-h-[85vh]">
           {!photo ? (
