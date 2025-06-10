@@ -32,19 +32,22 @@ const CollageModerationPage: React.FC = () => {
     console.log('🛡️ Moderation photo IDs:', photos.map(p => p.id.slice(-4)));
   }, [photos]);
 
-  // Fetch collage by ID - this will automatically setup realtime subscription
+  // CRITICAL: Use global subscription instead of individual ones
   useEffect(() => {
     if (id) {
-      console.log('🛡️ MODERATION: Fetching collage by ID:', id);
+      console.log('🛡️ MODERATION: Fetching collage and subscribing globally:', id);
       fetchCollageById(id);
+      
+      // Subscribe to global collage updates
+      const { subscribeToCollage, unsubscribeFromCollage } = useCollageStore.getState();
+      subscribeToCollage(id);
+      
+      return () => {
+        console.log('🛡️ MODERATION: Unsubscribing from global updates');
+        unsubscribeFromCollage();
+      };
     }
-    
-    // Cleanup subscription when component unmounts
-    return () => {
-      console.log('🛡️ MODERATION: Cleaning up realtime subscription on unmount');
-      cleanupRealtimeSubscription();
-    };
-  }, [id, fetchCollageById, cleanupRealtimeSubscription]);
+  }, [id, fetchCollageById]);
 
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;
