@@ -4,7 +4,7 @@ import { Camera, Settings, Share2, MoreVertical } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { useCollageRealtime } from '../hooks/useCollageRealtime';
 import Layout from '../components/layout/Layout';
-import CollageScene from '../components/CollageScene';
+import CollageScene from '../components/three/CollageScene';
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
