@@ -1,68 +1,78 @@
-import { useEffect, useRef } from 'react';
-import { useCollageStore } from '../store/collageStore';
+import { useEffect, useState, useCallback } from 'react';
+import { useCollageStore, Photo } from '../store/collageStore';
+import { supabase } from '../lib/supabase';
 
 /**
- * Hook to ensure realtime photo updates are active for the current collage
- * This is CRITICAL for photobooth -> collage sync
- * 
- * Usage:
- * const { photos } = useCollageRealtime(collageId);
+ * Custom hook for handling realtime updates to collage photos
+ * This ensures photos uploaded from the photobooth appear instantly in the collage viewer
  */
 export const useCollageRealtime = (collageId?: string) => {
-  const { 
-    photos, 
-    setupRealtimeSubscription, 
-    cleanupRealtimeSubscription,
-    fetchPhotosByCollageId 
-  } = useCollageStore();
-  
-  const currentCollageIdRef = useRef<string | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const { fetchPhotosByCollageId } = useCollageStore();
 
+  // Initial fetch and subscription setup
   useEffect(() => {
-    // If no collage ID, clean up any existing subscription
-    if (!collageId) {
-      if (currentCollageIdRef.current) {
-        console.log('🧹 No collage ID, cleaning up realtime subscription');
-        cleanupRealtimeSubscription();
-        currentCollageIdRef.current = null;
-      }
-      return;
-    }
+    if (!collageId) return;
 
-    // Only setup subscription if collage ID changed
-    if (currentCollageIdRef.current !== collageId) {
-      console.log('🔄 Collage ID changed, setting up realtime for:', collageId);
-      
-      // Clean up previous subscription first
-      if (currentCollageIdRef.current) {
-        console.log('🧹 Cleaning up previous subscription for:', currentCollageIdRef.current);
-        cleanupRealtimeSubscription();
-      }
-      
-      // Setup new subscription - this is where the magic happens for photobooth sync
-      console.log('🚀 Setting up new realtime subscription for:', collageId);
-      setupRealtimeSubscription(collageId);
-      currentCollageIdRef.current = collageId;
-    }
+    // Fetch initial photos
+    const fetchPhotos = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('photos')
+          .select('*')
+          .eq('collage_id', collageId)
+          .order('created_at', { ascending: false });
 
-    // Cleanup function for when component unmounts or collageId changes
-    return () => {
-      if (currentCollageIdRef.current === collageId) {
-        console.log('🧹 useCollageRealtime cleanup for collage:', collageId);
-        cleanupRealtimeSubscription();
-        currentCollageIdRef.current = null;
+        if (error) throw error;
+        setPhotos(data as Photo[]);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
       }
     };
-  }, [collageId, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
-  // Return photos and a manual refresh function (rarely needed with realtime)
-  return {
-    photos,
-    refreshPhotos: () => {
-      if (collageId) {
-        console.log('🔄 Manual refresh requested for collage:', collageId);
-        fetchPhotosByCollageId(collageId);
-      }
+    fetchPhotos();
+
+    // Set up realtime subscription
+    const channel = supabase
+      .channel(`collage-photos-${collageId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${collageId}`
+      }, (payload) => {
+        console.log('New photo inserted:', payload.new);
+        const newPhoto = payload.new as Photo;
+        setPhotos(prev => [newPhoto, ...prev]);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${collageId}`
+      }, (payload) => {
+        console.log('Photo deleted:', payload.old);
+        setPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
+      })
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+        setIsSubscribed(status === 'SUBSCRIBED');
+      });
+
+    // Cleanup subscription
+    return () => {
+      console.log('Cleaning up subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [collageId]);
+
+  // Manual refresh function
+  const refreshPhotos = useCallback(() => {
+    if (collageId) {
+      fetchPhotosByCollageId(collageId);
     }
-  };
+  }, [collageId, fetchPhotosByCollageId]);
+
+  return { photos, isSubscribed, refreshPhotos };
 };
