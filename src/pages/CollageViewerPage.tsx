@@ -41,6 +41,9 @@ const CollageViewerPage: React.FC = () => {
     cleanupRealtimeSubscription
   } = useCollageStore();
   
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
@@ -50,10 +53,10 @@ const CollageViewerPage: React.FC = () => {
   // CRITICAL: Debug logging for photo changes with more detail
   useEffect(() => {
     console.log('🔥 COLLAGE VIEWER: Photos array changed!');
-    console.log('🔥 Photo count:', photos.length);
-    console.log('🔥 Photo IDs:', photos.map(p => `${p.id.slice(-4)}(${new Date(p.created_at).toLocaleTimeString()})`));
-    console.log('🔥 Full photos array:', photos);
-  }, [photos]);
+    console.log('🔥 Photo count:', safePhotos.length);
+    console.log('🔥 Photo IDs:', safePhotos.map(p => `${p.id.slice(-4)}(${new Date(p.created_at).toLocaleTimeString()})`));
+    console.log('🔥 Full photos array:', safePhotos);
+  }, [safePhotos]);
 
   // Debug: Log store state changes
   useEffect(() => {
@@ -148,11 +151,11 @@ const CollageViewerPage: React.FC = () => {
       {/* Live Debug Panel - Direct Store Connection */}
       <div className="fixed top-4 right-4 z-50 bg-red-900/80 text-white p-3 rounded-lg text-xs max-w-sm">
         <h3 className="font-bold mb-1">LIVE STORE DEBUG:</h3>
-        <p>Store Photos: {useCollageStore.getState().photos.length}</p>
-        <p>Prop Photos: {photos.length}</p>
+        <p>Store Photos: {useCollageStore.getState().photos?.length || 0}</p>
+        <p>Prop Photos: {safePhotos.length}</p>
         <p>Realtime: {isRealtimeConnected ? '✅ Connected' : '⚠️ Polling'}</p>
         <p>Last Update: {new Date(useCollageStore.getState().lastRefreshTime).toLocaleTimeString()}</p>
-        <p>Photo IDs: {useCollageStore.getState().photos.map(p => p.id.slice(-4)).join(', ')}</p>
+        <p>Photo IDs: {(useCollageStore.getState().photos || []).map(p => p.id.slice(-4)).join(', ')}</p>
         <button 
           onClick={handleManualRefresh}
           className="mt-1 px-2 py-1 bg-blue-600 rounded text-xs"
@@ -171,7 +174,7 @@ const CollageViewerPage: React.FC = () => {
       <div className="relative w-full h-screen">
         <ErrorBoundary 
           FallbackComponent={SceneErrorFallback}
-          resetKeys={[currentCollage.id, photos.length]} // Keep for error boundary
+          resetKeys={[currentCollage.id, safePhotos.length]} // Keep for error boundary
         >
           <CollageScene 
             settings={currentCollage.settings}
@@ -199,7 +202,7 @@ const CollageViewerPage: React.FC = () => {
                     <div className="flex items-center space-x-2 text-gray-400 text-sm">
                       <span>Code: {currentCollage.code}</span>
                       <span>•</span>
-                      <span>{photos.length} photos</span>
+                      <span>{safePhotos.length} photos</span>
                       <span>•</span>
                       <div className="flex items-center space-x-1">
                         <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
