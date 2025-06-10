@@ -20,6 +20,9 @@ const CollageModerationPage: React.FC = () => {
     cleanupRealtimeSubscription
   } = useCollageStore();
   
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
@@ -28,9 +31,9 @@ const CollageModerationPage: React.FC = () => {
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
     console.log('🛡️ MODERATION: Photos array changed!');
-    console.log('🛡️ Moderation photo count:', photos.length);
-    console.log('🛡️ Moderation photo IDs:', photos.map(p => p.id.slice(-4)));
-  }, [photos]);
+    console.log('🛡️ Moderation photo count:', safePhotos.length);
+    console.log('🛡️ Moderation photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+  }, [safePhotos]);
 
   // Simple subscription setup
   useEffect(() => {
@@ -159,7 +162,7 @@ const CollageModerationPage: React.FC = () => {
                 <span>•</span>
                 <span>Code: {currentCollage.code}</span>
                 <span>•</span>
-                <span>{photos.length} photos</span>
+                <span>{safePhotos.length} photos</span>
                 <span>•</span>
                 <div className="flex items-center space-x-1">
                   <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
@@ -219,7 +222,7 @@ const CollageModerationPage: React.FC = () => {
 
         {/* Photo Grid */}
         <div className="bg-gray-900/50 rounded-lg border border-gray-700 p-6">
-          {photos.length === 0 ? (
+          {safePhotos.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📸</div>
               <h3 className="text-xl font-bold text-white mb-2">No Photos Yet</h3>
@@ -235,7 +238,7 @@ const CollageModerationPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {photos.map((photo) => (
+              {safePhotos.map((photo) => (
                 <div
                   key={photo.id}
                   className="bg-gray-800 rounded-lg overflow-hidden border border-gray-600 hover:border-gray-500 transition-colors group"
