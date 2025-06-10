@@ -21,7 +21,6 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
   const [fileUploads, setFileUploads] = useState<FileUpload[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadedPhotos, setUploadedPhotos] = useState<Photo[]>([]);
   
   const { uploadPhoto } = useCollageStore();
 
@@ -124,9 +123,6 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
           clearInterval(progressInterval);
 
           if (result) {            
-            // Add to local state for UI feedback
-            setUploadedPhotos(prev => [result, ...prev]);
-            
             updateFileStatus(upload.id, { 
               status: 'success', 
               progress: 100 
@@ -308,31 +304,6 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
           </div>
         )}
       </div>
-      
-      {/* Recently Uploaded Photos Preview */}
-      {uploadedPhotos.length > 0 && (
-        <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-300 mb-2">Recently Uploaded</h4>
-          <div className="grid grid-cols-4 gap-2">
-            {uploadedPhotos.slice(0, 4).map((photo) => (
-              <div key={photo.id} className="aspect-[3/4] rounded overflow-hidden bg-black/30">
-                <img 
-                  src={photo.url} 
-                  alt="Uploaded" 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/150?text=Error';
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-gray-400 text-center">
-            Photos will appear in the 3D collage automatically
-          </p>
-        </div>
-      )}
       
       {/* Upload Progress List */}
       {fileUploads.length > 0 && (

@@ -1,22 +1,14 @@
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw } from 'lucide-react';
-import { useCollageStore } from '../store/collageStore';
+import { useCollageStore, Photo } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import { supabase } from '../lib/supabase';
 
-// Define Photo type locally to avoid circular dependencies
-type Photo = {
-  id: string;
-  collage_id: string;
-  url: string;
-  created_at: string;
-};
-
 const CollageModerationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentCollage, fetchCollageById, loading, error } = useCollageStore();
+  const { currentCollage, fetchCollageById, loading, error, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
   const [localPhotos, setLocalPhotos] = React.useState<Photo[]>([]);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
@@ -33,6 +25,42 @@ const CollageModerationPage: React.FC = () => {
     
     handleRefresh();
   }, [currentCollage?.id]);
+
+  // Setup realtime subscription when collage is loaded
+  useEffect(() => {
+    if (currentCollage?.id) {
+      console.log('🔄 Setting up realtime subscription in moderation for collage:', currentCollage.id);
+      setupRealtimeSubscription(currentCollage.id);
+      
+      // Also set up a listener for realtime updates to update our local state
+      const channel = supabase
+        .channel(`moderation-${currentCollage.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'photos',
+          filter: `collage_id=eq.${currentCollage.id}`
+        }, (payload) => {
+          console.log('🔔 Moderation: New photo inserted:', payload.new);
+          setLocalPhotos(prev => [payload.new as Photo, ...prev]);
+        })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'photos',
+          filter: `collage_id=eq.${currentCollage.id}`
+        }, (payload) => {
+          console.log('🔔 Moderation: Photo deleted:', payload.old);
+          setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
+        })
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(channel);
+        cleanupRealtimeSubscription();
+      };
+    }
+  }, [currentCollage?.id, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
   const handleRefresh = () => {
     if (id) {

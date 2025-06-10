@@ -3,6 +3,7 @@ import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
+import { useEffect } from 'react';
 
 type PhotoModerationModalProps = {
   photos: Photo[];
@@ -15,6 +16,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
+  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
@@ -22,6 +24,40 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   useEffect(() => {
     setLocalPhotos(photos);
   }, [photos]);
+  
+  // Setup realtime subscription for this component
+  useEffect(() => {
+    if (!collageId) return;
+    
+    // Set up a dedicated channel for this component
+    const channel = supabase
+      .channel(`moderation-modal-${collageId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${collageId}`
+      }, (payload) => {
+        console.log('🔔 Modal: New photo inserted:', payload.new);
+        setLocalPhotos(prev => [payload.new as Photo, ...prev]);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'photos',
+        filter: `collage_id=eq.${collageId}`
+      }, (payload) => {
+        console.log('🔔 Modal: Photo deleted:', payload.old);
+        setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
+      })
+      .subscribe();
+    
+    setRealtimeChannel(channel);
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [collageId]);
 
   const handleDeletePhoto = async (photo: Photo) => {
     setDeletingPhotoId(photo.id);
@@ -52,8 +88,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
       // Delete from database
       const { error: dbError } = await supabase
         .from('photos')
-        .delete()
-        .eq('id', photo.id);
+        .delete().eq('id', photo.id);
 
       if (dbError) throw dbError;
       

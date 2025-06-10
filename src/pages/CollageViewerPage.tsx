@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Share2, Upload, Edit, Maximize2, ChevronLeft } from 'lucide-react';
-import { useCollageStore, Photo } from '../store/collageStore';
+import { useCollageStore } from '../store/collageStore';
 import { defaultSettings } from '../store/sceneStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
-import { supabase } from '../lib/supabase';
 
 // Error fallback component for 3D scene errors
 function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
@@ -31,13 +30,11 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const { currentCollage, photos, fetchCollageByCode, loading, error } = useCollageStore();
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
+  const { currentCollage, photos, fetchCollageByCode, loading, error, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
   const navigate = useNavigate();
 
   // Handle fullscreen toggle
@@ -90,79 +87,25 @@ const CollageViewerPage: React.FC = () => {
     };
   }, [isFullscreen]);
 
-  // Setup realtime subscription for photos
-  useEffect(() => {
-    if (!currentCollage?.id) return;
-    
-    console.log('🔄 Setting up realtime subscription for collage:', currentCollage.id);
-    
-    // Initial fetch to get photos
-    const fetchPhotos = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('photos')
-          .select('*')
-          .eq('collage_id', currentCollage.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setLocalPhotos(data as Photo[]);
-      } catch (err) {
-        console.error('Error fetching photos:', err);
-      }
-    };
-    
-    fetchPhotos();
-    
-    // Set up realtime subscription
-    const channel = supabase
-      .channel(`collage-photos-${currentCollage.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${currentCollage.id}`
-      }, (payload) => {
-        console.log('🔔 New photo inserted:', payload.new);
-        const newPhoto = payload.new as Photo;
-        setLocalPhotos(prev => [newPhoto, ...prev]);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${currentCollage.id}`
-      }, (payload) => {
-        console.log('🔔 Photo deleted:', payload.old);
-        setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
-      })
-      .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status);
-      });
-    
-    setRealtimeChannel(channel);
-    
-    // Cleanup subscription
-    return () => {
-      console.log('🧹 Cleaning up realtime subscription');
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [currentCollage?.id]);
-
+  // Fetch collage and setup realtime subscription
   useEffect(() => {
     if (code) {
       fetchCollageByCode(code);
     }
+    
+    // Cleanup subscription when component unmounts
+    return () => {
+      cleanupRealtimeSubscription();
+    };
   }, [code, fetchCollageByCode]);
 
-  // Initialize local photos from store when they first load
+  // Setup realtime subscription when collage is loaded
   useEffect(() => {
-    if (photos.length > 0 && localPhotos.length === 0) {
-      setLocalPhotos(photos);
+    if (currentCollage?.id) {
+      console.log('🔄 Setting up realtime subscription for collage:', currentCollage.id);
+      setupRealtimeSubscription(currentCollage.id);
     }
-  }, [photos, localPhotos.length]);
+  }, [currentCollage?.id, setupRealtimeSubscription]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -251,7 +194,7 @@ const CollageViewerPage: React.FC = () => {
         )}
       </div>
       
-      {localPhotos.length === 0 && !showUploader ? (
+      {photos.length === 0 && !showUploader ? (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-12">
             <p className="text-gray-400 mb-6">
@@ -273,7 +216,7 @@ const CollageViewerPage: React.FC = () => {
             onReset={() => fetchCollageByCode(code || '')}
           >
             <CollageScene
-              photos={localPhotos}
+              photos={photos}
               settings={currentCollage.settings || defaultSettings}
             />
           </ErrorBoundary>

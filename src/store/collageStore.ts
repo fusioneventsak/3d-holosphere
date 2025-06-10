@@ -127,6 +127,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Setup realtime subscription - THIS IS THE KEY FUNCTION
   setupRealtimeSubscription: (collageId: string) => {
     const currentChannel = get().realtimeChannel;
+    const store = get();
     
     // Clean up existing subscription first
     if (currentChannel) {
@@ -134,7 +135,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       supabase.removeChannel(currentChannel);
     }
 
-    console.log('🚀 Setting up realtime subscription for collage:', collageId);
+    console.log('🚀 Setting up NEW realtime subscription for collage:', collageId);
 
     const channel = supabase
       .channel(`collage_${collageId}_photos`)
@@ -148,8 +149,8 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         },
         (payload) => {
           console.log('🔔 Realtime: New photo inserted:', payload.new);
-          const newPhoto = payload.new as Photo;
-          get().addPhotoToState(newPhoto);
+          // Use the store reference captured in closure to avoid stale state
+          store.addPhotoToState(payload.new as Photo);
         }
       )
       .on(
@@ -162,8 +163,8 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         },
         (payload) => {
           console.log('🔔 Realtime: Photo deleted:', payload.old);
-          const deletedPhoto = payload.old as Photo;
-          get().removePhotoFromState(deletedPhoto.id);
+          // Use the store reference captured in closure to avoid stale state
+          store.removePhotoFromState(payload.old.id);
         }
       )
       .subscribe((status) => {
@@ -408,9 +409,9 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       const newPhoto = photoData as Photo;
       
       // IMPORTANT: Don't manually add to state here!
-      // Let the realtime subscription handle it to ensure consistency
+      // Let the realtime subscription handle it to ensure consistency across components
       console.log('📸 Photo uploaded successfully from photobooth:', newPhoto.id);
-      console.log('🔔 Realtime subscription should pick this up and update CollageViewerPage...');
+      console.log('🔔 Realtime subscription should pick this up automatically...');
       
       set({ error: null });
       return newPhoto;

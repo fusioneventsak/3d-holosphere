@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Download, Send, X, RefreshCw } from 'lucide-react';
-import { useCollageStore } from '../store/collageStore';
+import { useCollageStore, Photo } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 
 type VideoDevice = {
@@ -27,7 +27,7 @@ const PhotoboothPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   
-  const { currentCollage, fetchCollageByCode, uploadPhoto } = useCollageStore();
+  const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
 
   const cleanupCamera = useCallback(() => {
     console.log('🧹 Cleaning up camera...');
@@ -420,13 +420,13 @@ const PhotoboothPage: React.FC = () => {
       const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
 
       const result = await uploadPhoto(currentCollage.id, file);
-      if (result) {
+      if (result) {        
         // Reset state
         setPhoto(null);
         setText('');
         
         // Show success message
-        setError('Photo uploaded successfully! Take another photo.');
+        setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
         setTimeout(() => setError(null), 3000);
         
         // Restart camera after a brief delay
@@ -490,6 +490,18 @@ const PhotoboothPage: React.FC = () => {
       fetchCollageByCode(code);
     }
   }, [code, fetchCollageByCode]);
+
+  // Setup realtime subscription when collage is loaded
+  useEffect(() => {
+    if (currentCollage?.id) {
+      console.log('🔄 Setting up realtime subscription in photobooth for collage:', currentCollage.id);
+      setupRealtimeSubscription(currentCollage.id);
+    }
+    
+    return () => {
+      cleanupRealtimeSubscription();
+    };
+  }, [currentCollage?.id, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
   // Initialize camera when component mounts and when returning from photo view
   useEffect(() => {
