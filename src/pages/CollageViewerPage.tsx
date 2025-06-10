@@ -177,6 +177,7 @@ const CollageViewerPage: React.FC = () => {
           resetKeys={[currentCollage.id, safePhotos.length]} // Keep for error boundary
         >
           <CollageScene 
+            photos={safePhotos}
             settings={currentCollage.settings}
             onSettingsChange={(newSettings) => {
               // Optional: Handle settings changes from the viewer
