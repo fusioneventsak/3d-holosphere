@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 
 const CollageModerationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { currentCollage, photos, fetchCollageById, loading, error } = useCollageStore();
+  const { currentCollage, fetchCollageById, loading, error } = useCollageStore();
   const [localPhotos, setLocalPhotos] = React.useState<Photo[]>([]);
   const [realtimeChannel, setRealtimeChannel] = React.useState<any>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -28,6 +28,7 @@ const CollageModerationPage: React.FC = () => {
     // Initial fetch to get photos
     const fetchPhotos = async () => {
       try {
+        setIsRefreshing(true);
         const { data, error } = await supabase
           .from('photos')
           .select('*')
@@ -36,8 +37,10 @@ const CollageModerationPage: React.FC = () => {
 
         if (error) throw error;
         setLocalPhotos(data as Photo[]);
+        setIsRefreshing(false);
       } catch (err) {
         console.error('Error fetching photos:', err);
+        setIsRefreshing(false);
       }
     };
     
@@ -80,20 +83,30 @@ const CollageModerationPage: React.FC = () => {
     }
   }, [currentCollage?.id]);
 
-  // Initialize local photos from store when they first load
-  useEffect(() => {
-    if (photos.length > 0 && localPhotos.length === 0) {
-      setLocalPhotos(photos);
-    }
-  }, [photos, localPhotos.length]);
 
   const handleRefresh = () => {
     if (id) {
       setIsRefreshing(true);
-      fetchCollageById(id)
-        .finally(() => {
+      
+      // Directly fetch photos instead of relying on the store
+      const fetchPhotos = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('photos')
+            .select('*')
+            .eq('collage_id', id)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          setLocalPhotos(data as Photo[]);
+        } catch (err) {
+          console.error('Error refreshing photos:', err);
+        } finally {
           setTimeout(() => setIsRefreshing(false), 500);
-        });
+        }
+      };
+      
+      fetchPhotos();
     }
   };
 

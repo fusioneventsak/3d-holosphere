@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { useCollageStore, Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 type PhotoModerationModalProps = {
   photos: Photo[];
@@ -13,7 +14,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const { deletePhoto } = useCollageStore();
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
@@ -22,7 +22,40 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     setError(null);
     
     try {
-      await deletePhoto(photo.id);
+      // Get photo data first to extract file path
+      const { data: photoData, error: fetchError } = await supabase
+        .from('photos')
+        .select('url')
+        .eq('id', photo.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Extract file path from URL for storage deletion
+      let filePath = '';
+      if (photoData?.url) {
+        const urlParts = photoData.url.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === 'photos');
+        if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+          filePath = urlParts.slice(bucketIndex + 1).join('/');
+        }
+      }
+
+      const deletePromises = [];
+      
+      // Delete from storage if we have a valid path
+      if (filePath) {
+        deletePromises.push(
+          supabase.storage.from('photos').remove([filePath])
+        );
+      }
+
+      // Delete from database - realtime will handle UI update
+      deletePromises.push(
+        supabase.from('photos').delete().eq('id', photo.id)
+      );
+
+      await Promise.allSettled(deletePromises);
       
       if (selectedPhoto?.id === photo.id) {
         setSelectedPhoto(null);
