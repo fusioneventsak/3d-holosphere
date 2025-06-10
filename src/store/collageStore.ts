@@ -439,10 +439,16 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       // Extract file path from URL for storage deletion
       let filePath = '';
       if (photo?.url) {
-        const urlParts = photo.url.split('/');
-        const bucketIndex = urlParts.findIndex(part => part === 'photos');
-        if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
-          filePath = urlParts.slice(bucketIndex + 1).join('/');
+        try {
+          const url = new URL(photo.url);
+          // Get the path after /storage/v1/object/public/photos/
+          const pathRegex = /\/storage\/v1\/object\/public\/photos\/(.+)/;
+          const match = url.pathname.match(pathRegex);
+          if (match && match[1]) {
+            filePath = match[1];
+          }
+        } catch (err) {
+          console.warn('Failed to parse photo URL:', photo.url, err);
         }
       }
 
@@ -450,6 +456,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       // Delete from storage if we have a valid path
       if (filePath) {
+        console.log('🗑️ Deleting file from storage:', filePath);
         deletePromises.push(
           supabase.storage.from('photos').remove([filePath])
         );

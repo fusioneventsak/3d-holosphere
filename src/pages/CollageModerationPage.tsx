@@ -13,6 +13,7 @@ const CollageModerationPage: React.FC = () => {
 
   useEffect(() => {
     if (id) {
+      console.log('📋 Fetching collage by ID:', id);
       fetchCollageById(id);
     }
   }, [id, fetchCollageById]);
@@ -24,6 +25,7 @@ const CollageModerationPage: React.FC = () => {
       setupRealtimeSubscription(currentCollage.id);
        
        return () => {
+        console.log('🧹 Cleaning up realtime subscription in moderation');
         cleanupRealtimeSubscription();
       };
     }
