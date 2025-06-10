@@ -1,3 +1,4 @@
+// src/pages/CollageViewerPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Share2, Upload, Edit, Maximize2, ChevronLeft } from 'lucide-react';
@@ -30,7 +31,16 @@ function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; reset
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const { currentCollage, photos, fetchCollageByCode, loading, error, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
+  const { 
+    currentCollage, 
+    photos, 
+    fetchCollageByCode, 
+    loading, 
+    error, 
+    setupRealtimeSubscription, 
+    cleanupRealtimeSubscription 
+  } = useCollageStore();
+  
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
@@ -87,25 +97,19 @@ const CollageViewerPage: React.FC = () => {
     };
   }, [isFullscreen]);
 
-  // Fetch collage and setup realtime subscription
+  // Fetch collage - this will automatically setup realtime subscription
   useEffect(() => {
     if (code) {
+      console.log('🔄 Fetching collage by code:', code);
       fetchCollageByCode(code);
     }
     
     // Cleanup subscription when component unmounts
     return () => {
+      console.log('🧹 Cleaning up realtime subscription on unmount');
       cleanupRealtimeSubscription();
     };
-  }, [code, fetchCollageByCode]);
-
-  // Setup realtime subscription when collage is loaded
-  useEffect(() => {
-    if (currentCollage?.id) {
-      console.log('🔄 Setting up realtime subscription for collage:', currentCollage.id);
-      setupRealtimeSubscription(currentCollage.id);
-    }
-  }, [currentCollage?.id, setupRealtimeSubscription]);
+  }, [code, fetchCollageByCode, cleanupRealtimeSubscription]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -135,11 +139,11 @@ const CollageViewerPage: React.FC = () => {
             <p className="text-gray-400 mb-6">
               The collage you're looking for doesn't exist or might have been removed.
             </p>
-            <Link
-              to="/"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+            <Link 
+              to="/" 
+              className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
             >
-              <ChevronLeft className="mr-2 h-5 w-5" />
+              <ChevronLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Link>
           </div>
@@ -149,84 +153,109 @@ const CollageViewerPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black relative">
-      <div className={`absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300 ${isFullscreen && !controlsVisible ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {currentCollage.name}
-            </h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Code: <span className="font-mono">{currentCollage.code}</span>
-            </p>
+    <div className="min-h-screen bg-black">
+      {/* Header Controls - Only show when not in fullscreen or when controls are visible */}
+      {(!isFullscreen || controlsVisible) && (
+        <div className="relative z-50 bg-black/80 backdrop-blur-sm border-b border-gray-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Link 
+                  to="/" 
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </Link>
+                <div>
+                  <h1 className="text-xl font-bold text-white">{currentCollage.name}</h1>
+                  <p className="text-gray-400 text-sm">Code: {currentCollage.code} • {photos.length} photos</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowUploader(true)}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors text-sm flex items-center space-x-1"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload</span>
+                </button>
+                
+                <button
+                  onClick={handleCopyLink}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-sm flex items-center space-x-1"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>{copied ? 'Copied!' : 'Share'}</span>
+                </button>
+                
+                <button
+                  onClick={() => navigate(`/collage/${currentCollage.id}/editor`)}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm flex items-center space-x-1"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+                
+                <button
+                  onClick={toggleFullscreen}
+                  className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors text-sm flex items-center space-x-1"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                  <span>Fullscreen</span>
+                </button>
+              </div>
+            </div>
           </div>
-          
-          <div className="mt-4 sm:mt-0 flex space-x-3">
-            <button
-              onClick={toggleFullscreen}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600/80 hover:bg-gray-700 transition-colors"
-            >
-              <Maximize2 className="h-4 w-4 mr-1" />
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            </button>
-            <button
-              onClick={() => setShowUploader(!showUploader)}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
-            >
-              <Upload className="mr-1 h-4 w-4" />
-              {showUploader ? 'Hide Uploader' : 'Add Photos'}
-            </button>
-            
-            <button
-              onClick={handleCopyLink}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-            >
-              <Share2 className="mr-1 h-4 w-4" />
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-          </div>
-        </div>
-        
-        {showUploader && (
-          <div className="mb-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <PhotoUploader collageId={currentCollage.id} />
-          </div>
-        )}
-      </div>
-      
-      {photos.length === 0 && !showUploader ? (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center py-12">
-            <p className="text-gray-400 mb-6">
-              This collage doesn't have any photos yet.
-            </p>
-            <button
-              onClick={() => setShowUploader(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-            >
-              <Upload className="mr-2 h-5 w-5" />
-              Add the First Photo
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="h-screen w-full">
-          <ErrorBoundary 
-            FallbackComponent={SceneErrorFallback}
-            onReset={() => fetchCollageByCode(code || '')}
-          >
-            <CollageScene
-              photos={photos}
-              settings={currentCollage.settings || defaultSettings}
-            />
-          </ErrorBoundary>
         </div>
       )}
-      
-      {/* Keyboard shortcut hint */}
-      <div className="absolute bottom-4 left-4 bg-black/50 text-white text-xs px-2 py-1 rounded">
-        Press 'F' for fullscreen
+
+      {/* Main 3D Scene */}
+      <div className={`relative ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-80px)]'}`}>
+        <ErrorBoundary FallbackComponent={SceneErrorFallback}>
+          <CollageScene 
+            photos={photos}
+            settings={currentCollage.settings || defaultSettings}
+            onSettingsChange={(newSettings) => {
+              // This is view-only, so no settings changes allowed
+              console.log('Settings change attempted in viewer mode');
+            }}
+          />
+        </ErrorBoundary>
       </div>
+
+      {/* Photo Uploader Modal */}
+      {showUploader && currentCollage && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">Upload Photos</h3>
+              <button
+                onClick={() => setShowUploader(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <PhotoUploader collageId={currentCollage.id} />
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setShowUploader(false)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Instructions */}
+      {isFullscreen && controlsVisible && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm z-50">
+          Press 'F' to toggle fullscreen • Move mouse to show controls
+        </div>
+      )}
     </div>
   );
 };
