@@ -322,3 +322,25 @@ const CollageModerationPage: React.FC = () => {
                 >
                   ✕
                 </button>
+              </div>
+              
+              {/* Photo Info */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                <div className="text-white">
+                  <p className="text-sm">
+                    Uploaded: {new Date(selectedPhoto.created_at).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-gray-300 mt-1">
+                    ID: {selectedPhoto.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+export default CollageModerationPage;
