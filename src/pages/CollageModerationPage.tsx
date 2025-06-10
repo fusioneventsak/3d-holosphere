@@ -1,4 +1,4 @@
-// src/pages/CollageModerationPage.tsx
+// src/pages/CollageModerationPage.tsx - FIXED FOR UPDATED STORE
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2 } from 'lucide-react';
@@ -16,44 +16,49 @@ const CollageModerationPage: React.FC = () => {
     error, 
     setupRealtimeSubscription, 
     cleanupRealtimeSubscription, 
-    fetchPhotosByCollageId 
+    refreshPhotos,
+    isRealtimeConnected 
   } = useCollageStore();
   
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [deletingPhotos, setDeletingPhotos] = React.useState<Set<string>>(new Set());
 
+  // DEBUG: Log photos changes in moderation
+  useEffect(() => {
+    console.log('🛡️ MODERATION: Photos array changed!');
+    console.log('🛡️ Moderation photo count:', photos.length);
+    console.log('🛡️ Moderation photo IDs:', photos.map(p => p.id.slice(-4)));
+  }, [photos]);
+
   // Fetch collage by ID - this will automatically setup realtime subscription
   useEffect(() => {
     if (id) {
-      console.log('📋 Fetching collage by ID for moderation:', id);
+      console.log('🛡️ MODERATION: Fetching collage by ID:', id);
       fetchCollageById(id);
     }
     
     // Cleanup subscription when component unmounts
     return () => {
-      console.log('🧹 Cleaning up realtime subscription in moderation on unmount');
+      console.log('🛡️ MODERATION: Cleaning up realtime subscription on unmount');
       cleanupRealtimeSubscription();
     };
   }, [id, fetchCollageById, cleanupRealtimeSubscription]);
 
-  const handleRefresh = () => {
-    if (id) {
-      setIsRefreshing(true);
-      setFetchError(null);
-      
-      // Use the store's fetch method to refresh photos
-      fetchPhotosByCollageId(id)
-        .then(() => {
-          console.log('📸 Photos refreshed successfully');
-        })
-        .catch((error) => {
-          console.error('❌ Error fetching photos:', error);
-          setFetchError(error.message);
-        })
-        .finally(() => {
-          setTimeout(() => setIsRefreshing(false), 500);
-        });
+  const handleRefresh = async () => {
+    if (!currentCollage?.id) return;
+    
+    setIsRefreshing(true);
+    setFetchError(null);
+    
+    try {
+      await refreshPhotos(currentCollage.id);
+      console.log('🛡️ MODERATION: Photos refreshed successfully');
+    } catch (error: any) {
+      console.error('🛡️ MODERATION: Error refreshing photos:', error);
+      setFetchError(error.message);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
@@ -67,10 +72,10 @@ const CollageModerationPage: React.FC = () => {
     
     try {
       await deletePhoto(photoId);
-      console.log('✅ Photo deleted successfully via moderation:', photoId);
+      console.log('🛡️ MODERATION: Photo deleted successfully:', photoId);
       // Realtime subscription will handle the UI update automatically
     } catch (error: any) {
-      console.error('❌ Failed to delete photo:', error);
+      console.error('🛡️ MODERATION: Failed to delete photo:', error);
       alert(`Failed to delete photo: ${error.message}`);
     } finally {
       setDeletingPhotos(prev => {
@@ -133,9 +138,18 @@ const CollageModerationPage: React.FC = () => {
                 <Shield className="w-6 h-6 text-yellow-500" />
                 <span>Moderate Photos</span>
               </h1>
-              <p className="text-gray-400">
-                {currentCollage.name} • Code: {currentCollage.code} • {photos.length} photos
-              </p>
+              <div className="flex items-center space-x-2 text-gray-400">
+                <span>{currentCollage.name}</span>
+                <span>•</span>
+                <span>Code: {currentCollage.code}</span>
+                <span>•</span>
+                <span>{photos.length} photos</span>
+                <span>•</span>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                  <span>{isRealtimeConnected ? 'Live' : 'Polling'}</span>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -164,6 +178,35 @@ const CollageModerationPage: React.FC = () => {
             <p className="text-red-200">Error: {fetchError}</p>
           </div>
         )}
+
+        {/* DEBUG INFO */}
+        <div className="bg-yellow-900/30 backdrop-blur-sm rounded-lg border border-yellow-500/50 p-4 mb-6">
+          <h3 className="text-yellow-300 font-bold mb-2">DEBUG INFO:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-yellow-200">Photos:</span>
+              <span className="text-white ml-2">{photos.length}</span>
+            </div>
+            <div>
+              <span className="text-yellow-200">Realtime:</span>
+              <span className={`ml-2 ${isRealtimeConnected ? 'text-green-400' : 'text-yellow-400'}`}>
+                {isRealtimeConnected ? 'Connected' : 'Polling'}
+              </span>
+            </div>
+            <div>
+              <span className="text-yellow-200">Collage ID:</span>
+              <span className="text-white ml-2">{currentCollage.id.slice(-8)}</span>
+            </div>
+            <div>
+              <button 
+                onClick={() => console.log('🛡️ MODERATION PHOTOS:', photos)}
+                className="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 rounded text-xs text-white"
+              >
+                Log Photos
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Photos Grid */}
         {photos.length === 0 ? (
@@ -212,6 +255,7 @@ const CollageModerationPage: React.FC = () => {
                 
                 {/* Photo info */}
                 <div className="mt-2 text-xs text-gray-400">
+                  <p>ID: {photo.id.slice(-8)}</p>
                   <p>Uploaded: {new Date(photo.created_at).toLocaleString()}</p>
                 </div>
               </div>
@@ -228,6 +272,7 @@ const CollageModerationPage: React.FC = () => {
             <li>• Deleted photos are removed from both the moderation panel and the live collage immediately</li>
             <li>• Use the refresh button if you need to manually sync the photo list</li>
             <li>• The collage display updates automatically when photos are added or removed</li>
+            <li>• Real-time status indicator shows connection health</li>
           </ul>
         </div>
       </div>
