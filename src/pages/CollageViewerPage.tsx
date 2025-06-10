@@ -145,17 +145,25 @@ const CollageViewerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Simple Debug Panel */}
+      {/* Live Debug Panel - Direct Store Connection */}
       <div className="fixed top-4 right-4 z-50 bg-red-900/80 text-white p-3 rounded-lg text-xs max-w-sm">
-        <h3 className="font-bold mb-1">SIMPLE DEBUG:</h3>
-        <p>Photos: {photos.length}</p>
+        <h3 className="font-bold mb-1">LIVE STORE DEBUG:</h3>
+        <p>Store Photos: {useCollageStore.getState().photos.length}</p>
+        <p>Prop Photos: {photos.length}</p>
         <p>Realtime: {isRealtimeConnected ? '✅ Connected' : '⚠️ Polling'}</p>
-        <p>Last photo: {photos[0] ? new Date(photos[0].created_at).toLocaleTimeString() : 'None'}</p>
+        <p>Last Update: {new Date(useCollageStore.getState().lastRefreshTime).toLocaleTimeString()}</p>
+        <p>Photo IDs: {useCollageStore.getState().photos.map(p => p.id.slice(-4)).join(', ')}</p>
         <button 
           onClick={handleManualRefresh}
           className="mt-1 px-2 py-1 bg-blue-600 rounded text-xs"
         >
           Refresh
+        </button>
+        <button 
+          onClick={() => console.log('LIVE STORE PHOTOS:', useCollageStore.getState().photos)}
+          className="mt-1 ml-1 px-2 py-1 bg-green-600 rounded text-xs"
+        >
+          Log Store
         </button>
       </div>
 
