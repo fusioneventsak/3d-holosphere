@@ -61,7 +61,7 @@ const PhotoboothPage: React.FC = () => {
     setCameraStarted(false);
 
     // Delay to ensure camera is fully released
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
       // Check if we're on desktop or mobile
@@ -142,6 +142,11 @@ const PhotoboothPage: React.FC = () => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           
+          // Ensure video element is properly configured
+          videoRef.current.muted = true;
+          videoRef.current.autoplay = true;
+          videoRef.current.playsInline = true;
+          
           await new Promise<void>((resolve, reject) => {
             if (!videoRef.current) return reject(new Error('Video element not found'));
             
@@ -170,8 +175,13 @@ const PhotoboothPage: React.FC = () => {
             }, 3000);
           });
           
-          await videoRef.current.play();
-          console.log('Desktop: Video playing');
+          // Force play the video
+          try {
+            await videoRef.current.play();
+            console.log('Desktop: Video playing');
+          } catch (playError) {
+            console.warn('Desktop: Auto-play failed, user interaction may be required:', playError);
+          }
         }
 
         setStream(mediaStream);
@@ -325,7 +335,14 @@ const PhotoboothPage: React.FC = () => {
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
-            await videoRef.current.play();
+            videoRef.current.muted = true;
+            videoRef.current.autoplay = true;
+            videoRef.current.playsInline = true;
+            try {
+              await videoRef.current.play();
+            } catch (playErr) {
+              console.warn('Fallback play failed:', playErr);
+            }
           }
           setStream(fallbackStream);
           setError(null);
@@ -645,9 +662,12 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     // Initialize camera on component mount
     console.log('Component mounted, starting camera initialization');
-    startCamera();
-
+    const timer = setTimeout(() => {
+      startCamera();
+    }, 100); // Small delay to ensure component is fully mounted
+    
     return () => {
+      clearTimeout(timer);
       // Enhanced cleanup on component unmount
       if (stream) {
         stream.getTracks().forEach(track => {
@@ -835,7 +855,12 @@ const PhotoboothPage: React.FC = () => {
                   ref={videoRef}
                   autoPlay
                   playsInline
+                  muted
+                  controls={false}
                   className="w-full h-full object-cover"
+                  onCanPlay={() => console.log('Video can play')}
+                  onPlay={() => console.log('Video started playing')}
+                  onError={(e) => console.error('Video error:', e)}
                 />
               )}
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
