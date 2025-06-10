@@ -22,42 +22,188 @@ const PhotoboothPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cameraStarted, setCameraStarted] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto } = useCollageStore();
 
+  // Define all functions before useEffect hooks
   const startCamera = async (deviceId?: string) => {
+    // Force cleanup of any existing streams
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = null;
+        videoRef.current.pause();
       }
       setStream(null);
     }
 
+    // Also check for any lingering streams globally
+    try {
+      const existingStream = videoRef.current?.srcObject as MediaStream;
+      if (existingStream) {
+        existingStream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+        videoRef.current!.srcObject = null;
+      }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
     setLoading(true);
     setError(null);
+    setCameraStarted(false);
 
-    // Add delay to ensure previous stream is fully cleaned up
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Longer delay to ensure camera is fully released
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
-      // First check if we have permission
-      const permissions = await navigator.permissions.query({ name: 'camera' as PermissionName });
-      if (permissions.state === 'denied') {
-        throw new Error('Camera access is blocked. Please allow camera access in your browser settings and refresh the page.');
-      }
+      // Check if we're on desktop or mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
-      // Get list of video devices
-      const allDevices = await navigator.mediaDevices.enumerateDevices()
-        .catch(() => []);
-      
-      const videoDevices = allDevices
-        .filter(device => device.kind === 'videoinput')
-        .map(device => {
-          return {
+      // For desktop, enumerate devices but use simpler constraints
+      if (!isMobile) {
+        // First, get all video devices for desktop too (so users can switch cameras)
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = allDevices
+          .filter(device => device.kind === 'videoinput')
+          .map(device => ({
             deviceId: device.deviceId,
             label: device.label || `Camera ${device.deviceId}`
-          };
-        });
+          }));
+        
+        setDevices(videoDevices);
+
+        // Determine which device to use
+        let targetDeviceId = deviceId;
+        if (!targetDeviceId && videoDevices.length > 0) {
+          targetDeviceId = videoDevices[0].deviceId;
+        }
+
+        // Try multiple constraint sets from most basic to more advanced
+        const constraintSets = [
+          // Most basic - just video with device if specified
+          targetDeviceId 
+            ? { video: { deviceId: { exact: targetDeviceId } }, audio: false }
+            : { video: true, audio: false },
+          // Basic with resolution preference
+          targetDeviceId 
+            ? { 
+                video: { 
+                  deviceId: { exact: targetDeviceId },
+                  width: { ideal: 1280 }, 
+                  height: { ideal: 720 } 
+                }, 
+                audio: false 
+              }
+            : { 
+                video: { 
+                  width: { ideal: 1280 }, 
+                  height: { ideal: 720 } 
+                }, 
+                audio: false 
+              },
+          // Higher resolution if basic works
+          targetDeviceId 
+            ? { 
+                video: { 
+                  deviceId: { exact: targetDeviceId },
+                  width: { ideal: 1920 }, 
+                  height: { ideal: 1080 } 
+                }, 
+                audio: false 
+              }
+            : { 
+                video: { 
+                  width: { ideal: 1920 }, 
+                  height: { ideal: 1080 } 
+                }, 
+                audio: false 
+              }
+        ];
+
+        let mediaStream: MediaStream | null = null;
+        let lastError: any = null;
+
+        for (const constraints of constraintSets) {
+          try {
+            console.log('Trying desktop camera constraints:', constraints);
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            console.log('Desktop camera success with constraints:', constraints);
+            break; // Success, exit loop
+          } catch (err) {
+            lastError = err;
+            console.warn('Desktop camera constraint failed, trying next:', err);
+            // Wait a bit before trying next constraint
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        }
+
+        if (!mediaStream) {
+          console.error('All desktop camera constraints failed:', lastError);
+          throw lastError || new Error('All camera constraints failed');
+        }
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          
+          // Wait for video to be ready
+          await new Promise<void>((resolve, reject) => {
+            if (!videoRef.current) return reject(new Error('Video element not found'));
+            
+            const handleLoad = () => {
+              videoRef.current!.removeEventListener('loadedmetadata', handleLoad);
+              videoRef.current!.removeEventListener('error', handleError);
+              console.log('Desktop camera video loaded successfully');
+              resolve();
+            };
+            
+            const handleError = (e: any) => {
+              videoRef.current!.removeEventListener('loadedmetadata', handleLoad);
+              videoRef.current!.removeEventListener('error', handleError);
+              console.error('Desktop camera video load error:', e);
+              reject(new Error('Video failed to load'));
+            };
+            
+            videoRef.current.addEventListener('loadedmetadata', handleLoad);
+            videoRef.current.addEventListener('error', handleError);
+            
+            // Fallback timeout
+            setTimeout(() => {
+              if (videoRef.current && videoRef.current.readyState >= 2) {
+                console.log('Desktop camera video ready via timeout');
+                handleLoad();
+              } else {
+                console.warn('Desktop camera video not ready after timeout');
+              }
+            }, 3000);
+          });
+          
+          await videoRef.current.play();
+          console.log('Desktop camera video playing');
+        }
+
+        setStream(mediaStream);
+        if (targetDeviceId) {
+          setSelectedDevice(targetDeviceId);
+        }
+        setError(null);
+        setCameraStarted(true);
+        return;
+      }
+
+      // Mobile device handling with device enumeration
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = allDevices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${device.deviceId}`
+        }));
       
       setDevices(videoDevices);
       
@@ -68,12 +214,6 @@ const PhotoboothPage: React.FC = () => {
       let targetDeviceId = deviceId;
       if (!targetDeviceId || !videoDevices.find(d => d.deviceId === targetDeviceId)) {
         targetDeviceId = videoDevices[0].deviceId;
-      }
-
-      // Try to release any existing tracks
-      if (videoRef.current?.srcObject instanceof MediaStream) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
       }
 
       const constraints = {
@@ -89,40 +229,28 @@ const PhotoboothPage: React.FC = () => {
 
       let mediaStream: MediaStream;
       try {
-        mediaStream = await Promise.race([
-          navigator.mediaDevices.getUserMedia(constraints),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Camera access timed out')), 10000)
-          )
-        ]);
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err) {
-        // Try again with default constraints if specific device failed
+        // Fallback to basic constraints if specific device fails
         mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
       }
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        try {
-          await Promise.race([
-            new Promise<void>((resolve, reject) => {
-              if (!videoRef.current) return reject();
-              videoRef.current.onloadedmetadata = () => resolve();
-              videoRef.current.onerror = () => reject(new Error('Failed to initialize video'));
-            }),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error('Video initialization timed out')), 5000)
-            )
-          ]);
-          
-          await videoRef.current.play();
-        } catch (err) {
-          throw new Error('Failed to initialize video stream. Please refresh and try again.');
-        }
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) return reject();
+          videoRef.current.onloadedmetadata = () => resolve();
+          videoRef.current.onerror = () => reject(new Error('Failed to initialize video'));
+        });
+        
+        await videoRef.current.play();
       }
 
-      setStream(mediaStream as MediaStream);
+      setStream(mediaStream);
       setSelectedDevice(targetDeviceId);
       setError(null);
+      setCameraStarted(true);
+
     } catch (err: any) {
       let errorMessage = 'Failed to access camera';
       
@@ -130,60 +258,40 @@ const PhotoboothPage: React.FC = () => {
         errorMessage = 'Camera access denied. Please allow camera access in your browser settings and try again.';
       } else if (err.name === 'NotFoundError') {
         errorMessage = 'No camera found. Please connect a camera and try again.';
-      } else if (err.name === 'NotReadableError') {
-        errorMessage = 'Camera is in use by another application or timed out. Please:\n' +
-          '1. Close other apps using your camera\n' +
-          '2. Refresh the page\n' +
-          '3. Try selecting a different camera if available';
+      } else if (err.name === 'NotReadableError' || err.message?.includes('in use')) {
+        errorMessage = 'Camera is busy. Please refresh the page to reset the camera connection.';
+        // Auto-refresh suggestion
+        setTimeout(() => {
+          if (confirm('Camera is still busy. Would you like to refresh the page to fix this?')) {
+            window.location.reload();
+          }
+        }, 3000);
       } else if (err.name === 'OverconstrainedError') {
-        errorMessage = 'Could not find a camera matching the requested settings. Please try a different camera.';
-      } else if (err.message.includes('timed out')) {
-        errorMessage = err.message;
+        errorMessage = 'Camera constraints not supported. Trying basic camera access...';
+        
+        // Final fallback: try with absolute minimal constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            await videoRef.current.play();
+          }
+          setStream(fallbackStream);
+          setError(null);
+          setCameraStarted(true);
+          return;
+        } catch (fallbackErr) {
+          errorMessage = 'Camera not compatible with this browser.';
+        }
       }
       
       setError(errorMessage);
       console.warn('Camera access warning:', err);
-      
-      // Clean up any partial streams
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        setStream(null);
-      }
+      setCameraStarted(false);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (code) {
-      fetchCollageByCode(code);
-    }
-  }, [code, fetchCollageByCode]);
-
-  useEffect(() => {
-    startCamera();
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        setStream(null);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (selectedDevice && !stream) {
-      startCamera(selectedDevice);
-    } else if (devices.length > 0) {
-      setSelectedDevice(devices[0].deviceId);
-    }
-  }, [selectedDevice, devices.length, stream]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -228,105 +336,148 @@ const PhotoboothPage: React.FC = () => {
           0, 0, cropWidth, cropHeight // Destination (full canvas)
         );
 
-        // Add text if present - optimized for portrait layout with dynamic scaling
+        // Add text if present - prioritize showing full text by scaling down
         if (text) {
-          // Start with larger base font size for short text
-          let baseFontSize = Math.min(cropWidth, cropHeight) * 0.1; // Start at 10% for maximum impact
-          let fontSize = Math.max(baseFontSize, 70); // Minimum 70px for portrait
+          // Calculate text area - bottom 33% of entire photo
+          const textAreaHeight = cropHeight * 0.33;
+          const textAreaStart = cropHeight * 0.67;
+          
+          // Add padding within text area
+          const padding = textAreaHeight * 0.1; // 10% padding
+          const availableHeight = textAreaHeight - (padding * 2);
+          const maxTextWidth = cropWidth * 0.9;
           
           // Set initial text styling
           context.fillStyle = 'white';
           context.strokeStyle = 'black';
           context.textAlign = 'center';
           context.textBaseline = 'middle';
-          
-          // Enhanced shadow for visibility
           context.shadowColor = 'rgba(0, 0, 0, 0.8)';
           context.shadowOffsetX = 3;
           context.shadowOffsetY = 3;
           
-          // Calculate text area - bottom 33% of entire photo
-          const textAreaHeight = cropHeight * 0.33; // 33% of total photo height
-          const textAreaStart = cropHeight * 0.67; // Start at 67% down (bottom third)
+          // Start with a reasonable font size
+          let fontSize = Math.min(cropWidth, cropHeight) * 0.08; // Start smaller for better fitting
+          fontSize = Math.max(fontSize, 20); // Minimum font size
           
-          // Calculate maximum text width (90% of portrait width)
-          const maxTextWidth = cropWidth * 0.9;
-          
-          // Function to measure text width with current font
-          const measureText = (text: string, size: number) => {
+          // Function to wrap text at a specific font size - NO TRUNCATION
+          const wrapTextAtFontSize = (text: string, size: number): string[] => {
             context.font = `900 ${size}px Arial, sans-serif`;
-            return context.measureText(text).width;
-          };
-          
-          // Function to wrap text and return lines
-          const wrapText = (text: string, size: number) => {
             const words = text.split(' ');
-            let lines: string[] = [];
+            let wrappedLines: string[] = [];
             let currentLine = '';
             
             for (const word of words) {
               const testLine = currentLine + (currentLine ? ' ' : '') + word;
-              if (measureText(testLine, size) <= maxTextWidth || currentLine === '') {
+              const testWidth = context.measureText(testLine).width;
+              
+              if (testWidth <= maxTextWidth || currentLine === '') {
                 currentLine = testLine;
               } else {
-                if (currentLine) lines.push(currentLine);
+                // Current line is full, start new line
+                if (currentLine) wrappedLines.push(currentLine);
                 currentLine = word;
-                if (lines.length >= 2) break; // Limit to 2 lines
               }
             }
-            if (currentLine) lines.push(currentLine);
             
-            // Handle overflow on second line
+            // Add the final line
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+            }
+            
+            return wrappedLines;
+          };
+          
+          // Function to check if all text fits (both width and height)
+          const allTextFits = (text: string, size: number): boolean => {
+            const lines = wrapTextAtFontSize(text, size);
+            
+            // Check if we have more than 2 lines
             if (lines.length > 2) {
-              lines = lines.slice(0, 2);
-              let secondLine = lines[1];
-              while (measureText(secondLine + '...', size) > maxTextWidth && secondLine.length > 0) {
-                secondLine = secondLine.slice(0, -1);
-              }
-              lines[1] = secondLine + '...';
+              return false;
             }
             
-            return lines;
+            // Check if height fits
+            const lineHeight = size * 1.4;
+            const totalTextHeight = lines.length * lineHeight;
+            
+            return totalTextHeight <= availableHeight;
           };
           
-          // Function to check if text fits in area
-          const textFitsInArea = (lines: string[], size: number) => {
-            const lineHeight = size * 1.2;
-            const totalHeight = lines.length * lineHeight;
-            return totalHeight <= textAreaHeight;
-          };
+          // Find the largest font size where ALL text fits in 2 lines
+          let finalFontSize = fontSize;
           
-          // Dynamic font sizing - scale down until text fits
-          let lines = wrapText(text, fontSize);
-          
-          // Scale down font size until text fits in the allocated area
-          while (!textFitsInArea(lines, fontSize) && fontSize > 30) {
-            fontSize -= 2; // Reduce by 2px increments
-            lines = wrapText(text, fontSize);
+          // Start from a reasonable size and work our way down
+          for (let testSize = fontSize; testSize >= 15; testSize -= 1) {
+            if (allTextFits(text, testSize)) {
+              finalFontSize = testSize;
+              break;
+            }
           }
           
-          // Minimum font size check
-          if (fontSize < 30) {
-            fontSize = 30;
-            lines = wrapText(text, fontSize);
+          // If even at minimum size we can't fit all text, then truncate as last resort
+          let lines = wrapTextAtFontSize(text, finalFontSize);
+          
+          if (lines.length > 2) {
+            // Last resort: truncate the second line only if we absolutely must
+            lines = lines.slice(0, 2);
+            
+            // Try to fit more words in the second line by reducing font slightly more
+            let truncationFontSize = finalFontSize;
+            while (truncationFontSize > 12 && lines.length === 2) {
+              truncationFontSize -= 1;
+              const testLines = wrapTextAtFontSize(text, truncationFontSize);
+              if (testLines.length <= 2) {
+                lines = testLines;
+                finalFontSize = truncationFontSize;
+                break;
+              }
+            }
+            
+            // If we still have overflow after trying smaller fonts, then add ellipsis
+            if (lines.length === 2) {
+              context.font = `900 ${finalFontSize}px Arial, sans-serif`;
+              let secondLine = lines[1];
+              const remainingWords = text.split(' ').slice(
+                lines[0].split(' ').length + lines[1].split(' ').length
+              );
+              
+              if (remainingWords.length > 0) {
+                // There are more words, so add ellipsis
+                while (context.measureText(secondLine + '...').width > maxTextWidth && secondLine.length > 0) {
+                  const words = secondLine.split(' ');
+                  words.pop();
+                  secondLine = words.join(' ');
+                }
+                if (secondLine) {
+                  lines[1] = secondLine + '...';
+                }
+              }
+            }
           }
           
-          // Set final font and styling
-          context.font = `900 ${fontSize}px Arial, sans-serif`;
-          context.lineWidth = Math.max(3, fontSize * 0.06);
-          context.shadowBlur = fontSize * 0.1;
+          // Ensure we have valid lines
+          if (lines.length === 0) {
+            lines = [text.substring(0, 10) + '...'];
+            finalFontSize = 20;
+          }
           
-          // Calculate final positioning
-          const lineHeight = fontSize * 1.2;
+          // Set final styling
+          context.font = `900 ${finalFontSize}px Arial, sans-serif`;
+          context.lineWidth = Math.max(2, finalFontSize * 0.05);
+          context.shadowBlur = finalFontSize * 0.1;
+          
+          // Calculate positioning to center text in available area
+          const lineHeight = finalFontSize * 1.4;
           const totalTextHeight = lines.length * lineHeight;
-          const startY = textAreaStart + (textAreaHeight - totalTextHeight) / 2 + lineHeight / 2;
+          const textStartY = textAreaStart + padding + (availableHeight - totalTextHeight) / 2;
           
           // Draw each line
           lines.forEach((line, index) => {
-            const textY = startY + (index * lineHeight);
+            const textY = textStartY + (lineHeight / 2) + (index * lineHeight);
             const textX = cropWidth / 2;
             
-            // Double stroke for extra thickness
+            // Draw with strokes for visibility
             context.strokeText(line, textX, textY);
             context.strokeText(line, textX, textY);
             context.fillText(line, textX, textY);
@@ -337,6 +488,9 @@ const PhotoboothPage: React.FC = () => {
           context.shadowBlur = 0;
           context.shadowOffsetX = 0;
           context.shadowOffsetY = 0;
+          
+          // Debug: Log what we rendered
+          console.log(`Rendered ${lines.length} lines at ${finalFontSize}px:`, lines);
         }
 
         // Convert to data URL with maximum quality for crisp text
@@ -361,13 +515,31 @@ const PhotoboothPage: React.FC = () => {
       // Upload photo
       const result = await uploadPhoto(currentCollage.id, file);
       if (result) {
-        // Navigate to collage viewer
-        navigate(`/collage/${code}`);
+        // Clear the current photo and text to start fresh
+        setPhoto(null);
+        setText('');
+        
+        // Show success message briefly
+        setError('Photo uploaded successfully! Take another photo.');
+        
+        // Clear the success message after 2 seconds
+        setTimeout(() => {
+          setError(null);
+        }, 2000);
+        
+        // CRITICAL FIX: Force camera restart after successful upload
+        // This ensures the camera is properly reinitialized on desktop
+        setTimeout(async () => {
+          console.log('Restarting camera after upload');
+          await startCamera(selectedDevice);
+        }, 200);
+        
       } else {
         throw new Error('Failed to upload photo');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to upload photo');
+    } finally {
       setUploading(false);
     }
   };
@@ -384,7 +556,91 @@ const PhotoboothPage: React.FC = () => {
   const retakePhoto = () => {
     setPhoto(null);
     setText('');
+    
+    // CRITICAL FIX: Restart camera immediately after clearing photo
+    // This ensures camera is available for desktop users
+    setTimeout(async () => {
+      console.log('Restarting camera after retake');
+      if (!stream || !cameraStarted) {
+        await startCamera(selectedDevice);
+      }
+    }, 200);
   };
+
+  // Now all useEffect hooks after function definitions
+  useEffect(() => {
+    if (code) {
+      fetchCollageByCode(code);
+    }
+  }, [code, fetchCollageByCode]);
+
+  useEffect(() => {
+    startCamera();
+
+    return () => {
+      // Enhanced cleanup on component unmount
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          videoRef.current.pause();
+        }
+        setStream(null);
+        setCameraStarted(false);
+      }
+    };
+  }, []);
+
+  // Handle page visibility changes to release camera when tab is hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && stream) {
+        // Release camera when tab becomes hidden
+        stream.getTracks().forEach(track => {
+          track.stop();
+          track.enabled = false;
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+        setStream(null);
+        setCameraStarted(false);
+      } else if (!document.hidden && !stream && !photo) {
+        // Restart camera when tab becomes visible again (only if not showing a photo)
+        startCamera();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [stream, photo]);
+
+  // Handle device selection for both mobile and desktop
+  useEffect(() => {
+    if (selectedDevice && !stream && devices.length > 0) {
+      console.log('Device selection changed, starting camera with device:', selectedDevice);
+      startCamera(selectedDevice);
+    }
+  }, [selectedDevice, devices.length, stream]);
+
+  // CRITICAL FIX: Enhanced effect to restart camera when needed
+  useEffect(() => {
+    // If we don't have a photo showing, no active stream, not loading, and camera hasn't started
+    if (!photo && !stream && !loading && !cameraStarted) {
+      console.log('Starting camera because: no photo, no stream, not loading, camera not started');
+      // Add a small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        startCamera(selectedDevice);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [photo, stream, loading, cameraStarted, selectedDevice]);
 
   if (!currentCollage) {
     return (
@@ -401,30 +657,44 @@ const PhotoboothPage: React.FC = () => {
 
   return (
     <Layout>
-      <div className="max-w-lg mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">
+      <div className="max-w-lg mx-auto px-4 py-3">
+        <div className="mb-3">
+          <h1 className="text-lg font-bold text-white mb-1">
             {currentCollage.name}
           </h1>
-          <p className="text-gray-400">
+          <p className="text-gray-400 text-xs">
             Take a photo to add to the collage
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-sm text-red-200 whitespace-pre-line">
+          <div className={`mb-3 p-2 rounded text-xs whitespace-pre-line ${
+            error.includes('successfully') 
+              ? 'bg-green-500/20 border border-green-500/50 text-green-200' 
+              : 'bg-red-500/20 border border-red-500/50 text-red-200'
+          }`}>
             {error}
+            {error.includes('Camera is busy') && (
+              <div className="mt-1">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs transition-colors"
+                >
+                  Refresh Page
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Camera device selector */}
         {devices.length > 1 && (
-          <div className="mb-4">
+          <div className="mb-2">
             <select
               value={selectedDevice}
               onChange={(e) => setSelectedDevice(e.target.value)}
-              className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded text-white"
+              className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs"
             >
+              <option value="">Select Camera</option>
               {devices.map((device) => (
                 <option key={device.deviceId} value={device.deviceId}>
                   {device.label}
@@ -434,12 +704,12 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative">
+        <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative max-h-[70vh]">
           {!photo ? (
             <>
               {loading ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-black">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
                 </div>
               ) : (
                 <video
@@ -449,31 +719,31 @@ const PhotoboothPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               )}
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
                 <input
                   type="text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="Add text to your photo (automatically sizes to fit)..."
-                  className="w-full mb-4 px-4 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400"
+                  placeholder="Add text to your photo..."
+                  className="w-full mb-2 px-2 py-1 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400 text-xs"
                   maxLength={120}
                 />
-                <div className="flex space-x-2">
-                  {devices.length > 0 && (
-                    <button
-                      onClick={() => startCamera(selectedDevice)}
-                      className="flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                      title="Refresh camera"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                    </button>
-                  )}
+                <div className="flex gap-2">
                   <button
                     onClick={takePhoto}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors font-semibold"
+                    disabled={!stream || !cameraStarted}
+                    className="flex-1 flex items-center justify-center px-2 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Camera className="w-5 h-5 mr-2" />
+                    <Camera className="w-4 h-4 mr-2" />
                     Take Photo
+                  </button>
+                  {/* Manual refresh button for troubleshooting */}
+                  <button
+                    onClick={() => startCamera(selectedDevice)}
+                    className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                    title="Refresh Camera"
+                  >
+                    <RefreshCw className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -485,33 +755,33 @@ const PhotoboothPage: React.FC = () => {
                 alt="Photo preview with text"
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                <div className="flex space-x-2">
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
+                <div className="grid grid-cols-3 gap-1">
                   <button
                     onClick={retakePhoto}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="flex items-center justify-center px-2 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs"
                   >
-                    <X className="w-5 h-5 mr-2" />
+                    <X className="w-3 h-3 mr-1" />
                     Retake
                   </button>
                   <button
                     onClick={downloadPhoto}
-                    className="flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                    title="Download photo"
+                    className="flex items-center justify-center px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-xs"
+                    title="Download"
                   >
-                    <Download className="w-5 h-5" />
+                    <Download className="w-3 h-3" />
                   </button>
                   <button
                     onClick={uploadToCollage}
                     disabled={uploading}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    className="flex items-center justify-center px-2 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors disabled:opacity-50 text-xs font-semibold"
                   >
                     {uploading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
                     ) : (
                       <>
-                        <Send className="w-5 h-5 mr-2" />
-                        Upload to Collage
+                        <Send className="w-3 h-3 mr-1" />
+                        Upload
                       </>
                     )}
                   </button>
@@ -523,12 +793,20 @@ const PhotoboothPage: React.FC = () => {
 
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Instructions */}
-        <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
-          <p className="text-gray-300 text-sm">
-            <strong>Tips:</strong> Add text to your photo using the input field above. 
-            Photos are automatically cropped to portrait format (9:16) and text automatically scales to fit up to 2 lines in the bottom third of the photo. Longer text will be smaller but still readable in the 3D collage.
+        <div className="mt-2 p-2 bg-white/5 rounded border border-white/10">
+          <p className="text-gray-300 text-xs">
+            <strong>Tips:</strong> Text automatically scales to fit. Photos are cropped to portrait (9:16).
+            {!cameraStarted && !loading && ' Camera is starting...'}
           </p>
+        </div>
+
+        <div className="mt-2 text-center">
+          <button
+            onClick={() => navigate(`/collage/${code}`)}
+            className="text-purple-400 hover:text-purple-300 text-xs underline transition-colors"
+          >
+            View Collage →
+          </button>
         </div>
       </div>
     </Layout>
