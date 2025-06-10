@@ -1,17 +1,25 @@
 import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw } from 'lucide-react';
-import { useCollageStore, Photo } from '../store/collageStore';
+import { useCollageStore } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import { supabase } from '../lib/supabase';
+
+// Define Photo type locally to avoid circular dependencies
+type Photo = {
+  id: string;
+  collage_id: string;
+  url: string;
+  created_at: string;
+};
 
 const CollageModerationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { currentCollage, fetchCollageById, loading, error } = useCollageStore();
   const [localPhotos, setLocalPhotos] = React.useState<Photo[]>([]);
-  const [realtimeChannel, setRealtimeChannel] = React.useState<any>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -19,94 +27,35 @@ const CollageModerationPage: React.FC = () => {
     }
   }, [id, fetchCollageById]);
 
-  // Setup realtime subscription for photos
+  // Fetch photos when collage is loaded
   useEffect(() => {
     if (!currentCollage?.id) return;
     
-    console.log('🔄 Setting up realtime subscription for moderation:', currentCollage.id);
-    
-    // Initial fetch to get photos
-    const fetchPhotos = async () => {
-      try {
-        setIsRefreshing(true);
-        const { data, error } = await supabase
-          .from('photos')
-          .select('*')
-          .eq('collage_id', currentCollage.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setLocalPhotos(data as Photo[]);
-        setIsRefreshing(false);
-      } catch (err) {
-        console.error('Error fetching photos:', err);
-        setIsRefreshing(false);
-      }
-    };
-    
-    fetchPhotos();
-    
-    // Set up realtime subscription
-    const channel = supabase
-      .channel(`moderation-photos-${currentCollage.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${currentCollage.id}`
-      }, (payload) => {
-        console.log('🔔 New photo inserted:', payload.new);
-        const newPhoto = payload.new as Photo;
-        setLocalPhotos(prev => [newPhoto, ...prev]);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${currentCollage.id}`
-      }, (payload) => {
-        console.log('🔔 Photo deleted:', payload.old);
-        setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
-      })
-      .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status);
-      });
-    
-    setRealtimeChannel(channel);
-    
-    // Cleanup subscription
-    return () => {
-      console.log('🧹 Cleaning up realtime subscription');
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    }
+    handleRefresh();
   }, [currentCollage?.id]);
-
 
   const handleRefresh = () => {
     if (id) {
       setIsRefreshing(true);
+      setFetchError(null);
       
-      // Directly fetch photos instead of relying on the store
-      const fetchPhotos = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('photos')
-            .select('*')
-            .eq('collage_id', id)
-            .order('created_at', { ascending: false });
-
-          if (error) throw error;
-          setLocalPhotos(data as Photo[]);
-        } catch (err) {
-          console.error('Error refreshing photos:', err);
-        } finally {
+      // Fetch photos directly from Supabase
+      supabase
+        .from('photos')
+        .select('*')
+        .eq('collage_id', id)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Error fetching photos:', error);
+            setFetchError(error.message);
+          } else {
+            setLocalPhotos(data as Photo[]);
+          }
+        })
+        .finally(() => {
           setTimeout(() => setIsRefreshing(false), 500);
-        }
-      };
-      
-      fetchPhotos();
+        });
     }
   };
 
@@ -164,6 +113,11 @@ const CollageModerationPage: React.FC = () => {
               <p className="text-gray-400 text-sm mt-1">
                 Review and manage photos uploaded to this collage
               </p>
+              {fetchError && (
+                <p className="text-red-400 text-sm mt-1">
+                  Error: {fetchError}
+                </p>
+              )}
             </div>
             <div className="flex items-center space-x-3">
               <button
