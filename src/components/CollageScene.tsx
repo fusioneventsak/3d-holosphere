@@ -2,9 +2,9 @@ import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
-import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory';
-import { addCacheBustToUrl } from '../../lib/supabase';
+import { type SceneSettings } from '../store/sceneStore';
+import { PatternFactory } from './three/patterns/PatternFactory';
+import { addCacheBustToUrl } from '../lib/supabase';
 
 type Photo = {
   id: string;

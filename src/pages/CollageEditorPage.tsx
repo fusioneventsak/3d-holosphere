@@ -6,7 +6,7 @@ import { useSceneStore } from '../store/sceneStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import Layout from '../components/layout/Layout';
 import SceneSettings from '../components/collage/SceneSettings';
-import CollageScene from '../components/three/CollageScene';
+import CollageScene from '../components/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import CollagePhotos from '../components/collage/CollagePhotos';
 
