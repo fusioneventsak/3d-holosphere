@@ -167,7 +167,7 @@ const CollageViewerPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Main Scene - CRITICAL: Pass photos directly with key for re-rendering */}
+      {/* Main Scene - FIXED: CollageScene now gets photos directly from store */}
       <div className="relative w-full h-screen">
         <ErrorBoundary 
           FallbackComponent={SceneErrorFallback}
@@ -175,6 +175,10 @@ const CollageViewerPage: React.FC = () => {
         >
           <CollageScene 
             settings={currentCollage.settings}
+            onSettingsChange={(newSettings) => {
+              // Optional: Handle settings changes from the viewer
+              console.log('🎛️ Settings changed from viewer:', newSettings);
+            }}
           />
         </ErrorBoundary>
 
@@ -250,7 +254,7 @@ const CollageViewerPage: React.FC = () => {
               <PhotoUploader
                 collageId={currentCollage.id}
                 onUploadComplete={() => {
-                  console.log('📸 Upload completed in viewer');
+                  console.log('📸 Upload completed in viewer - photos will appear automatically via realtime');
                   // Don't close modal automatically, let user upload multiple
                 }}
               />
