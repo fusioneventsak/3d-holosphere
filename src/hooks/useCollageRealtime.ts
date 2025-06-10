@@ -66,4 +66,3 @@ export const useCollageRealtime = (collageId?: string) => {
     }
   };
 };
-</parameter>
