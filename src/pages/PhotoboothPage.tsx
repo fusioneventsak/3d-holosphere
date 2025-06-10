@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, Download, Send, X, RefreshCw } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
@@ -9,313 +9,212 @@ type VideoDevice = {
   label: string;
 };
 
+type CameraState = 'idle' | 'starting' | 'active' | 'error';
+
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isInitializingRef = useRef(false);
+  
   const [devices, setDevices] = useState<VideoDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [cameraStarted, setCameraStarted] = useState(false);
+  const [cameraState, setCameraState] = useState<CameraState>('idle');
+  
   const { currentCollage, fetchCollageByCode, uploadPhoto } = useCollageStore();
 
-  const startCamera = async (deviceId?: string) => {
-    console.log('=== Starting camera initialization ===');
-    console.log('Device ID requested:', deviceId);
+  const cleanupCamera = useCallback(() => {
+    console.log('🧹 Cleaning up camera...');
     
-    // Force cleanup of any existing streams
-    if (stream) {
-      console.log('Cleaning up existing stream');
-      stream.getTracks().forEach(track => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
         track.stop();
         track.enabled = false;
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.pause();
-      }
-      setStream(null);
+      streamRef.current = null;
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.pause();
+    }
+    
+    setCameraState('idle');
+  }, []);
+
+  const getVideoDevices = useCallback(async (): Promise<VideoDevice[]> => {
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = allDevices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${device.deviceId}`
+        }));
+      
+      console.log('📹 Available video devices:', videoDevices);
+      return videoDevices;
+    } catch (error) {
+      console.warn('⚠️ Could not enumerate devices:', error);
+      return [];
+    }
+  }, []);
+
+  const startCamera = useCallback(async (deviceId?: string) => {
+    // Prevent multiple simultaneous initializations
+    if (isInitializingRef.current) {
+      console.log('🔄 Camera initialization already in progress, skipping...');
+      return;
     }
 
-    setLoading(true);
+    console.log('🎥 Starting camera initialization with device:', deviceId);
+    isInitializingRef.current = true;
+    setCameraState('starting');
     setError(null);
-    setCameraStarted(false);
 
     try {
-      console.log('Requesting camera permissions...');
-      
+      // Clean up any existing camera first
+      cleanupCamera();
+
+      // Small delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Detect platform
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       const isMobile = isIOS || isAndroid;
       
-      console.log('Platform detected:', { isIOS, isAndroid, isMobile });
+      console.log('📱 Platform detected:', { isIOS, isAndroid, isMobile });
       
-      let constraints;
+      // Build constraints based on platform
+      let constraints: MediaStreamConstraints;
       
-      if (isIOS) {
-        // iOS-specific constraints
-        console.log('Using iOS-specific constraints');
-        if (deviceId) {
-          constraints = {
-            video: {
-              deviceId: { exact: deviceId },
-              facingMode: "user",
+      if (deviceId) {
+        constraints = {
+          video: {
+            deviceId: { exact: deviceId },
+            ...(isMobile ? { facingMode: "user" } : {}),
+            ...(isIOS ? {
               width: { ideal: 1280, max: 1920 },
               height: { ideal: 720, max: 1080 }
-            },
-            audio: false
-          };
-        } else {
-          // For iOS, always start with front camera
-          constraints = {
-            video: {
-              facingMode: "user",
-              width: { ideal: 1280, max: 1920 },
-              height: { ideal: 720, max: 1080 }
-            },
-            audio: false
-          };
-        }
-      } else if (isAndroid) {
-        // Android-specific constraints
-        console.log('Using Android-specific constraints');
-        if (deviceId) {
-          constraints = {
-            video: {
-              deviceId: { exact: deviceId },
-              facingMode: "user"
-            },
-            audio: false
-          };
-        } else {
-          constraints = {
-            video: {
-              facingMode: "user"
-            },
-            audio: false
-          };
-        }
+            } : {})
+          },
+          audio: false
+        };
       } else {
-        // Desktop constraints
-        console.log('Using desktop constraints');
-        if (deviceId) {
-          constraints = {
-            video: {
-              deviceId: { exact: deviceId }
-            },
-            audio: false
-          };
-        } else {
-          constraints = {
-            video: true,
-            audio: false
-          };
-        }
+        constraints = {
+          video: isMobile ? { facingMode: "user" } : true,
+          audio: false
+        };
       }
       
-      console.log('Using constraints:', constraints);
+      console.log('🔧 Using constraints:', constraints);
       
       // Get user media
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Got media stream:', mediaStream);
-      console.log('Stream active:', mediaStream.active);
-      console.log('Video tracks:', mediaStream.getVideoTracks().length);
+      console.log('✅ Got media stream:', mediaStream.active);
       
-      // Get devices after we have permission
-      try {
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = allDevices
-          .filter(device => device.kind === 'videoinput')
-          .map(device => ({
-            deviceId: device.deviceId,
-            label: device.label || `Camera ${device.deviceId}`
-          }));
+      // Update devices list after getting permission
+      const videoDevices = await getVideoDevices();
+      setDevices(videoDevices);
+      
+      // Auto-select front camera on mobile if not already selected
+      if (!selectedDevice && videoDevices.length > 0 && isMobile) {
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') ||
+          device.label.toLowerCase().includes('user') ||
+          device.label.toLowerCase().includes('selfie') ||
+          device.label.toLowerCase().includes('facetime')
+        );
         
-        console.log('Available video devices:', videoDevices);
-        setDevices(videoDevices);
-        
-        // Set selected device if we don't have one
-        if (!selectedDevice && videoDevices.length > 0) {
-          if (isIOS || isAndroid) {
-            // Try to find front camera
-            const frontCamera = videoDevices.find(device => 
-              device.label.toLowerCase().includes('front') ||
-              device.label.toLowerCase().includes('user') ||
-              device.label.toLowerCase().includes('selfie') ||
-              device.label.toLowerCase().includes('facetime')
-            );
-            
-            if (frontCamera) {
-              console.log('Auto-selecting front camera:', frontCamera.label);
-              setSelectedDevice(frontCamera.deviceId);
-            } else {
-              console.log('No front camera found, using first device');
-              setSelectedDevice(videoDevices[0].deviceId);
-            }
-          } else {
-            console.log('Desktop: using first available device');
-            setSelectedDevice(videoDevices[0].deviceId);
-          }
+        if (frontCamera) {
+          console.log('📱 Auto-selecting front camera:', frontCamera.label);
+          setSelectedDevice(frontCamera.deviceId);
+        } else {
+          setSelectedDevice(videoDevices[0].deviceId);
         }
-      } catch (deviceError) {
-        console.warn('Could not enumerate devices:', deviceError);
       }
       
       // Set up video element
-      if (videoRef.current && mediaStream) {
-        console.log('Setting up video element...');
-        
-        const video = videoRef.current;
-        
-        // Clear any existing source first
-        if (video.srcObject) {
-          video.srcObject = null;
-        }
-        
-        // iOS-specific video setup
-        if (isIOS) {
-          video.setAttribute('webkit-playsinline', 'true');
-          video.setAttribute('playsinline', 'true');
-          video.muted = true;
-          video.autoplay = true;
-          video.controls = false;
-          video.style.objectFit = 'cover';
-        } else {
-          video.muted = true;
-          video.autoplay = true;
-          video.playsInline = true;
-          video.controls = false;
-        }
-        
-        // Set the media stream
-        video.srcObject = mediaStream;
-        
-        console.log('Video element configured');
-        console.log('Video readyState:', video.readyState);
-        console.log('Video srcObject:', video.srcObject);
-        
-        // Wait for video to load
-        await new Promise<void>((resolve, reject) => {
-          const handleLoadedMetadata = () => {
-            console.log('Video metadata loaded');
-            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-            console.log('Video readyState:', video.readyState);
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            video.removeEventListener('error', handleError);
-            video.removeEventListener('loadeddata', handleLoadedData);
-            resolve();
-          };
-          
-          const handleLoadedData = () => {
-            console.log('Video data loaded');
-            if (video.readyState >= 2) {
-              handleLoadedMetadata();
-            }
-          };
-          
-          const handleError = (e: any) => {
-            console.error('Video error during setup:', e);
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            video.removeEventListener('error', handleError);
-            video.removeEventListener('loadeddata', handleLoadedData);
-            reject(new Error(`Video failed to load: ${e.message || 'Unknown error'}`));
-          };
-          
-          video.addEventListener('loadedmetadata', handleLoadedMetadata);
-          video.addEventListener('loadeddata', handleLoadedData);
-          video.addEventListener('error', handleError);
-          
-          // Check if already loaded
-          if (video.readyState >= 1) {
-            console.log('Video already has metadata, readyState:', video.readyState);
-            handleLoadedMetadata();
-          }
-          
-          // Timeout fallback - be more generous for mobile
-          setTimeout(() => {
-            console.log('Timeout check - readyState:', video.readyState);
-            if (video.readyState >= 1) {
-              console.log('Video ready via timeout');
-              handleLoadedMetadata();
-            } else {
-              console.warn('Video not ready after timeout, readyState:', video.readyState);
-              // Don't reject on timeout for iOS - sometimes it works anyway
-              if (isIOS) {
-                console.log('iOS: Proceeding despite timeout');
-                handleLoadedMetadata();
-              } else {
-                reject(new Error('Video load timeout'));
-              }
-            }
-          }, 8000); // Increased timeout for mobile
-        });
-        
-        // Try to play
-        try {
-          console.log('Attempting to play video...');
-          console.log('Video paused state:', video.paused);
-          console.log('Video ready state before play:', video.readyState);
-          
-          const playPromise = video.play();
-          
-          if (playPromise !== undefined) {
-            await playPromise;
-            console.log('Video playing successfully via promise');
-          } else {
-            console.log('Video play() returned undefined - checking if playing');
-            // Wait a bit and check if it's actually playing
-            await new Promise(resolve => setTimeout(resolve, 500));
-            if (!video.paused) {
-              console.log('Video is playing despite undefined promise');
-            }
-          }
-        } catch (playError) {
-          console.warn('Video play failed:', playError);
-          
-          // For iOS, sometimes we need user interaction, but don't fail completely
-          if (isIOS) {
-            console.log('iOS play failed - this is common and may not be a real error');
-            // Check if video is actually playing despite the error
-            setTimeout(() => {
-              if (!video.paused) {
-                console.log('Video is actually playing despite play() error');
-              }
-            }, 1000);
-          } else {
-            // For desktop, play errors are more serious
-            console.error('Desktop video play failed, this is a real error');
-            throw playError;
-          }
-        }
-        
-        console.log('Final video state:');
-        console.log('- paused:', video.paused);
-        console.log('- readyState:', video.readyState);
-        console.log('- videoWidth:', video.videoWidth);
-        console.log('- videoHeight:', video.videoHeight);
-        
-        setStream(mediaStream);
-        setError(null);
-        setCameraStarted(true);
-        console.log('Camera initialization complete');
-        
-      } else {
-        const errorMsg = !videoRef.current ? 'Video element not found' : 'Media stream not available';
-        console.error('Setup failed:', errorMsg);
-        console.log('videoRef.current:', videoRef.current);
-        console.log('mediaStream:', mediaStream);
-        throw new Error(errorMsg);
+      if (!videoRef.current) {
+        throw new Error('Video element not available');
       }
-
+      
+      const video = videoRef.current;
+      
+      // Configure video element
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.controls = false;
+      
+      if (isIOS) {
+        video.setAttribute('webkit-playsinline', 'true');
+        video.setAttribute('playsinline', 'true');
+      }
+      
+      // Set media stream
+      video.srcObject = mediaStream;
+      
+      // Wait for video to be ready
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.log('⏰ Video load timeout, but continuing anyway');
+          resolve(); // Don't reject on timeout for mobile compatibility
+        }, 10000);
+        
+        const handleLoadedMetadata = () => {
+          console.log('📐 Video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
+          clearTimeout(timeout);
+          video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          video.removeEventListener('error', handleError);
+          resolve();
+        };
+        
+        const handleError = (e: any) => {
+          console.error('❌ Video error:', e);
+          clearTimeout(timeout);
+          video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          video.removeEventListener('error', handleError);
+          reject(new Error(`Video failed to load: ${e.message || 'Unknown error'}`));
+        };
+        
+        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('error', handleError);
+        
+        // Check if already loaded
+        if (video.readyState >= 1) {
+          handleLoadedMetadata();
+        }
+      });
+      
+      // Try to play video
+      try {
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
+        console.log('▶️ Video playing successfully');
+      } catch (playError) {
+        console.warn('⚠️ Video play failed (common on mobile):', playError);
+        // Don't fail completely on mobile play errors
+      }
+      
+      // Success!
+      streamRef.current = mediaStream;
+      setCameraState('active');
+      setError(null);
+      console.log('🎉 Camera initialization complete');
+      
     } catch (err: any) {
-      console.error('Camera initialization failed:', err);
+      console.error('❌ Camera initialization failed:', err);
+      
       let errorMessage = 'Failed to access camera';
       
       if (err.name === 'NotAllowedError') {
@@ -325,36 +224,25 @@ const PhotoboothPage: React.FC = () => {
       } else if (err.name === 'NotReadableError') {
         errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
       } else if (err.name === 'OverconstrainedError') {
-        errorMessage = 'Camera settings not supported. Trying basic settings...';
-        
-        // Fallback for overconstrained error
+        // Try fallback constraints
         try {
-          console.log('Trying fallback constraints...');
+          console.log('🔄 Trying fallback constraints...');
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "user" }, 
             audio: false 
           });
           
           if (videoRef.current) {
-            const video = videoRef.current;
-            video.srcObject = fallbackStream;
-            video.muted = true;
-            video.autoplay = true;
-            video.playsInline = true;
-            
-            try {
-              await video.play();
-              console.log('Fallback camera working');
-              setStream(fallbackStream);
-              setError(null);
-              setCameraStarted(true);
-              return;
-            } catch (fallbackPlayError) {
-              console.warn('Fallback play failed:', fallbackPlayError);
-            }
+            videoRef.current.srcObject = fallbackStream;
+            await videoRef.current.play();
+            streamRef.current = fallbackStream;
+            setCameraState('active');
+            setError(null);
+            console.log('✅ Fallback camera working');
+            return;
           }
         } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
+          console.error('❌ Fallback also failed:', fallbackError);
           errorMessage = 'Camera not compatible with this device.';
         }
       } else {
@@ -362,200 +250,165 @@ const PhotoboothPage: React.FC = () => {
       }
       
       setError(errorMessage);
-      setCameraStarted(false);
+      setCameraState('error');
+      cleanupCamera();
     } finally {
-      setLoading(false);
+      isInitializingRef.current = false;
     }
-  };
+  }, [cleanupCamera, getVideoDevices, selectedDevice]);
 
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+  const takePhoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
 
-      if (context) {
-        // Get original video dimensions
-        const originalWidth = video.videoWidth;
-        const originalHeight = video.videoHeight;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (!context) return;
+
+    // Get original video dimensions
+    const originalWidth = video.videoWidth;
+    const originalHeight = video.videoHeight;
+    
+    // Calculate portrait crop dimensions (9:16 aspect ratio)
+    const targetAspectRatio = 9 / 16;
+    let cropWidth, cropHeight, cropX, cropY;
+    
+    const currentAspectRatio = originalWidth / originalHeight;
+    
+    if (currentAspectRatio > targetAspectRatio) {
+      // Image is too wide, crop width to fit portrait
+      cropHeight = originalHeight;
+      cropWidth = cropHeight * targetAspectRatio;
+      cropX = (originalWidth - cropWidth) / 2;
+      cropY = 0;
+    } else {
+      // Image is already portrait or square, crop height if needed
+      cropWidth = originalWidth;
+      cropHeight = cropWidth / targetAspectRatio;
+      cropX = 0;
+      cropY = Math.max(0, (originalHeight - cropHeight) / 2);
+    }
+    
+    // Set canvas to portrait dimensions
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
+
+    // Draw cropped video frame
+    context.drawImage(
+      video,
+      cropX, cropY, cropWidth, cropHeight,
+      0, 0, cropWidth, cropHeight
+    );
+
+    // Add text if present
+    if (text.trim()) {
+      const textAreaHeight = cropHeight * 0.33;
+      const textAreaStart = cropHeight * 0.67;
+      const padding = textAreaHeight * 0.1;
+      const availableHeight = textAreaHeight - (padding * 2);
+      const maxTextWidth = cropWidth * 0.9;
+      
+      context.fillStyle = 'white';
+      context.strokeStyle = 'black';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      context.shadowOffsetX = 3;
+      context.shadowOffsetY = 3;
+      
+      let fontSize = Math.min(cropWidth, cropHeight) * 0.08;
+      fontSize = Math.max(fontSize, 20);
+      
+      const wrapTextAtFontSize = (text: string, size: number): string[] => {
+        context.font = `900 ${size}px Arial, sans-serif`;
+        const words = text.split(' ');
+        let wrappedLines: string[] = [];
+        let currentLine = '';
         
-        // Calculate portrait crop dimensions (9:16 aspect ratio)
-        const targetAspectRatio = 9 / 16;
-        let cropWidth, cropHeight, cropX, cropY;
-        
-        // Determine if we need to crop to portrait
-        const currentAspectRatio = originalWidth / originalHeight;
-        
-        if (currentAspectRatio > targetAspectRatio) {
-          // Image is too wide, crop width to fit portrait
-          cropHeight = originalHeight;
-          cropWidth = cropHeight * targetAspectRatio;
-          cropX = (originalWidth - cropWidth) / 2; // Center crop
-          cropY = 0;
-        } else {
-          // Image is already portrait or square, crop height if needed
-          cropWidth = originalWidth;
-          cropHeight = cropWidth / targetAspectRatio;
-          cropX = 0;
-          cropY = Math.max(0, (originalHeight - cropHeight) / 2); // Center crop
+        for (const word of words) {
+          const testLine = currentLine + (currentLine ? ' ' : '') + word;
+          const testWidth = context.measureText(testLine).width;
+          
+          if (testWidth <= maxTextWidth || currentLine === '') {
+            currentLine = testLine;
+          } else {
+            if (currentLine) wrappedLines.push(currentLine);
+            currentLine = word;
+          }
         }
         
-        // Set canvas to portrait dimensions
-        canvas.width = cropWidth;
-        canvas.height = cropHeight;
-
-        // Draw cropped video frame
-        context.drawImage(
-          video,
-          cropX, cropY, cropWidth, cropHeight, // Source crop area
-          0, 0, cropWidth, cropHeight // Destination (full canvas)
-        );
-
-        // Add text if present
-        if (text) {
-          // Calculate text area - bottom 33% of entire photo
-          const textAreaHeight = cropHeight * 0.33;
-          const textAreaStart = cropHeight * 0.67;
-          
-          // Add padding within text area
-          const padding = textAreaHeight * 0.1;
-          const availableHeight = textAreaHeight - (padding * 2);
-          const maxTextWidth = cropWidth * 0.9;
-          
-          // Set initial text styling
-          context.fillStyle = 'white';
-          context.strokeStyle = 'black';
-          context.textAlign = 'center';
-          context.textBaseline = 'middle';
-          context.shadowColor = 'rgba(0, 0, 0, 0.8)';
-          context.shadowOffsetX = 3;
-          context.shadowOffsetY = 3;
-          
-          // Start with a reasonable font size
-          let fontSize = Math.min(cropWidth, cropHeight) * 0.08;
-          fontSize = Math.max(fontSize, 20);
-          
-          // Function to wrap text at a specific font size
-          const wrapTextAtFontSize = (text: string, size: number): string[] => {
-            context.font = `900 ${size}px Arial, sans-serif`;
-            const words = text.split(' ');
-            let wrappedLines: string[] = [];
-            let currentLine = '';
-            
-            for (const word of words) {
-              const testLine = currentLine + (currentLine ? ' ' : '') + word;
-              const testWidth = context.measureText(testLine).width;
-              
-              if (testWidth <= maxTextWidth || currentLine === '') {
-                currentLine = testLine;
-              } else {
-                if (currentLine) wrappedLines.push(currentLine);
-                currentLine = word;
-              }
-            }
-            
-            if (currentLine) {
-              wrappedLines.push(currentLine);
-            }
-            
-            return wrappedLines;
-          };
-          
-          // Function to check if all text fits
-          const allTextFits = (text: string, size: number): boolean => {
-            const lines = wrapTextAtFontSize(text, size);
-            
-            if (lines.length > 2) {
-              return false;
-            }
-            
-            const lineHeight = size * 1.4;
-            const totalTextHeight = lines.length * lineHeight;
-            
-            return totalTextHeight <= availableHeight;
-          };
-          
-          // Find the largest font size where ALL text fits in 2 lines
-          let finalFontSize = fontSize;
-          
-          for (let testSize = fontSize; testSize >= 15; testSize -= 1) {
-            if (allTextFits(text, testSize)) {
-              finalFontSize = testSize;
-              break;
-            }
-          }
-          
-          let lines = wrapTextAtFontSize(text, finalFontSize);
-          
-          if (lines.length > 2) {
-            lines = lines.slice(0, 2);
-            
-            let truncationFontSize = finalFontSize;
-            while (truncationFontSize > 12 && lines.length === 2) {
-              truncationFontSize -= 1;
-              const testLines = wrapTextAtFontSize(text, truncationFontSize);
-              if (testLines.length <= 2) {
-                lines = testLines;
-                finalFontSize = truncationFontSize;
-                break;
-              }
-            }
-            
-            if (lines.length === 2) {
-              context.font = `900 ${finalFontSize}px Arial, sans-serif`;
-              let secondLine = lines[1];
-              const remainingWords = text.split(' ').slice(
-                lines[0].split(' ').length + lines[1].split(' ').length
-              );
-              
-              if (remainingWords.length > 0) {
-                while (context.measureText(secondLine + '...').width > maxTextWidth && secondLine.length > 0) {
-                  const words = secondLine.split(' ');
-                  words.pop();
-                  secondLine = words.join(' ');
-                }
-                if (secondLine) {
-                  lines[1] = secondLine + '...';
-                }
-              }
-            }
-          }
-          
-          if (lines.length === 0) {
-            lines = [text.substring(0, 10) + '...'];
-            finalFontSize = 20;
-          }
-          
-          context.font = `900 ${finalFontSize}px Arial, sans-serif`;
-          context.lineWidth = Math.max(2, finalFontSize * 0.05);
-          context.shadowBlur = finalFontSize * 0.1;
-          
-          const lineHeight = finalFontSize * 1.4;
-          const totalTextHeight = lines.length * lineHeight;
-          const textStartY = textAreaStart + padding + (availableHeight - totalTextHeight) / 2;
-          
-          lines.forEach((line, index) => {
-            const textY = textStartY + (lineHeight / 2) + (index * lineHeight);
-            const textX = cropWidth / 2;
-            
-            context.strokeText(line, textX, textY);
-            context.strokeText(line, textX, textY);
-            context.fillText(line, textX, textY);
-          });
-          
-          context.shadowColor = 'transparent';
-          context.shadowBlur = 0;
-          context.shadowOffsetX = 0;
-          context.shadowOffsetY = 0;
+        if (currentLine) {
+          wrappedLines.push(currentLine);
         }
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-        setPhoto(dataUrl);
+        
+        return wrappedLines;
+      };
+      
+      const allTextFits = (text: string, size: number): boolean => {
+        const lines = wrapTextAtFontSize(text, size);
+        if (lines.length > 2) return false;
+        
+        const lineHeight = size * 1.4;
+        const totalTextHeight = lines.length * lineHeight;
+        return totalTextHeight <= availableHeight;
+      };
+      
+      let finalFontSize = fontSize;
+      for (let testSize = fontSize; testSize >= 15; testSize -= 1) {
+        if (allTextFits(text, testSize)) {
+          finalFontSize = testSize;
+          break;
+        }
       }
+      
+      let lines = wrapTextAtFontSize(text, finalFontSize);
+      
+      if (lines.length > 2) {
+        lines = lines.slice(0, 2);
+        if (lines.length === 2) {
+          const secondLine = lines[1];
+          const words = secondLine.split(' ');
+          if (context.measureText(secondLine + '...').width > maxTextWidth) {
+            while (words.length > 0 && context.measureText(words.join(' ') + '...').width > maxTextWidth) {
+              words.pop();
+            }
+            lines[1] = words.join(' ') + '...';
+          }
+        }
+      }
+      
+      context.font = `900 ${finalFontSize}px Arial, sans-serif`;
+      context.lineWidth = Math.max(2, finalFontSize * 0.05);
+      context.shadowBlur = finalFontSize * 0.1;
+      
+      const lineHeight = finalFontSize * 1.4;
+      const totalTextHeight = lines.length * lineHeight;
+      const textStartY = textAreaStart + padding + (availableHeight - totalTextHeight) / 2;
+      
+      lines.forEach((line, index) => {
+        const textY = textStartY + (lineHeight / 2) + (index * lineHeight);
+        const textX = cropWidth / 2;
+        
+        context.strokeText(line, textX, textY);
+        context.fillText(line, textX, textY);
+      });
+      
+      // Reset shadow
+      context.shadowColor = 'transparent';
+      context.shadowBlur = 0;
+      context.shadowOffsetX = 0;
+      context.shadowOffsetY = 0;
     }
-  };
 
-  const uploadToCollage = async () => {
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+    setPhoto(dataUrl);
+    
+    // Stop camera after taking photo to free up resources
+    cleanupCamera();
+  }, [text, cameraState, cleanupCamera]);
+
+  const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
 
     setUploading(true);
@@ -568,49 +421,19 @@ const PhotoboothPage: React.FC = () => {
 
       const result = await uploadPhoto(currentCollage.id, file);
       if (result) {
+        // Reset state
         setPhoto(null);
         setText('');
         
+        // Show success message
         setError('Photo uploaded successfully! Take another photo.');
+        setTimeout(() => setError(null), 3000);
         
+        // Restart camera after a brief delay
         setTimeout(() => {
-          setError(null);
-        }, 2000);
-        
-        setTimeout(async () => {
-          console.log('Restarting camera after upload');
-          console.log('videoRef.current after upload:', videoRef.current);
-          
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          const isAndroid = /Android/.test(navigator.userAgent);
-          
-          // Ensure we have a video element before trying to start camera
-          if (!videoRef.current) {
-            console.log('Video element not ready yet after upload, waiting...');
-            // Wait for React to render the video element
-            setTimeout(async () => {
-              console.log('Second attempt after upload - videoRef.current:', videoRef.current);
-              if (videoRef.current) {
-                if (isIOS || isAndroid) {
-                  console.log('Mobile: Restarting with front camera preference after upload');
-                  await startCamera();
-                } else {
-                  await startCamera(selectedDevice);
-                }
-              } else {
-                console.error('Video element still not available after upload');
-                setError('Camera initialization failed. Please refresh the page.');
-              }
-            }, 500);
-          } else {
-            if (isIOS || isAndroid) {
-              console.log('Mobile: Restarting with front camera preference after upload');
-              await startCamera();
-            } else {
-              await startCamera(selectedDevice);
-            }
-          }
-        }, 100); // Reduced delay but with fallback
+          console.log('🔄 Restarting camera after upload...');
+          startCamera(selectedDevice);
+        }, 500);
         
       } else {
         throw new Error('Failed to upload photo');
@@ -620,166 +443,89 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  };
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
 
-  const downloadPhoto = () => {
+  const downloadPhoto = useCallback(() => {
     if (!photo) return;
-
     const link = document.createElement('a');
     link.href = photo;
     link.download = 'photobooth.jpg';
     link.click();
-  };
+  }, [photo]);
 
-  const retakePhoto = () => {
+  const retakePhoto = useCallback(() => {
     setPhoto(null);
     setText('');
     
-    // Wait for React to re-render and show the video element before starting camera
-    setTimeout(async () => {
-      console.log('Restarting camera after retake');
-      console.log('videoRef.current after retake:', videoRef.current);
-      
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isAndroid = /Android/.test(navigator.userAgent);
-      
-      // Ensure we have a video element before trying to start camera
-      if (!videoRef.current) {
-        console.log('Video element not ready yet, waiting longer...');
-        // Wait a bit more for React to render the video element
-        setTimeout(async () => {
-          console.log('Second attempt - videoRef.current:', videoRef.current);
-          if (videoRef.current) {
-            if (isIOS || isAndroid) {
-              console.log('Mobile: Restarting with front camera preference after retake');
-              await startCamera();
-            } else {
-              await startCamera(selectedDevice);
-            }
-          } else {
-            console.error('Video element still not available after waiting');
-            setError('Camera initialization failed. Please refresh the page.');
-          }
-        }, 500);
-      } else {
-        if (isIOS || isAndroid) {
-          console.log('Mobile: Restarting with front camera preference after retake');
-          await startCamera();
-        } else {
-          await startCamera(selectedDevice);
-        }
-      }
-    }, 100); // Small delay to let React re-render
-  };
+    // Restart camera immediately
+    setTimeout(() => {
+      console.log('🔄 Restarting camera after retake...');
+      startCamera(selectedDevice);
+    }, 100);
+  }, [startCamera, selectedDevice]);
 
+  const handleDeviceChange = useCallback((newDeviceId: string) => {
+    if (newDeviceId === selectedDevice) return;
+    
+    setSelectedDevice(newDeviceId);
+    
+    // Only restart camera if we're currently showing the camera view
+    if (!photo && cameraState !== 'starting') {
+      console.log('📱 Device changed, restarting camera...');
+      startCamera(newDeviceId);
+    }
+  }, [selectedDevice, photo, cameraState, startCamera]);
+
+  const switchCamera = useCallback(() => {
+    if (devices.length <= 1) return;
+    
+    const currentIndex = devices.findIndex(d => d.deviceId === selectedDevice);
+    const nextIndex = (currentIndex + 1) % devices.length;
+    handleDeviceChange(devices[nextIndex].deviceId);
+  }, [devices, selectedDevice, handleDeviceChange]);
+
+  // Load collage on mount
   useEffect(() => {
     if (code) {
       fetchCollageByCode(code);
     }
   }, [code, fetchCollageByCode]);
 
+  // Initialize camera when component mounts and when returning from photo view
   useEffect(() => {
-    console.log('Component mounted, starting camera initialization');
-    const timer = setTimeout(() => {
-      startCamera();
-    }, 100);
-    
-    return () => {
-      clearTimeout(timer);
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          track.stop();
-          track.enabled = false;
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-          videoRef.current.pause();
-        }
-        setStream(null);
-        setCameraStarted(false);
-      }
-    };
-  }, []);
+    if (!photo && cameraState === 'idle' && !isInitializingRef.current) {
+      console.log('🚀 Initializing camera...');
+      const timer = setTimeout(() => {
+        startCamera(selectedDevice);
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [photo, cameraState, startCamera, selectedDevice]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Component unmounting, cleaning up...');
+      cleanupCamera();
+    };
+  }, [cleanupCamera]);
+
+  // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden && stream) {
-        stream.getTracks().forEach(track => {
-          track.stop();
-          track.enabled = false;
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = null;
-        }
-        setStream(null);
-        setCameraStarted(false);
-      } else if (!document.hidden && !stream && !photo) {
-        startCamera();
+      if (document.hidden) {
+        console.log('👁️ Page hidden, stopping camera...');
+        cleanupCamera();
+      } else if (!document.hidden && !photo && cameraState === 'idle') {
+        console.log('👁️ Page visible, restarting camera...');
+        setTimeout(() => startCamera(selectedDevice), 500);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [stream, photo]);
-
-  useEffect(() => {
-    if (selectedDevice && devices.length > 0 && !stream && cameraStarted) {
-      console.log('Device selection changed by user, starting camera with device:', selectedDevice);
-      startCamera(selectedDevice);
-    }
-  }, [selectedDevice]);
-
-  useEffect(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isAndroid = /Android/.test(navigator.userAgent);
-    
-    if ((isIOS || isAndroid) && devices.length > 0 && !selectedDevice) {
-      const frontCamera = devices.find(device => 
-        device.label.toLowerCase().includes('front') ||
-        device.label.toLowerCase().includes('user') ||
-        device.label.toLowerCase().includes('selfie') ||
-        device.label.toLowerCase().includes('facetime')
-      );
-      
-      if (frontCamera) {
-        console.log('Setting front camera as selected device:', frontCamera.label);
-        setSelectedDevice(frontCamera.deviceId);
-      } else if (devices.length > 0) {
-        console.log('No front camera found, setting first available');
-        setSelectedDevice(devices[0].deviceId);
-      }
-    }
-  }, [devices, selectedDevice]);
-
-  useEffect(() => {
-    if (!photo && !stream && !loading && !cameraStarted) {
-      console.log('Starting camera because: no photo, no stream, not loading, camera not started');
-      console.log('videoRef.current in effect:', videoRef.current);
-      
-      // Make sure we have a video element before starting
-      if (videoRef.current) {
-        const timer = setTimeout(() => {
-          startCamera();
-        }, 500);
-        return () => clearTimeout(timer);
-      } else {
-        console.log('Video element not ready in effect, will retry...');
-        // If video element not ready, retry after a longer delay
-        const timer = setTimeout(() => {
-          console.log('Retry - videoRef.current:', videoRef.current);
-          if (videoRef.current) {
-            startCamera();
-          } else {
-            console.error('Video element still not available in effect retry');
-          }
-        }, 1000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [photo, stream, loading, cameraStarted]);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [photo, cameraState, startCamera, selectedDevice, cleanupCamera]);
 
   if (!currentCollage) {
     return (
@@ -793,6 +539,8 @@ const PhotoboothPage: React.FC = () => {
       </Layout>
     );
   }
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   return (
     <Layout>
@@ -826,12 +574,12 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
-        {/* Camera device selector - show on both mobile and desktop when multiple cameras available */}
-        {devices.length > 1 && (
+        {/* Camera device selector - desktop */}
+        {!isMobile && devices.length > 1 && (
           <div className="mb-2">
             <select
               value={selectedDevice}
-              onChange={(e) => setSelectedDevice(e.target.value)}
+              onChange={(e) => handleDeviceChange(e.target.value)}
               className="w-full px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs"
             >
               <option value="">Select Camera</option>
@@ -844,34 +592,30 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
-        {/* Mobile camera flip button - only show on mobile when multiple cameras available */}
-        {(() => {
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-          return isMobile && devices.length > 1 && (
-            <div className="mb-2 flex justify-center">
-              <button
-                onClick={() => {
-                  // Find the next camera (cycle through available cameras)
-                  const currentIndex = devices.findIndex(d => d.deviceId === selectedDevice);
-                  const nextIndex = (currentIndex + 1) % devices.length;
-                  setSelectedDevice(devices[nextIndex].deviceId);
-                }}
-                className="px-3 py-2 bg-white/10 border border-white/20 rounded text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2"
-                title="Switch Camera"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Flip Camera
-              </button>
-            </div>
-          );
-        })()}
+        {/* Mobile camera flip button */}
+        {isMobile && devices.length > 1 && !photo && (
+          <div className="mb-2 flex justify-center">
+            <button
+              onClick={switchCamera}
+              disabled={cameraState === 'starting'}
+              className="px-3 py-2 bg-white/10 border border-white/20 rounded text-white text-xs hover:bg-white/20 transition-colors flex items-center gap-2 disabled:opacity-50"
+              title="Switch Camera"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Flip Camera
+            </button>
+          </div>
+        )}
 
         <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative md:max-h-[70vh] max-h-[85vh]">
           {!photo ? (
             <>
-              {loading ? (
+              {cameraState === 'starting' ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-black">
-                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent"></div>
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent mx-auto mb-2"></div>
+                    <p className="text-white text-xs">Starting camera...</p>
+                  </div>
                 </div>
               ) : (
                 <video
@@ -881,12 +625,9 @@ const PhotoboothPage: React.FC = () => {
                   muted
                   controls={false}
                   className="w-full h-full object-cover"
-                  onCanPlay={() => console.log('Video can play')}
-                  onPlay={() => console.log('Video started playing')}
-                  onError={(e) => console.error('Video error:', e)}
-                  onLoadedMetadata={() => console.log('Video metadata loaded')}
                 />
               )}
+              
               <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 to-transparent">
                 <input
                   type="text"
@@ -899,16 +640,16 @@ const PhotoboothPage: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     onClick={takePhoto}
-                    disabled={!stream || !cameraStarted}
+                    disabled={cameraState !== 'active'}
                     className="flex-1 flex items-center justify-center px-2 py-2 bg-white text-black rounded hover:bg-gray-100 transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Camera className="w-4 h-4 mr-2" />
                     Take Photo
                   </button>
-                  {/* Manual refresh button for troubleshooting - desktop and mobile */}
                   <button
                     onClick={() => startCamera(selectedDevice)}
-                    className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                    disabled={cameraState === 'starting'}
+                    className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
                     title="Refresh Camera"
                   >
                     <RefreshCw className="w-4 h-4" />
@@ -964,7 +705,8 @@ const PhotoboothPage: React.FC = () => {
         <div className="mt-2 p-2 bg-white/5 rounded border border-white/10">
           <p className="text-gray-300 text-xs">
             <strong>Tips:</strong> Text automatically scales to fit. Photos are cropped to portrait (9:16).
-            {!cameraStarted && !loading && ' Camera is starting...'}
+            {cameraState === 'starting' && ' Camera is starting...'}
+            {cameraState === 'error' && ' Camera error - try refresh button.'}
           </p>
         </div>
 
