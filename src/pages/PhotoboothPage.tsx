@@ -192,86 +192,142 @@ const PhotoboothPage: React.FC = () => {
       const context = canvas.getContext('2d');
 
       if (context) {
-        // Set canvas size to match video
-        const width = video.videoWidth;
-        const height = video.videoHeight;
-        canvas.width = width;
-        canvas.height = height;
+        // Get original video dimensions
+        const originalWidth = video.videoWidth;
+        const originalHeight = video.videoHeight;
+        
+        // Calculate portrait crop dimensions (9:16 aspect ratio)
+        const targetAspectRatio = 9 / 16;
+        let cropWidth, cropHeight, cropX, cropY;
+        
+        // Determine if we need to crop to portrait
+        const currentAspectRatio = originalWidth / originalHeight;
+        
+        if (currentAspectRatio > targetAspectRatio) {
+          // Image is too wide, crop width to fit portrait
+          cropHeight = originalHeight;
+          cropWidth = cropHeight * targetAspectRatio;
+          cropX = (originalWidth - cropWidth) / 2; // Center crop
+          cropY = 0;
+        } else {
+          // Image is already portrait or square, crop height if needed
+          cropWidth = originalWidth;
+          cropHeight = cropWidth / targetAspectRatio;
+          cropX = 0;
+          cropY = Math.max(0, (originalHeight - cropHeight) / 2); // Center crop
+        }
+        
+        // Set canvas to portrait dimensions
+        canvas.width = cropWidth;
+        canvas.height = cropHeight;
 
-        // Draw video frame
-        context.drawImage(video, 0, 0, width, height);
+        // Draw cropped video frame
+        context.drawImage(
+          video,
+          cropX, cropY, cropWidth, cropHeight, // Source crop area
+          0, 0, cropWidth, cropHeight // Destination (full canvas)
+        );
 
-        // Add text if present - clean style in lower third, no container
+        // Add text if present - optimized for portrait layout with dynamic scaling
         if (text) {
-          // Calculate responsive font size - bigger and bolder
-          const baseFontSize = Math.min(width, height) * 0.06; // 6% of smallest dimension
-          const fontSize = Math.max(baseFontSize, 48); // Minimum 48px for readability
+          // Start with larger base font size for short text
+          let baseFontSize = Math.min(cropWidth, cropHeight) * 0.1; // Start at 10% for maximum impact
+          let fontSize = Math.max(baseFontSize, 70); // Minimum 70px for portrait
           
-          // Set up text styling - clean white text with black outline
-          context.font = `bold ${fontSize}px Arial, sans-serif`;
+          // Set initial text styling
           context.fillStyle = 'white';
           context.strokeStyle = 'black';
-          context.lineWidth = Math.max(3, fontSize * 0.06); // Thicker outline for better visibility
           context.textAlign = 'center';
           context.textBaseline = 'middle';
           
-          // Add subtle shadow for extra depth
-          context.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          context.shadowBlur = fontSize * 0.1;
-          context.shadowOffsetX = 2;
-          context.shadowOffsetY = 2;
+          // Enhanced shadow for visibility
+          context.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          context.shadowOffsetX = 3;
+          context.shadowOffsetY = 3;
           
-          // Calculate maximum text width (90% of image width for padding)
-          const maxTextWidth = width * 0.9;
+          // Calculate text area - bottom 33% of entire photo
+          const textAreaHeight = cropHeight * 0.33; // 33% of total photo height
+          const textAreaStart = cropHeight * 0.67; // Start at 67% down (bottom third)
           
-          // Function to measure text width
-          const measureText = (text: string) => {
+          // Calculate maximum text width (90% of portrait width)
+          const maxTextWidth = cropWidth * 0.9;
+          
+          // Function to measure text width with current font
+          const measureText = (text: string, size: number) => {
+            context.font = `900 ${size}px Arial, sans-serif`;
             return context.measureText(text).width;
           };
           
-          // Split text into words for intelligent wrapping
-          const words = text.split(' ');
-          let lines: string[] = [];
-          let currentLine = '';
-          
-          // Wrap text to fit in image width, max 2 lines
-          for (const word of words) {
-            const testLine = currentLine + (currentLine ? ' ' : '') + word;
-            if (measureText(testLine) <= maxTextWidth || currentLine === '') {
-              currentLine = testLine;
-            } else {
-              if (currentLine) lines.push(currentLine);
-              currentLine = word;
-              if (lines.length >= 2) break; // Limit to 2 lines
+          // Function to wrap text and return lines
+          const wrapText = (text: string, size: number) => {
+            const words = text.split(' ');
+            let lines: string[] = [];
+            let currentLine = '';
+            
+            for (const word of words) {
+              const testLine = currentLine + (currentLine ? ' ' : '') + word;
+              if (measureText(testLine, size) <= maxTextWidth || currentLine === '') {
+                currentLine = testLine;
+              } else {
+                if (currentLine) lines.push(currentLine);
+                currentLine = word;
+                if (lines.length >= 2) break; // Limit to 2 lines
+              }
             }
-          }
-          if (currentLine) lines.push(currentLine);
-          
-          // If we have more than 2 lines, truncate the second line with ellipsis
-          if (lines.length > 2) {
-            lines = lines.slice(0, 2);
-            let secondLine = lines[1];
-            while (measureText(secondLine + '...') > maxTextWidth && secondLine.length > 0) {
-              secondLine = secondLine.slice(0, -1);
+            if (currentLine) lines.push(currentLine);
+            
+            // Handle overflow on second line
+            if (lines.length > 2) {
+              lines = lines.slice(0, 2);
+              let secondLine = lines[1];
+              while (measureText(secondLine + '...', size) > maxTextWidth && secondLine.length > 0) {
+                secondLine = secondLine.slice(0, -1);
+              }
+              lines[1] = secondLine + '...';
             }
-            lines[1] = secondLine + '...';
+            
+            return lines;
+          };
+          
+          // Function to check if text fits in area
+          const textFitsInArea = (lines: string[], size: number) => {
+            const lineHeight = size * 1.2;
+            const totalHeight = lines.length * lineHeight;
+            return totalHeight <= textAreaHeight;
+          };
+          
+          // Dynamic font sizing - scale down until text fits
+          let lines = wrapText(text, fontSize);
+          
+          // Scale down font size until text fits in the allocated area
+          while (!textFitsInArea(lines, fontSize) && fontSize > 30) {
+            fontSize -= 2; // Reduce by 2px increments
+            lines = wrapText(text, fontSize);
           }
           
-          // Position text in lower third of image
-          const lineHeight = fontSize * 1.3; // Slightly more spacing between lines
+          // Minimum font size check
+          if (fontSize < 30) {
+            fontSize = 30;
+            lines = wrapText(text, fontSize);
+          }
+          
+          // Set final font and styling
+          context.font = `900 ${fontSize}px Arial, sans-serif`;
+          context.lineWidth = Math.max(3, fontSize * 0.06);
+          context.shadowBlur = fontSize * 0.1;
+          
+          // Calculate final positioning
+          const lineHeight = fontSize * 1.2;
           const totalTextHeight = lines.length * lineHeight;
-          const lowerThirdStart = height * 0.67; // Lower third starts at 67% down
-          const lowerThirdHeight = height * 0.33; // Lower third is 33% of image height
-          
-          // Center text vertically in the lower third
-          const startY = lowerThirdStart + (lowerThirdHeight - totalTextHeight) / 2 + lineHeight / 2;
+          const startY = textAreaStart + (textAreaHeight - totalTextHeight) / 2 + lineHeight / 2;
           
           // Draw each line
           lines.forEach((line, index) => {
             const textY = startY + (index * lineHeight);
-            const textX = width / 2; // Center horizontally
+            const textX = cropWidth / 2;
             
-            // Draw text with stroke first, then fill
+            // Double stroke for extra thickness
+            context.strokeText(line, textX, textY);
             context.strokeText(line, textX, textY);
             context.fillText(line, textX, textY);
           });
@@ -283,8 +339,8 @@ const PhotoboothPage: React.FC = () => {
           context.shadowOffsetY = 0;
         }
 
-        // Convert to data URL with high quality
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        // Convert to data URL with maximum quality for crisp text
+        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
         setPhoto(dataUrl);
       }
     }
@@ -398,9 +454,9 @@ const PhotoboothPage: React.FC = () => {
                   type="text"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="Add text to your photo (2 lines max)..."
+                  placeholder="Add text to your photo (automatically sizes to fit)..."
                   className="w-full mb-4 px-4 py-2 bg-white/10 border border-white/20 rounded text-white placeholder-gray-400"
-                  maxLength={100}
+                  maxLength={120}
                 />
                 <div className="flex space-x-2">
                   {devices.length > 0 && (
@@ -471,7 +527,7 @@ const PhotoboothPage: React.FC = () => {
         <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
           <p className="text-gray-300 text-sm">
             <strong>Tips:</strong> Add text to your photo using the input field above. 
-            Text will appear in the lower third of your photo with a clean, bold style. Long text will wrap to 2 lines automatically (100 characters max).
+            Photos are automatically cropped to portrait format (9:16) and text automatically scales to fit up to 2 lines in the bottom third of the photo. Longer text will be smaller but still readable in the 3D collage.
           </p>
         </div>
       </div>
