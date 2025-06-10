@@ -1,4 +1,4 @@
-// src/store/collageStore.ts - COMPLETELY FIXED VERSION WITH FORCED DELETION SYNC
+// src/store/collageStore.ts - GLOBAL SHARED SUBSCRIPTION FOR ALL COMPONENTS
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
@@ -83,6 +83,10 @@ interface CollageStore {
   isRealtimeConnected: boolean;
   lastRefreshTime: number;
   pollingInterval: NodeJS.Timeout | null;
+  
+  // CRITICAL: Global subscription management
+  currentCollageId: string | null;
+  subscriberCount: number;
 
   // Actions
   fetchCollages: () => Promise<void>;
@@ -95,15 +99,15 @@ interface CollageStore {
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
   refreshPhotos: (collageId: string) => Promise<void>;
   
-  // Realtime/polling methods
-  setupRealtimeSubscription: (collageId: string) => void;
-  cleanupRealtimeSubscription: () => void;
+  // CRITICAL: Global subscription methods
+  subscribeToCollage: (collageId: string) => void;
+  unsubscribeFromCollage: () => void;
+  
+  // Internal methods
   addPhotoToState: (photo: Photo) => void;
   removePhotoFromState: (photoId: string) => void;
   startPolling: (collageId: string) => void;
   stopPolling: () => void;
-  
-  // CRITICAL: Force refresh all components method
   forceRefreshAllComponents: () => void;
 }
 
@@ -118,8 +122,147 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   isRealtimeConnected: false,
   lastRefreshTime: 0,
   pollingInterval: null,
+  currentCollageId: null,
+  subscriberCount: 0,
 
-  // Add photo to state
+  // CRITICAL: Global subscription management
+  subscribeToCollage: (collageId: string) => {
+    const state = get();
+    
+    console.log('🔗 GLOBAL SUBSCRIPTION REQUEST for collage:', collageId);
+    console.log('🔗 Current subscribers:', state.subscriberCount);
+    console.log('🔗 Current collage ID:', state.currentCollageId);
+    
+    // Increment subscriber count
+    set({ subscriberCount: state.subscriberCount + 1 });
+    
+    // If this is the first subscriber or different collage, setup subscription
+    if (state.subscriberCount === 0 || state.currentCollageId !== collageId) {
+      console.log('🔗 SETTING UP GLOBAL SUBSCRIPTION for:', collageId);
+      set({ currentCollageId: collageId });
+      get().setupGlobalRealtimeSubscription(collageId);
+    } else {
+      console.log('🔗 REUSING EXISTING GLOBAL SUBSCRIPTION');
+    }
+  },
+
+  unsubscribeFromCollage: () => {
+    const state = get();
+    const newCount = Math.max(0, state.subscriberCount - 1);
+    
+    console.log('🔗 GLOBAL UNSUBSCRIBE REQUEST');
+    console.log('🔗 Subscribers: ', state.subscriberCount, '->', newCount);
+    
+    set({ subscriberCount: newCount });
+    
+    // If no more subscribers, cleanup
+    if (newCount === 0) {
+      console.log('🔗 NO MORE SUBSCRIBERS - CLEANING UP GLOBAL SUBSCRIPTION');
+      get().cleanupGlobalRealtimeSubscription();
+      set({ currentCollageId: null });
+    }
+  },
+
+  // CRITICAL: Single global realtime subscription
+  setupGlobalRealtimeSubscription: (collageId: string) => {
+    // Clean up any existing subscription
+    get().cleanupGlobalRealtimeSubscription();
+
+    console.log('🌍 SETTING UP GLOBAL REALTIME SUBSCRIPTION for collage:', collageId);
+
+    const channelName = `global_photos_${collageId}_${Date.now()}`;
+    
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'photos',
+          filter: `collage_id=eq.${collageId}`
+        },
+        (payload) => {
+          console.log('🌍 GLOBAL REALTIME EVENT:', payload.eventType, payload);
+          
+          try {
+            if (payload.eventType === 'INSERT' && payload.new) {
+              console.log('➕ GLOBAL INSERT:', payload.new.id);
+              get().addPhotoToState(payload.new as Photo);
+            } 
+            else if (payload.eventType === 'DELETE') {
+              let photoId = null;
+              
+              if (payload.old && payload.old.id) {
+                photoId = payload.old.id;
+              }
+              
+              if (photoId) {
+                console.log('🗑️ GLOBAL DELETE:', photoId);
+                get().removePhotoFromState(photoId);
+              } else {
+                console.error('🗑️ GLOBAL DELETE: No photo ID found, forcing refresh');
+                setTimeout(() => get().refreshPhotos(collageId), 500);
+              }
+            }
+            else if (payload.eventType === 'UPDATE' && payload.new) {
+              console.log('🔄 GLOBAL UPDATE:', payload.new.id);
+              const updatedPhoto = payload.new as Photo;
+              set((state) => ({
+                photos: state.photos.map(p => 
+                  p.id === updatedPhoto.id ? updatedPhoto : p
+                ),
+                lastRefreshTime: Date.now()
+              }));
+            }
+          } catch (error) {
+            console.error('❌ GLOBAL REALTIME ERROR:', error);
+            setTimeout(() => get().refreshPhotos(collageId), 1000);
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('🌍 GLOBAL SUBSCRIPTION STATUS:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ GLOBAL REALTIME CONNECTED');
+          set({ isRealtimeConnected: true });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.log('❌ GLOBAL REALTIME FAILED, falling back to polling');
+          if (err) console.error('Error details:', err);
+          set({ isRealtimeConnected: false });
+          get().startPolling(collageId);
+        }
+      });
+
+    set({ realtimeChannel: channel });
+
+    // Fallback to polling if realtime doesn't connect
+    setTimeout(() => {
+      const currentState = get();
+      if (!currentState.isRealtimeConnected && !currentState.pollingInterval) {
+        console.log('🔄 GLOBAL REALTIME TIMEOUT, starting polling');
+        get().startPolling(collageId);
+      }
+    }, 3000);
+  },
+
+  cleanupGlobalRealtimeSubscription: () => {
+    const currentChannel = get().realtimeChannel;
+    if (currentChannel) {
+      console.log('🧹 CLEANING UP GLOBAL REALTIME SUBSCRIPTION');
+      try {
+        supabase.removeChannel(currentChannel);
+      } catch (error) {
+        console.warn('⚠️ Error during global cleanup:', error);
+      }
+      set({ realtimeChannel: null, isRealtimeConnected: false });
+    }
+    
+    get().stopPolling();
+  },
+
+  // Add photo to state with smooth updates
   addPhotoToState: (photo: Photo) => {
     set((state) => {
       const exists = state.photos.some(p => p.id === photo.id);
@@ -128,7 +271,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         return state;
       }
       
-      console.log('✅ Adding new photo to state:', photo.id);
+      console.log('✅ SMOOTH: Adding new photo to state:', photo.id);
       return {
         photos: [photo, ...state.photos],
         lastRefreshTime: Date.now()
@@ -136,63 +279,54 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     });
   },
 
-  // CRITICAL: Enhanced removePhotoFromState with aggressive updates
+  // CRITICAL: Enhanced removePhotoFromState with global broadcast
   removePhotoFromState: (photoId: string) => {
-    console.log('🗑️ FORCE REMOVING photo from ALL components:', photoId);
+    console.log('🗑️ GLOBAL: Removing photo from ALL components:', photoId);
     
     set((state) => {
       const beforeCount = state.photos.length;
       const newPhotos = state.photos.filter(p => p.id !== photoId);
       const afterCount = newPhotos.length;
       
-      console.log(`🗑️ Photo removal: ${beforeCount} -> ${afterCount} photos`);
-      console.log('🗑️ Remaining photo IDs:', newPhotos.map(p => p.id.slice(-4)));
+      console.log(`🗑️ GLOBAL removal: ${beforeCount} -> ${afterCount} photos`);
+      console.log('🗑️ Remaining IDs:', newPhotos.map(p => p.id.slice(-4)));
       
       return {
         photos: newPhotos,
-        lastRefreshTime: Date.now() + Math.random() * 1000 // Ensure unique timestamp
+        lastRefreshTime: Date.now()
       };
     });
 
-    // CRITICAL: Multiple update signals to ensure ALL components refresh
+    // CRITICAL: Force update all components multiple times
     setTimeout(() => {
-      console.log('🔄 DELETION: Secondary refresh signal');
-      set((state) => ({
-        ...state,
-        lastRefreshTime: Date.now() + Math.random() * 1000
-      }));
-    }, 100);
+      console.log('🗑️ GLOBAL: Secondary deletion signal');
+      set(state => ({ ...state, lastRefreshTime: Date.now() + 1 }));
+    }, 50);
 
     setTimeout(() => {
-      console.log('🔄 DELETION: Final refresh signal');
-      set((state) => ({
-        ...state,
-        lastRefreshTime: Date.now() + Math.random() * 1000
-      }));
-    }, 500);
+      console.log('🗑️ GLOBAL: Final deletion signal');
+      set(state => ({ ...state, lastRefreshTime: Date.now() + 2 }));
+    }, 200);
   },
 
-  // CRITICAL: Force refresh method to trigger all component updates
   forceRefreshAllComponents: () => {
-    console.log('🔄 FORCE REFRESHING ALL COMPONENTS');
+    console.log('🔄 GLOBAL: Force refreshing ALL components');
     set((state) => ({
       ...state,
-      lastRefreshTime: Date.now() + Math.random() // Ensure unique timestamp
+      lastRefreshTime: Date.now() + Math.random()
     }));
   },
 
-  // Start polling for updates (fallback method)
+  // Polling fallback
   startPolling: (collageId: string) => {
-    // Stop existing polling first
     get().stopPolling();
     
-    console.log('🔄 Starting polling for collage:', collageId);
+    console.log('🔄 GLOBAL: Starting polling for collage:', collageId);
     
     const interval = setInterval(async () => {
       try {
         const currentState = get();
-        if (currentState.currentCollage?.id === collageId) {
-          // Get latest photos from database
+        if (currentState.currentCollageId === collageId && currentState.subscriberCount > 0) {
           const { data, error } = await supabase
             .from('photos')
             .select('*')
@@ -201,195 +335,39 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
           if (error) throw error;
           
-          // Check if photos have changed
           const currentPhotoIds = currentState.photos.map(p => p.id).sort().join(',');
           const newPhotoIds = (data || []).map(p => p.id).sort().join(',');
           
           if (currentPhotoIds !== newPhotoIds) {
-            console.log('📡 Polling detected photo changes:', data?.length);
+            console.log('📡 GLOBAL POLLING: Photo changes detected');
             set({ 
               photos: data as Photo[], 
               lastRefreshTime: Date.now() 
             });
-            get().forceRefreshAllComponents();
           }
         } else {
-          // Collage changed, stop polling
           get().stopPolling();
         }
       } catch (error) {
-        console.error('❌ Polling error:', error);
+        console.error('❌ GLOBAL POLLING ERROR:', error);
       }
-    }, 2000); // Poll every 2 seconds for faster deletion detection
+    }, 2000);
 
     set({ pollingInterval: interval, isRealtimeConnected: false });
   },
 
-  // Stop polling
   stopPolling: () => {
     const interval = get().pollingInterval;
     if (interval) {
-      console.log('🛑 Stopping polling');
+      console.log('🛑 GLOBAL: Stopping polling');
       clearInterval(interval);
       set({ pollingInterval: null });
     }
   },
 
-  // CRITICAL: Enhanced realtime subscription with aggressive DELETE handling
-  setupRealtimeSubscription: (collageId: string) => {
-    const currentChannel = get().realtimeChannel;
-    
-    // Clean up existing
-    if (currentChannel) {
-      console.log('🧹 Cleaning up existing subscription');
-      try {
-        supabase.removeChannel(currentChannel);
-      } catch (error) {
-        console.warn('⚠️ Error cleaning up channel:', error);
-      }
-    }
-
-    // Stop existing polling
-    get().stopPolling();
-
-    console.log('🚀 Setting up ENHANCED realtime subscription for collage:', collageId);
-
-    // Try realtime first with enhanced DELETE handling
-    const channelName = `photos_enhanced_${Date.now()}`;
-    
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events
-          schema: 'public',
-          table: 'photos',
-          filter: `collage_id=eq.${collageId}`
-        },
-        (payload) => {
-          console.log('🔔 REALTIME EVENT RECEIVED:', payload.eventType);
-          console.log('🔔 Full payload:', JSON.stringify(payload, null, 2));
-          
-          try {
-            if (payload.eventType === 'INSERT' && payload.new) {
-              console.log('➕ INSERT event for photo:', payload.new.id);
-              get().addPhotoToState(payload.new as Photo);
-            } 
-            else if (payload.eventType === 'DELETE') {
-              // CRITICAL: Handle DELETE events more aggressively
-              let photoId = null;
-              
-              // Try multiple ways to get the photo ID
-              if (payload.old && payload.old.id) {
-                photoId = payload.old.id;
-                console.log('🗑️ DELETE event - got ID from payload.old.id:', photoId);
-              } else if (payload.old && typeof payload.old === 'object') {
-                // Sometimes the structure might be different
-                const keys = Object.keys(payload.old);
-                console.log('🗑️ DELETE event - payload.old keys:', keys);
-                if (keys.includes('id')) {
-                  photoId = payload.old.id;
-                  console.log('🗑️ DELETE event - found ID in payload.old:', photoId);
-                }
-              }
-              
-              if (photoId) {
-                console.log('🗑️ PROCESSING DELETE for photo:', photoId);
-                get().removePhotoFromState(photoId);
-                
-                // CRITICAL: Also force refresh after a short delay
-                setTimeout(() => {
-                  console.log('🔄 POST-DELETE: Force refreshing photos from DB');
-                  if (get().currentCollage?.id === collageId) {
-                    get().refreshPhotos(collageId);
-                  }
-                }, 1000);
-              } else {
-                console.error('🗑️ DELETE event received but NO photo ID found!');
-                console.error('🗑️ Full DELETE payload:', payload);
-                
-                // CRITICAL: If we can't get the ID, force refresh the entire list
-                setTimeout(() => {
-                  console.log('🔄 DELETE FALLBACK: Force refreshing entire photo list');
-                  if (get().currentCollage?.id === collageId) {
-                    get().refreshPhotos(collageId);
-                  }
-                }, 500);
-              }
-            } 
-            else if (payload.eventType === 'UPDATE' && payload.new) {
-              console.log('🔄 UPDATE event for photo:', payload.new.id);
-              const updatedPhoto = payload.new as Photo;
-              set((state) => ({
-                photos: state.photos.map(p => 
-                  p.id === updatedPhoto.id ? updatedPhoto : p
-                ),
-                lastRefreshTime: Date.now()
-              }));
-              get().forceRefreshAllComponents();
-            }
-          } catch (error) {
-            console.error('❌ Error processing realtime event:', error);
-            
-            // CRITICAL: On any error, force refresh
-            setTimeout(() => {
-              if (get().currentCollage?.id === collageId) {
-                get().refreshPhotos(collageId);
-              }
-            }, 1000);
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        console.log('📡 Subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Realtime SUBSCRIBED! Using realtime updates.');
-          set({ isRealtimeConnected: true });
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.log('❌ Realtime failed, falling back to aggressive polling');
-          if (err) console.error('Error details:', err);
-          set({ isRealtimeConnected: false });
-          
-          // Fallback to more aggressive polling
-          get().startPolling(collageId);
-        }
-      });
-
-    set({ realtimeChannel: channel });
-
-    // Safety fallback: if no subscription status after 3 seconds, start polling
-    setTimeout(() => {
-      const currentState = get();
-      if (!currentState.isRealtimeConnected && !currentState.pollingInterval) {
-        console.log('🔄 Realtime timeout, starting aggressive polling fallback');
-        get().startPolling(collageId);
-      }
-    }, 3000);
-  },
-
-  // Clean up realtime and polling
-  cleanupRealtimeSubscription: () => {
-    const currentChannel = get().realtimeChannel;
-    if (currentChannel) {
-      console.log('🧹 Cleaning up realtime subscription');
-      try {
-        supabase.removeChannel(currentChannel);
-      } catch (error) {
-        console.warn('⚠️ Error during cleanup:', error);
-      }
-      set({ realtimeChannel: null, isRealtimeConnected: false });
-    }
-    
-    // Stop polling
-    get().stopPolling();
-  },
-
-  // CRITICAL: Enhanced refresh photos with force update
   refreshPhotos: async (collageId: string) => {
     try {
-      console.log('🔄 FORCE REFRESHING photos for collage:', collageId);
+      console.log('🔄 GLOBAL: Force refreshing photos for collage:', collageId);
       
       const { data, error } = await supabase
         .from('photos')
@@ -399,8 +377,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       if (error) throw error;
       
-      console.log('📸 Force refreshed photos:', data?.length || 0);
-      console.log('📸 Photo IDs after refresh:', (data || []).map(p => p.id.slice(-4)));
+      console.log('📸 GLOBAL: Force refreshed photos:', data?.length || 0);
       
       set({ 
         photos: data as Photo[], 
@@ -408,11 +385,8 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         lastRefreshTime: Date.now()
       });
       
-      // CRITICAL: Force all components to update
-      get().forceRefreshAllComponents();
-      
     } catch (error: any) {
-      console.error('❌ Refresh photos error:', error);
+      console.error('❌ GLOBAL: Refresh photos error:', error);
       set({ error: error.message });
     }
   },
@@ -456,7 +430,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      // Fetch photos and setup updates
+      // Fetch photos and setup global subscription
       await get().fetchPhotosByCollageId(collage.id);
       
       return collageWithSettings;
@@ -490,7 +464,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      // Fetch photos and setup updates
+      // Fetch photos and setup global subscription
       await get().fetchPhotosByCollageId(id);
       
       return collageWithSettings;
@@ -571,7 +545,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // Upload photo with immediate local update
   uploadPhoto: async (collageId: string, file: File) => {
     try {
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -596,7 +569,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       const fileName = `${nanoid()}.${fileExt}`;
       const filePath = `${collage.code}/${fileName}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(filePath, file, {
@@ -609,7 +581,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       const publicUrl = getFileUrl('photos', filePath);
 
-      // Insert into database
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -628,9 +599,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       console.log('📸 Photo uploaded successfully:', newPhoto.id);
       
-      // ALWAYS add to state immediately (don't wait for realtime/polling)
-      get().addPhotoToState(newPhoto);
-      
+      // Let global subscription handle the update
       set({ error: null });
       return newPhoto;
     } catch (error: any) {
@@ -642,92 +611,58 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // CRITICAL: Enhanced deletePhoto with proper error handling
   deletePhoto: async (photoId: string) => {
     try {
-      console.log('🗑️ STARTING CRITICAL DELETION for photo:', photoId);
+      console.log('🗑️ GLOBAL: Starting deletion for photo:', photoId);
       
-      // STEP 1: Get photo data for storage cleanup BEFORE deletion
-      console.log('🗑️ STEP 1: Getting photo data for cleanup');
+      // Get photo data for storage cleanup
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
         .select('url')
         .eq('id', photoId)
         .single();
 
-      // Don't throw on fetch error - photo might already be deleted
-      if (fetchError) {
-        console.warn('⚠️ Photo not found in DB (might already be deleted):', fetchError);
+      if (fetchError && !fetchError.message.includes('0 rows')) {
+        console.warn('⚠️ Could not fetch photo for cleanup:', fetchError);
       }
 
-      // STEP 2: Delete from database first (this triggers realtime)
-      console.log('🗑️ STEP 2: Deleting from database');
+      // Delete from database (triggers global realtime)
       const { error: deleteError } = await supabase
         .from('photos')
         .delete()
         .eq('id', photoId);
 
-      // Only throw if it's not a "no rows" error (photo already deleted)
       if (deleteError && !deleteError.message.includes('0 rows')) {
-        console.error('❌ CRITICAL: Database deletion failed:', deleteError);
         throw deleteError;
       }
 
-      // STEP 3: Remove from UI immediately for all components
-      console.log('🗑️ STEP 3: Immediate UI removal');
-      get().removePhotoFromState(photoId);
-
-      // STEP 4: Cleanup storage (non-critical)
+      // Cleanup storage
       if (photo?.url) {
-        console.log('🗑️ STEP 4: Cleaning up storage');
         try {
           const url = new URL(photo.url);
           const pathRegex = /\/storage\/v1\/object\/public\/photos\/(.+)/;
           const match = url.pathname.match(pathRegex);
           if (match && match[1]) {
-            const filePath = match[1];
-            console.log('🗑️ Deleting file from storage:', filePath);
-            await supabase.storage.from('photos').remove([filePath]);
+            await supabase.storage.from('photos').remove([match[1]]);
           }
         } catch (storageErr) {
-          console.warn('⚠️ Storage cleanup failed (non-critical):', storageErr);
+          console.warn('⚠️ Storage cleanup failed:', storageErr);
         }
       }
 
-      // STEP 5: Force refresh after deletion to ensure consistency
-      console.log('🗑️ STEP 5: Force refresh after deletion');
-      setTimeout(() => {
-        const currentCollage = get().currentCollage;
-        if (currentCollage?.id) {
-          console.log('🔄 POST-DELETE: Force refreshing to ensure consistency');
-          get().refreshPhotos(currentCollage.id);
-        }
-      }, 1000);
-
-      console.log('🗑️ ✅ DELETION COMPLETED for photo:', photoId);
+      console.log('🗑️ GLOBAL: Photo deletion completed:', photoId);
       set({ error: null });
       
     } catch (error: any) {
-      console.error('❌ CRITICAL DELETE ERROR:', error);
-      
-      // CRITICAL: On deletion failure, force refresh to restore correct state
-      const currentCollage = get().currentCollage;
-      if (currentCollage?.id) {
-        console.log('🔄 DELETE FAILED: Force refreshing to restore state');
-        setTimeout(() => get().refreshPhotos(currentCollage.id), 1000);
-      }
-      
-      set({ 
-        error: error.message || 'Failed to delete photo'
-      });
+      console.error('❌ GLOBAL: Delete photo error:', error);
+      set({ error: error.message || 'Failed to delete photo' });
       throw error;
     }
   },
 
-  // Fetch photos and setup updates
   fetchPhotosByCollageId: async (collageId: string) => {
     try {
-      console.log('📋 Fetching photos for collage:', collageId);
+      console.log('📋 GLOBAL: Fetching photos for collage:', collageId);
       
       const { data, error } = await supabase
         .from('photos')
@@ -737,20 +672,15 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       if (error) throw error;
       
-      console.log('📸 Fetched photos:', data?.length || 0);
+      console.log('📸 GLOBAL: Fetched photos:', data?.length || 0);
       set({ 
         photos: data as Photo[], 
         error: null,
         lastRefreshTime: Date.now()
       });
       
-      // Setup realtime/polling after initial fetch
-      setTimeout(() => {
-        get().setupRealtimeSubscription(collageId);
-      }, 500);
-      
     } catch (error: any) {
-      console.error('❌ Fetch photos error:', error);
+      console.error('❌ GLOBAL: Fetch photos error:', error);
       set({ error: error.message });
     }
   }
