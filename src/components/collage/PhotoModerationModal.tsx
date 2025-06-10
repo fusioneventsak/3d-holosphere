@@ -3,7 +3,6 @@ import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { supabase } from '../../lib/supabase';
-import { useEffect } from 'react';
 
 type PhotoModerationModalProps = {
   photos: Photo[];
