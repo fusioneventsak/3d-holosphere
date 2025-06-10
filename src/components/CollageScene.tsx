@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
-import { Photo } from '../../store/collageStore';
+import { Photo, useCollageStore } from '../../store/collageStore';
 
 interface CollageSceneProps {
   photos: Photo[];
@@ -337,6 +337,13 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     // Increment scene key to force React to recreate photo meshes
     sceneKey.current += 1;
   }, [photos]);
+
+  // CRITICAL: Also listen to lastRefreshTime for forced updates
+  const { lastRefreshTime } = useCollageStore();
+  useEffect(() => {
+    console.log('🔄 Scene force refresh triggered:', lastRefreshTime);
+    sceneKey.current += 1;
+  }, [lastRefreshTime]);
 
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
