@@ -752,12 +752,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange 
   const { photos } = useCollageStore(); // GET PHOTOS DIRECTLY FROM STORE
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+
   // DEBUG: Log when photos change
   useEffect(() => {
     console.log('🎬 COLLAGE SCENE: Store photos changed');
-    console.log('🎬 Photo count:', photos.length);
-    console.log('🎬 Photo IDs:', photos.map(p => p.id.slice(-4)));
-  }, [photos]);
+    console.log('🎬 Photo count:', safePhotos.length);
+    console.log('🎬 Photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+  }, [safePhotos]);
 
   const backgroundStyle = useMemo(() => {
     if (settings.backgroundGradient) {
@@ -806,15 +809,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange 
         
         <AnimationController
           settings={settings}
-          photos={photos}
+          photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
         />
         
-        <PhotoDebugger photos={photos} />
+        <PhotoDebugger photos={safePhotos} />
         
         {photosWithPositions.map((photo) => (
           <PhotoMesh
-            key={`${photo.id}-${photo.slotIndex}-${photos.length}-v4`}
+            key={`${photo.id}-${photo.slotIndex}-${safePhotos.length}-v4`}
             photo={photo}
             size={settings.photoSize || 4.0}
             emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
