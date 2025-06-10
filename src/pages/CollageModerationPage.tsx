@@ -66,31 +66,32 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return; // Prevent double-clicking
     
-    const confirmed = window.confirm('Are you sure you want to delete this photo? This action cannot be undone.');
+    const confirmed = window.confirm('⚠️ CRITICAL: This will IMMEDIATELY remove the photo from ALL views including the live collage. Continue?');
     if (!confirmed) return;
 
     setDeletingPhotos(prev => new Set(prev).add(photoId));
     
     try {
-      console.log('🗑️ MODERATION: Starting photo deletion:', photoId);
+      console.log('🗑️ MODERATION: Starting CRITICAL deletion:', photoId);
       
-      // Remove from UI immediately for better UX
+      // CRITICAL: Remove from UI immediately across ALL components
       removePhotoFromState(photoId);
       
-      // Delete from server
+      // Delete from server (this should trigger realtime for other components)
       await deletePhoto(photoId);
       
-      console.log('🛡️ MODERATION: Photo deleted successfully:', photoId);
+      console.log('🛡️ MODERATION: Photo deleted successfully and removed from ALL views:', photoId);
       
     } catch (error: any) {
-      console.error('🛡️ MODERATION: Failed to delete photo:', error);
+      console.error('🛡️ MODERATION: CRITICAL DELETION FAILED:', error);
       
       // Re-fetch photos to restore UI state if deletion failed
       if (currentCollage?.id) {
+        console.log('🔄 DELETION FAILED: Restoring photo state');
         await refreshPhotos(currentCollage.id);
       }
       
-      alert(`Failed to delete photo: ${error.message}`);
+      alert(`CRITICAL: Failed to delete photo: ${error.message}`);
     } finally {
       setDeletingPhotos(prev => {
         const newSet = new Set(prev);
