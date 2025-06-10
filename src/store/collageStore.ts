@@ -136,7 +136,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     });
   },
 
-  // CRITICAL: Enhanced removePhotoFromState with force update
+  // CRITICAL: Enhanced removePhotoFromState with aggressive updates
   removePhotoFromState: (photoId: string) => {
     console.log('🗑️ FORCE REMOVING photo from ALL components:', photoId);
     
@@ -150,12 +150,26 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       return {
         photos: newPhotos,
-        lastRefreshTime: Date.now()
+        lastRefreshTime: Date.now() + Math.random() * 1000 // Ensure unique timestamp
       };
     });
 
-    // CRITICAL: Force all components to update
-    get().forceRefreshAllComponents();
+    // CRITICAL: Multiple update signals to ensure ALL components refresh
+    setTimeout(() => {
+      console.log('🔄 DELETION: Secondary refresh signal');
+      set((state) => ({
+        ...state,
+        lastRefreshTime: Date.now() + Math.random() * 1000
+      }));
+    }, 100);
+
+    setTimeout(() => {
+      console.log('🔄 DELETION: Final refresh signal');
+      set((state) => ({
+        ...state,
+        lastRefreshTime: Date.now() + Math.random() * 1000
+      }));
+    }, 500);
   },
 
   // CRITICAL: Force refresh method to trigger all component updates
