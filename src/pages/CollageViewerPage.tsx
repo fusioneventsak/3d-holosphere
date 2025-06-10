@@ -163,11 +163,9 @@ const CollageViewerPage: React.FC = () => {
       <div className="relative w-full h-screen">
         <ErrorBoundary 
           FallbackComponent={SceneErrorFallback}
-          resetKeys={[currentCollage.id, photos.length, photos.map(p => p.id).join(',')]}
+          resetKeys={[currentCollage.id, photos.length]} // Keep for error boundary
         >
           <CollageScene 
-            key={`scene-${currentCollage.id}-${photos.length}`} // Force re-render when photos change
-            photos={photos}
             settings={currentCollage.settings}
           />
         </ErrorBoundary>
