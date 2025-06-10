@@ -1,4 +1,4 @@
-// src/components/three/CollageScene.tsx - ENHANCED WITH REAL-TIME REMOVAL
+// src/components/three/CollageScene.tsx - SMOOTH REAL-TIME UPDATES
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
@@ -15,23 +15,48 @@ interface PhotoWithPosition extends Photo {
   position: [number, number, number];
   rotation: [number, number, number];
   slotIndex: number;
+  isVisible: boolean;
 }
 
-// Enhanced PhotoMesh component with proper cleanup and keying
+// Smooth PhotoMesh component that handles appearing/disappearing
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
   size: number;
   emptySlotColor: string;
   brightness: number;
-  key: string; // Explicit key prop for React reconciliation
 }> = ({ photo, size, emptySlotColor, brightness }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [opacity, setOpacity] = useState(photo.url ? 0 : 0.3); // Start invisible for real photos
   const textureRef = useRef<THREE.Texture | null>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
 
-  // CRITICAL: Clean up textures when component unmounts or photo changes
+  // Smooth fade in/out based on visibility
+  useFrame(() => {
+    if (meshRef.current && materialRef.current) {
+      const targetOpacity = photo.isVisible ? (photo.url ? 1 : 0.3) : 0;
+      const currentOpacity = materialRef.current.opacity;
+      
+      if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+        const newOpacity = THREE.MathUtils.lerp(currentOpacity, targetOpacity, 0.1);
+        setOpacity(newOpacity);
+        materialRef.current.opacity = newOpacity;
+      }
+
+      // Smooth position animation
+      const targetPos = new THREE.Vector3(...photo.position);
+      const targetRot = new THREE.Euler(...photo.rotation);
+      
+      meshRef.current.position.lerp(targetPos, 0.05);
+      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetRot.x, 0.05);
+      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetRot.y, 0.05);
+      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, targetRot.z, 0.05);
+    }
+  });
+
+  // Clean up textures when component unmounts
   useEffect(() => {
     return () => {
       if (textureRef.current) {
@@ -78,74 +103,76 @@ const PhotoMesh: React.FC<{
       setIsLoading(false);
     };
 
-    // Add cache busting for realtime updates
-    const imageUrl = photo.url.includes('?') 
-      ? `${photo.url}&cb=${Date.now()}` 
-      : `${photo.url}?cb=${Date.now()}`;
-
-    loader.load(imageUrl, handleLoad, undefined, handleError);
+    // Don't add cache busting for smoother loading
+    loader.load(photo.url, handleLoad, undefined, handleError);
   }, [photo.url, photo.id]);
-
-  // Animate to target position
-  useFrame(() => {
-    if (meshRef.current) {
-      const targetPos = new THREE.Vector3(...photo.position);
-      const targetRot = new THREE.Euler(...photo.rotation);
-      
-      meshRef.current.position.lerp(targetPos, 0.05);
-      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetRot.x, 0.05);
-      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetRot.y, 0.05);
-      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, targetRot.z, 0.05);
-    }
-  });
 
   // Material based on loading state
   const material = useMemo(() => {
-    if (hasError || (!texture && !isLoading)) {
+    if (hasError || (!texture && !isLoading && photo.url)) {
+      // Error material
+      const mat = new THREE.MeshStandardMaterial({
+        color: '#ff6b6b',
+        transparent: true,
+        opacity: opacity,
+        side: THREE.DoubleSide,
+      });
+      materialRef.current = mat;
+      return mat;
+    }
+
+    if (!photo.url) {
       // Empty slot material
       const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
+      canvas.width = 256;
+      canvas.height = 256;
       const ctx = canvas.getContext('2d')!;
       
-      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      const gradient = ctx.createLinearGradient(0, 0, 256, 256);
       gradient.addColorStop(0, emptySlotColor);
       gradient.addColorStop(1, '#333333');
       
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillRect(0, 0, 256, 256);
       
       ctx.strokeStyle = '#444444';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 10]);
-      ctx.strokeRect(50, 50, 412, 412);
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(10, 10, 236, 236);
       
       const emptyTexture = new THREE.CanvasTexture(canvas);
-      return new THREE.MeshStandardMaterial({
+      const mat = new THREE.MeshStandardMaterial({
         map: emptyTexture,
         transparent: true,
-        opacity: 0.3,
+        opacity: opacity,
         side: THREE.DoubleSide,
       });
+      materialRef.current = mat;
+      return mat;
     }
 
     if (isLoading) {
       // Loading material
-      return new THREE.MeshStandardMaterial({
+      const mat = new THREE.MeshStandardMaterial({
         color: '#666666',
         transparent: true,
-        opacity: 0.5,
+        opacity: opacity * 0.5,
       });
+      materialRef.current = mat;
+      return mat;
     }
 
     // Photo material
-    return new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshStandardMaterial({
       map: texture,
       transparent: true,
+      opacity: opacity,
       side: THREE.DoubleSide,
       color: new THREE.Color(brightness, brightness, brightness),
     });
-  }, [texture, emptySlotColor, brightness, isLoading, hasError]);
+    materialRef.current = mat;
+    return mat;
+  }, [texture, emptySlotColor, brightness, isLoading, hasError, photo.url, opacity]);
 
   return (
     <mesh
@@ -155,6 +182,7 @@ const PhotoMesh: React.FC<{
       receiveShadow
       position={photo.position}
       rotation={photo.rotation}
+      visible={opacity > 0.01} // Hide completely invisible meshes
     >
       <planeGeometry args={[size, size]} />
     </mesh>
@@ -162,111 +190,105 @@ const PhotoMesh: React.FC<{
 };
 
 // Grid pattern generator
-const generateGridPattern = (photos: Photo[], settings: any) => {
+const generateGridPattern = (photos: Photo[], settings: any): PhotoWithPosition[] => {
   const { photoCount, photoSize = 1 } = settings;
   const cols = Math.ceil(Math.sqrt(photoCount));
   const rows = Math.ceil(photoCount / cols);
   const spacing = photoSize * 1.2;
   
   const photosWithPositions: PhotoWithPosition[] = [];
+  const activePhotoIds = new Set(photos.map(p => p.id));
   
-  // First, add all actual photos
-  photos.forEach((photo, index) => {
-    if (index < photoCount) {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
-      const x = (col - (cols - 1) / 2) * spacing;
-      const z = (row - (rows - 1) / 2) * spacing;
-      
-      photosWithPositions.push({
-        ...photo,
-        position: [x, 0, z],
-        rotation: [0, 0, 0],
-        slotIndex: index,
-      });
-    }
-  });
-  
-  // Then add empty slots for remaining positions
-  for (let i = photos.length; i < photoCount; i++) {
+  // Create positions for all slots
+  for (let i = 0; i < photoCount; i++) {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = (col - (cols - 1) / 2) * spacing;
     const z = (row - (rows - 1) / 2) * spacing;
     
-    photosWithPositions.push({
-      id: `placeholder-${i}`,
-      collage_id: '',
-      url: '',
-      created_at: '',
-      position: [x, 0, z],
-      rotation: [0, 0, 0],
-      slotIndex: i,
-    });
+    const assignedPhoto = i < photos.length ? photos[i] : null;
+    
+    if (assignedPhoto) {
+      photosWithPositions.push({
+        ...assignedPhoto,
+        position: [x, 0, z],
+        rotation: [0, 0, 0],
+        slotIndex: i,
+        isVisible: true,
+      });
+    } else {
+      // Empty slot
+      photosWithPositions.push({
+        id: `placeholder-${i}`,
+        collage_id: '',
+        url: '',
+        created_at: '',
+        position: [x, 0, z],
+        rotation: [0, 0, 0],
+        slotIndex: i,
+        isVisible: true,
+      });
+    }
   }
   
   return photosWithPositions;
 };
 
 // Float pattern generator
-const generateFloatPattern = (photos: Photo[], settings: any) => {
+const generateFloatPattern = (photos: Photo[], settings: any): PhotoWithPosition[] => {
   const { photoCount, photoSize = 1 } = settings;
   const photosWithPositions: PhotoWithPosition[] = [];
+  const time = Date.now() * 0.001; // Use current time for animation
   
-  photos.forEach((photo, index) => {
-    if (index < photoCount) {
-      const angle = (index / photoCount) * Math.PI * 2;
-      const radius = 5 + (index % 3) * 2;
-      const height = Math.sin(index * 0.5) * 3;
-      
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      
-      photosWithPositions.push({
-        ...photo,
-        position: [x, height, z],
-        rotation: [0, angle, 0],
-        slotIndex: index,
-      });
-    }
-  });
-  
-  // Add empty slots
-  for (let i = photos.length; i < photoCount; i++) {
+  for (let i = 0; i < photoCount; i++) {
     const angle = (i / photoCount) * Math.PI * 2;
     const radius = 5 + (i % 3) * 2;
-    const height = Math.sin(i * 0.5) * 3;
+    const height = Math.sin(time + i * 0.5) * 3;
     
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
     
-    photosWithPositions.push({
-      id: `placeholder-${i}`,
-      collage_id: '',
-      url: '',
-      created_at: '',
-      position: [x, height, z],
-      rotation: [0, angle, 0],
-      slotIndex: i,
-    });
+    const assignedPhoto = i < photos.length ? photos[i] : null;
+    
+    if (assignedPhoto) {
+      photosWithPositions.push({
+        ...assignedPhoto,
+        position: [x, height, z],
+        rotation: [0, angle, 0],
+        slotIndex: i,
+        isVisible: true,
+      });
+    } else {
+      // Empty slot
+      photosWithPositions.push({
+        id: `placeholder-${i}`,
+        collage_id: '',
+        url: '',
+        created_at: '',
+        position: [x, height, z],
+        rotation: [0, angle, 0],
+        slotIndex: i,
+        isVisible: true,
+      });
+    }
   }
   
   return photosWithPositions;
 };
 
-// PhotoController component that manages photo positioning
+// Stable PhotoController that doesn't cause flickering
 const PhotoController: React.FC<{
   photos: Photo[];
   settings: any;
   onPhotosWithPositions: (photos: PhotoWithPosition[]) => void;
 }> = ({ photos, settings, onPhotosWithPositions }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const lastPhotoCount = useRef(0);
-  const lastPhotoIds = useRef<string>('');
+  const lastPhotoIdsRef = useRef<string>('');
+  const lastSettingsRef = useRef<string>('');
 
-  // CRITICAL: Recalculate positions when photos change
+  // SMOOTH: Only recalculate when photos actually change (not on every render)
   const updatePositions = useCallback(() => {
-    console.log('🔄 Updating photo positions - Photos:', photos.length, 'Pattern:', settings.animationPattern);
+    console.log('🔄 Smoothly updating photo positions - Photos:', photos.length, 'Pattern:', settings.animationPattern);
     
     let newPhotosWithPositions: PhotoWithPosition[] = [];
     
@@ -280,29 +302,29 @@ const PhotoController: React.FC<{
         break;
     }
     
-    console.log('✅ Generated positions for', newPhotosWithPositions.length, 'photos');
     setPhotosWithPositions(newPhotosWithPositions);
     onPhotosWithPositions(newPhotosWithPositions);
   }, [photos, settings, onPhotosWithPositions]);
 
-  // Update when photos array changes (including deletions)
+  // SMOOTH: Only update when photos or settings actually change
   useEffect(() => {
     const currentPhotoIds = photos.map(p => p.id).sort().join(',');
-    const photoCountChanged = photos.length !== lastPhotoCount.current;
-    const photoIdsChanged = currentPhotoIds !== lastPhotoIds.current;
+    const currentSettings = JSON.stringify({ 
+      pattern: settings.animationPattern, 
+      count: settings.photoCount, 
+      size: settings.photoSize 
+    });
     
-    if (photoCountChanged || photoIdsChanged) {
-      console.log('📸 Photos changed - Count:', photos.length, 'IDs changed:', photoIdsChanged);
-      lastPhotoCount.current = photos.length;
-      lastPhotoIds.current = currentPhotoIds;
+    const photoIdsChanged = currentPhotoIds !== lastPhotoIdsRef.current;
+    const settingsChanged = currentSettings !== lastSettingsRef.current;
+    
+    if (photoIdsChanged || settingsChanged) {
+      console.log('📸 SMOOTH UPDATE - Photos changed:', photoIdsChanged, 'Settings changed:', settingsChanged);
+      lastPhotoIdsRef.current = currentPhotoIds;
+      lastSettingsRef.current = currentSettings;
       updatePositions();
     }
-  }, [photos, updatePositions]);
-
-  // Update when settings change
-  useEffect(() => {
-    updatePositions();
-  }, [settings.animationPattern, settings.photoCount, settings.photoSize, updatePositions]);
+  }, [photos, settings.animationPattern, settings.photoCount, settings.photoSize, updatePositions]);
 
   return null;
 };
@@ -327,22 +349,22 @@ const BackgroundRenderer: React.FC<{ settings: any }> = ({ settings }) => {
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const sceneKey = useRef(0);
-
-  // CRITICAL: Force re-render when photos change significantly
-  useEffect(() => {
-    console.log('🔄 CollageScene received photos update:', photos.length, 'photos');
-    console.log('📸 Current photo IDs:', photos.map(p => p.id.slice(-4)));
-    
-    // Increment scene key to force React to recreate photo meshes
-    sceneKey.current += 1;
-  }, [photos]);
-
-  // CRITICAL: Also listen to lastRefreshTime for forced updates
   const { lastRefreshTime } = useCollageStore();
+  
+  // SMOOTH: Use stable key that doesn't change on every photo update
+  const stableSceneKey = useMemo(() => {
+    return `scene-${settings.animationPattern}-${settings.photoCount}`;
+  }, [settings.animationPattern, settings.photoCount]);
+
+  // DEBUG: Log changes without causing re-renders
   useEffect(() => {
-    console.log('🔄 Scene force refresh triggered:', lastRefreshTime);
-    sceneKey.current += 1;
+    console.log('🔄 CollageScene photos update (SMOOTH):', photos.length, 'photos');
+    console.log('📸 Photo IDs:', photos.map(p => p.id.slice(-4)));
+  }, [photos.length, photos.map(p => p.id).join(',')]);
+
+  // Listen to force refresh but don't cause flickering
+  useEffect(() => {
+    console.log('🔄 Scene refresh signal received:', lastRefreshTime);
   }, [lastRefreshTime]);
 
   const backgroundStyle = useMemo(() => {
@@ -372,6 +394,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           premultipliedAlpha: false
         }}
         dpr={[1, 2]}
+        frameloop="always" // Keep animating smoothly
       >
         <BackgroundRenderer settings={settings} />
         
@@ -409,11 +432,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           onPhotosWithPositions={setPhotosWithPositions}
         />
         
-        {/* CRITICAL: Use unique keys and force re-render with sceneKey */}
-        <group key={`scene-${sceneKey.current}`}>
-          {photosWithPositions.map((photo, index) => (
+        {/* SMOOTH: Stable group that doesn't recreate on every photo change */}
+        <group key={stableSceneKey}>
+          {photosWithPositions.map((photo) => (
             <PhotoMesh
-              key={`${photo.id}-${sceneKey.current}`} // Unique key that changes when scene updates
+              key={photo.id} // Stable key per photo
               photo={photo}
               size={settings.photoSize || 1}
               emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
