@@ -1,139 +1,122 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { useCollageStore, Photo } from '../../store/collageStore';
-import { Upload, X, Image, Check, AlertCircle } from 'lucide-react';
-
-type PhotoUploaderProps = {
-  collageId: string;
-};
+// src/components/collage/PhotoUploader.tsx
+import React, { useState, useRef } from 'react';
+import { Upload, X, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { useCollageStore } from '../../store/collageStore';
 
 type UploadStatus = 'pending' | 'uploading' | 'success' | 'error';
 
-type FileUpload = {
-  file: File;
+interface FileUpload {
   id: string;
+  file: File;
   status: UploadStatus;
   progress: number;
   error?: string;
-};
+}
 
-const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [fileUploads, setFileUploads] = useState<FileUpload[]>([]);
-  const [globalError, setGlobalError] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  
+interface PhotoUploaderProps {
+  collageId: string;
+  onUploadComplete?: () => void;
+}
+
+const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId, onUploadComplete }) => {
   const { uploadPhoto } = useCollageStore();
+  const [fileUploads, setFileUploads] = useState<FileUpload[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Generate unique ID for each file
-  const generateFileId = () => Math.random().toString(36).substr(2, 9);
-
-  const updateFileStatus = useCallback((fileId: string, updates: Partial<FileUpload>) => {
-    setFileUploads(prev => 
-      prev.map(upload => 
-        upload.id === fileId 
-          ? { ...upload, ...updates }
-          : upload
-      )
-    );
-  }, []);
-
-  const removeFile = useCallback((fileId: string) => {
-    setFileUploads(prev => prev.filter(upload => upload.id !== fileId));
-  }, []);
-
-  const validateFile = (file: File): string | null => {
-    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-
-    if (file.size > MAX_FILE_SIZE) {
-      return 'File size exceeds 10MB limit';
-    }
-
-    if (!validImageTypes.includes(file.type)) {
-      return 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are supported.';
-    }
-
-    return null;
-  };
-
+  // Create file upload entries
   const handleFileSelect = (files: File[]) => {
-    setGlobalError(null);
-
-    // Limit to 50 photos at once for better performance
-    if (files.length > 50) {
-      setGlobalError('You can upload a maximum of 50 photos at once');
-      return;
-    }
-
-    const newUploads: FileUpload[] = [];
-    const validFiles: FileUpload[] = [];
-
-    files.forEach(file => {
-      const fileId = generateFileId();
-      const validationError = validateFile(file);
-      
-      const upload: FileUpload = {
-        file,
-        id: fileId,
-        status: validationError ? 'error' : 'pending',
-        progress: 0,
-        error: validationError || undefined
-      };
-
-      newUploads.push(upload);
-      
-      if (!validationError) {
-        validFiles.push(upload);
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    
+    const validFiles = files.filter(file => {
+      if (!validImageTypes.includes(file.type)) {
+        alert(`"${file.name}" is not a valid image file. Only JPEG, PNG, GIF, and WebP are supported.`);
+        return false;
       }
+      if (file.size > maxFileSize) {
+        alert(`"${file.name}" is too large. Maximum file size is 10MB.`);
+        return false;
+      }
+      return true;
     });
 
-    setFileUploads(prev => [...prev, ...newUploads]);
+    if (validFiles.length === 0) return;
 
-    // Start uploading valid files immediately
-    if (validFiles.length > 0) {
-      processUploads(validFiles);
-    }
+    const newUploads: FileUpload[] = validFiles.map(file => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      status: 'pending',
+      progress: 0
+    }));
+
+    setFileUploads(prev => [...prev, ...newUploads]);
+    
+    // Start processing uploads immediately
+    processUploads(newUploads);
   };
 
+  // Update file status
+  const updateFileStatus = (id: string, updates: Partial<FileUpload>) => {
+    setFileUploads(prev => prev.map(upload => 
+      upload.id === id ? { ...upload, ...updates } : upload
+    ));
+  };
+
+  // Remove file from upload list
+  const removeFile = (id: string) => {
+    setFileUploads(prev => prev.filter(upload => upload.id !== id));
+  };
+
+  // Process uploads with progress tracking
   const processUploads = async (uploads: FileUpload[]) => {
-    setIsUploading(true);
-
-    // Process uploads in parallel batches for better performance
-    const BATCH_SIZE = 3; // Process 3 files at a time
-    const batches: FileUpload[][] = [];
+    if (isUploading) return;
     
-    for (let i = 0; i < uploads.length; i += BATCH_SIZE) {
-      batches.push(uploads.slice(i, i + BATCH_SIZE));
-    }
+    setIsUploading(true);
+    const batchSize = 3; // Process 3 files at a time to avoid overwhelming
 
-    for (const batch of batches) {
+    for (let i = 0; i < uploads.length; i += batchSize) {
+      const batch = uploads.slice(i, i + batchSize);
+      
       const uploadPromises = batch.map(async (upload) => {
+        if (upload.status !== 'pending') return;
+        
         try {
-          updateFileStatus(upload.id, { status: 'uploading', progress: 10 });
+          updateFileStatus(upload.id, { 
+            status: 'uploading', 
+            progress: 10 
+          });
 
-          // Simulate progress updates for better UX
+          // Simulate upload progress
           const progressInterval = setInterval(() => {
-            updateFileStatus(upload.id, (prev) => ({
-              progress: Math.min(prev.progress + Math.random() * 20, 90)
-            }));
+            updateFileStatus(upload.id, { 
+              progress: Math.min(90, upload.progress + Math.random() * 20)
+            });
           }, 200);
 
+          // Actual upload using the store method
           const result = await uploadPhoto(collageId, upload.file);
-
+          
           clearInterval(progressInterval);
 
-          if (result) {            
+          if (result) {
             updateFileStatus(upload.id, { 
               status: 'success', 
               progress: 100 
             });
             
-            console.log('✅ Photo uploaded successfully! It will appear in the collage automatically.');
+            console.log('✅ Photo uploaded successfully via uploader:', result.id);
+            console.log('🔔 Realtime subscription should handle the UI update automatically');
             
             // Auto-remove successful uploads after 2 seconds
             setTimeout(() => {
               removeFile(upload.id);
             }, 2000);
+            
+            // Call completion callback if provided
+            if (onUploadComplete) {
+              onUploadComplete();
+            }
           } else {
             throw new Error('Upload failed without specific error');
           }
@@ -192,7 +175,7 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
     ));
   };
 
-  const getStatusIcon = (status: UploadStatus) => {
+  const getStatusIcon = (status: UploadStatus, error?: string) => {
     switch (status) {
       case 'pending': 
         return <div className="h-4 w-4 bg-gray-500 rounded-full" />;
@@ -204,175 +187,134 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
         return <Check className="h-4 w-4 text-green-400" />;
       case 'error': 
         return <AlertCircle className="h-4 w-4 text-red-400" />;
-      default: 
-        return null;
     }
   };
 
   const getStatusColor = (status: UploadStatus) => {
     switch (status) {
-      case 'pending': return 'bg-gray-500';
-      case 'uploading': return 'bg-blue-500';
-      case 'success': return 'bg-green-500';
-      case 'error': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'pending': return 'bg-gray-700';
+      case 'uploading': return 'bg-blue-600';
+      case 'success': return 'bg-green-600';
+      case 'error': return 'bg-red-600';
     }
   };
 
-  const completedCount = fileUploads.filter(u => u.status === 'success').length;
-  const errorCount = fileUploads.filter(u => u.status === 'error').length;
-  const uploadingCount = fileUploads.filter(u => u.status === 'uploading').length;
-
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium">Upload Photos</h3>
-        {fileUploads.length > 0 && (
-          <button
-            onClick={clearCompletedUploads}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            Clear Completed
-          </button>
-        )}
-      </div>
-      
-      {globalError && (
-        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
-          {globalError}
-        </div>
-      )}
-
-      {/* Upload Status Summary */}
-      {(isUploading || completedCount > 0 || errorCount > 0) && (
-        <div className="mb-4 p-3 bg-black/30 rounded-lg">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-4">
-              {uploadingCount > 0 && (
-                <span className="text-blue-400">
-                  {uploadingCount} uploading...
-                </span>
-              )}
-              {completedCount > 0 && (
-                <span className="text-green-400">
-                  {completedCount} completed
-                </span>
-              )}
-              {errorCount > 0 && (
-                <span className="text-red-400">
-                  {errorCount} failed
-                </span>
-              )}
-            </div>
-            {isUploading && (
-              <div className="text-xs text-gray-400">
-                Photos will appear in the collage automatically
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Drop Zone */}
-      <div 
-        className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:bg-white/5 transition-colors relative"
-        onClick={() => fileInputRef.current?.click()}
+    <div className="space-y-4">
+      {/* Upload Area */}
+      <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        className="border-2 border-dashed border-gray-600 hover:border-gray-500 rounded-lg p-8 text-center transition-colors cursor-pointer"
+        onClick={() => fileInputRef.current?.click()}
       >
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleInputChange}
-          multiple
-          accept="image/*"
-          className="hidden"
-        />
-        
-        <Image className="mx-auto h-12 w-12 text-gray-500" />
-        <p className="mt-2 text-sm text-gray-400">
-          Drag and drop images, or click to select files
+        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <p className="text-lg font-semibold text-white mb-2">Upload Photos</p>
+        <p className="text-gray-400 mb-4">
+          Drag and drop photos here, or click to select files
         </p>
-        <p className="mt-1 text-xs text-gray-500">
-          JPEG, PNG, GIF, WebP up to 10MB each • Max 50 files at once
+        <p className="text-xs text-gray-500">
+          Supports JPEG, PNG, GIF, and WebP • Max 10MB per file
         </p>
-        
-        {isUploading && (
-          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <div className="h-8 w-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-sm text-white">Processing uploads...</p>
-            </div>
-          </div>
-        )}
       </div>
-      
-      {/* Upload Progress List */}
+
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleInputChange}
+        className="hidden"
+      />
+
+      {/* Upload Progress */}
       {fileUploads.length > 0 && (
-        <div className="mt-4">
-          <div className="max-h-48 overflow-y-auto space-y-2">
-            {fileUploads.map((upload) => (
-              <div 
-                key={upload.id}
-                className="flex items-center justify-between py-2 px-3 bg-black/30 rounded text-sm"
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-white">
+              Upload Progress ({fileUploads.length} files)
+            </h4>
+            {fileUploads.some(u => u.status === 'success' || u.status === 'error') && (
+              <button
+                onClick={clearCompletedUploads}
+                className="text-xs text-gray-400 hover:text-white transition-colors"
               >
-                <div className="flex items-center flex-1 min-w-0">
-                  <div className="flex-shrink-0 mr-3">
-                    {getStatusIcon(upload.status)}
+                Clear completed
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-40 overflow-y-auto space-y-2">
+            {fileUploads.map((upload) => (
+              <div key={upload.id} className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1">
+                    {getStatusIcon(upload.status, upload.error)}
+                    <span className="text-sm text-gray-300 truncate">
+                      {upload.file.name}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      ({(upload.file.size / (1024 * 1024)).toFixed(1)}MB)
+                    </span>
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate text-gray-300">
-                        {upload.file.name}
-                      </span>
-                      <span className="ml-2 text-xs text-gray-500">
-                        {(upload.file.size / (1024 * 1024)).toFixed(1)}MB
-                      </span>
-                    </div>
-                    
-                    {upload.status === 'uploading' && (
-                      <div className="mt-1">
-                        <div className="w-full bg-gray-700 rounded-full h-1">
-                          <div 
-                            className="bg-blue-500 h-1 rounded-full transition-all duration-300"
-                            style={{ width: `${upload.progress}%` }}
-                          />
-                        </div>
-                      </div>
+                  <div className="flex items-center space-x-2">
+                    {upload.status === 'error' && (
+                      <button
+                        onClick={() => handleRetryUpload(upload)}
+                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
                     )}
-                    
-                    {upload.error && (
-                      <div className="mt-1 text-xs text-red-400">
-                        {upload.error}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center ml-2 space-x-2">
-                  {upload.status === 'error' && (
                     <button
-                      onClick={() => handleRetryUpload(upload)}
-                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      onClick={() => removeFile(upload.id)}
+                      className="text-gray-400 hover:text-white transition-colors"
                     >
-                      Retry
+                      <X className="h-4 w-4" />
                     </button>
-                  )}
-                  
-                  <button
-                    onClick={() => removeFile(upload.id)}
-                    className="text-gray-400 hover:text-red-400 transition-colors"
-                    disabled={upload.status === 'uploading'}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  </div>
                 </div>
+
+                {/* Progress Bar */}
+                {upload.status === 'uploading' && (
+                  <div className="w-full bg-gray-700 rounded-full h-1.5">
+                    <div 
+                      className={`h-1.5 rounded-full transition-all duration-300 ${getStatusColor(upload.status)}`}
+                      style={{ width: `${upload.progress}%` }}
+                    />
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {upload.status === 'error' && upload.error && (
+                  <p className="text-xs text-red-400 mt-1">{upload.error}</p>
+                )}
+
+                {/* Success Message */}
+                {upload.status === 'success' && (
+                  <p className="text-xs text-green-400 mt-1">
+                    Upload successful! Photo will appear in the collage automatically.
+                  </p>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Instructions */}
+      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+        <h4 className="text-sm font-semibold text-blue-300 mb-2">Upload Instructions</h4>
+        <ul className="text-xs text-blue-200 space-y-1">
+          <li>• Photos will appear in the collage automatically after upload</li>
+          <li>• Multiple photos can be uploaded at once</li>
+          <li>• Supported formats: JPEG, PNG, GIF, WebP</li>
+          <li>• Maximum file size: 10MB per photo</li>
+          <li>• No registration required - just upload and enjoy!</li>
+        </ul>
+      </div>
     </div>
   );
 };
