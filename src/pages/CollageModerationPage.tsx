@@ -15,7 +15,9 @@ const CollageModerationPage: React.FC = () => {
     loading, 
     error, 
     refreshPhotos,
-    isRealtimeConnected 
+    isRealtimeConnected,
+    setupRealtimeSubscription,
+    cleanupRealtimeSubscription
   } = useCollageStore();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -29,22 +31,18 @@ const CollageModerationPage: React.FC = () => {
     console.log('🛡️ Moderation photo IDs:', photos.map(p => p.id.slice(-4)));
   }, [photos]);
 
-  // CRITICAL: Use global subscription instead of individual ones
+  // Simple subscription setup
   useEffect(() => {
     if (id) {
-      console.log('🛡️ MODERATION: Fetching collage and subscribing globally:', id);
+      console.log('🛡️ MODERATION: Fetching collage:', id);
       fetchCollageById(id);
-      
-      // Subscribe to global collage updates
-      const { subscribeToCollage, unsubscribeFromCollage } = useCollageStore.getState();
-      subscribeToCollage(id);
-      
-      return () => {
-        console.log('🛡️ MODERATION: Unsubscribing from global updates');
-        unsubscribeFromCollage();
-      };
     }
-  }, [id, fetchCollageById]);
+    
+    return () => {
+      console.log('🛡️ MODERATION: Cleaning up subscription');
+      cleanupRealtimeSubscription();
+    };
+  }, [id, fetchCollageById, cleanupRealtimeSubscription]);
 
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;
@@ -64,35 +62,22 @@ const CollageModerationPage: React.FC = () => {
   };
 
   const handleDeletePhoto = async (photoId: string) => {
-    if (deletingPhotos.has(photoId)) return; // Prevent double-clicking
+    if (deletingPhotos.has(photoId)) return;
     
-    const confirmed = window.confirm('⚠️ CRITICAL: This will IMMEDIATELY remove the photo from ALL views including the live collage. Continue?');
+    const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
 
     setDeletingPhotos(prev => new Set(prev).add(photoId));
     
     try {
-      console.log('🗑️ MODERATION: Starting CRITICAL deletion:', photoId);
-      
-      // Delete from server (global store handles UI updates)
+      console.log('🗑️ MODERATION: Deleting photo:', photoId);
       await deletePhoto(photoId);
-      
-      console.log('🛡️ MODERATION: Photo deleted successfully from ALL views:', photoId);
+      console.log('✅ MODERATION: Photo deleted successfully');
       
     } catch (error: any) {
-      console.error('🛡️ MODERATION: CRITICAL DELETION FAILED:', error);
-      
-      // Only show error if it's a real error (not "already deleted")
-      if (!error.message.includes('0 rows') && !error.message.includes('PGRST116')) {
-        alert(`CRITICAL: Failed to delete photo: ${error.message}`);
-      } else {
-        console.log('✅ Photo was already deleted (race condition handled)');
-      }
-      
-      // Force refresh on any error
-      if (currentCollage?.id) {
-        console.log('🔄 DELETION ERROR: Force refreshing to ensure consistency');
-        await refreshPhotos(currentCollage.id);
+      console.error('❌ MODERATION: Delete failed:', error);
+      if (!error.message.includes('0 rows')) {
+        alert(`Failed to delete photo: ${error.message}`);
       }
     } finally {
       setDeletingPhotos(prev => {
