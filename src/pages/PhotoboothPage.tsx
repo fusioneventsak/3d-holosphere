@@ -196,7 +196,7 @@ const PhotoboothPage: React.FC = () => {
         return;
       }
 
-      // Mobile device handling with device enumeration
+      // Mobile device handling with front camera prioritization
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = allDevices
         .filter(device => device.kind === 'videoinput')
@@ -212,64 +212,124 @@ const PhotoboothPage: React.FC = () => {
       }
 
       let targetDeviceId = deviceId;
-      if (!targetDeviceId || !videoDevices.find(d => d.deviceId === targetDeviceId)) {
-        // For mobile, prioritize front camera (user-facing)
+      
+      // CRITICAL FIX: Always prioritize front camera on mobile if no specific device requested
+      if (!targetDeviceId) {
         const frontCamera = videoDevices.find(device => 
           device.label.toLowerCase().includes('front') || 
           device.label.toLowerCase().includes('user') ||
-          device.label.toLowerCase().includes('selfie')
+          device.label.toLowerCase().includes('selfie') ||
+          device.label.toLowerCase().includes('facetime')
         );
         
         if (frontCamera) {
           targetDeviceId = frontCamera.deviceId;
-          console.log('Mobile: Auto-selected front camera:', frontCamera.label);
+          setSelectedDevice(frontCamera.deviceId);
+          console.log('Mobile: Auto-selected front camera on startup:', frontCamera.label);
         } else {
-          // Fallback to first available camera
           targetDeviceId = videoDevices[0].deviceId;
+          setSelectedDevice(videoDevices[0].deviceId);
           console.log('Mobile: No front camera found, using first available:', videoDevices[0].label);
+        }
+      } else if (!videoDevices.find(d => d.deviceId === targetDeviceId)) {
+        // If specified device doesn't exist, fall back to front camera
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') || 
+          device.label.toLowerCase().includes('user') ||
+          device.label.toLowerCase().includes('selfie') ||
+          device.label.toLowerCase().includes('facetime')
+        );
+        
+        if (frontCamera) {
+          targetDeviceId = frontCamera.deviceId;
+          setSelectedDevice(frontCamera.deviceId);
+          console.log('Mobile: Specified device not found, falling back to front camera:', frontCamera.label);
+        } else {
+          targetDeviceId = videoDevices[0].deviceId;
+          setSelectedDevice(videoDevices[0].deviceId);
+          console.log('Mobile: Specified device not found, using first available:', videoDevices[0].label);
         }
       }
 
-      const constraints = {
-        video: {
-          deviceId: { exact: targetDeviceId },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          facingMode: "user", // Prefer front camera for mobile
-          frameRate: { ideal: 30 }
-        },
-        audio: false
-      };
-
-      let mediaStream: MediaStream;
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        console.log('Mobile: Camera started with front-facing preference');
-      } catch (err) {
-        console.warn('Mobile: Specific camera failed, trying fallback');
-        // Fallback to basic constraints with front camera preference
+      // Try multiple approaches for mobile camera initialization
+      let mediaStream: MediaStream | null = null;
+      
+      // Approach 1: Try with specific device ID and front-facing preference
+      if (targetDeviceId) {
         try {
-          mediaStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user" }, 
-            audio: false 
+          console.log('Mobile: Trying specific device with front preference:', targetDeviceId);
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: targetDeviceId },
+              facingMode: "user",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 30 }
+            },
+            audio: false
           });
-          console.log('Mobile: Fallback to facingMode user successful');
-        } catch (fallbackErr) {
-          // Final fallback to any camera
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          console.log('Mobile: Final fallback to any camera');
+          console.log('Mobile: Success with specific device and front preference');
+        } catch (err) {
+          console.warn('Mobile: Specific device with front preference failed:', err);
         }
+      }
+      
+      // Approach 2: Try with just facingMode user (let browser pick front camera)
+      if (!mediaStream) {
+        try {
+          console.log('Mobile: Trying facingMode user preference');
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user",
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            },
+            audio: false
+          });
+          console.log('Mobile: Success with facingMode user');
+        } catch (err) {
+          console.warn('Mobile: FacingMode user failed:', err);
+        }
+      }
+      
+      // Approach 3: Try with specific device ID only
+      if (!mediaStream && targetDeviceId) {
+        try {
+          console.log('Mobile: Trying specific device only:', targetDeviceId);
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: { exact: targetDeviceId },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            },
+            audio: false
+          });
+          console.log('Mobile: Success with specific device only');
+        } catch (err) {
+          console.warn('Mobile: Specific device only failed:', err);
+        }
+      }
+      
+      // Approach 4: Final fallback to any camera
+      if (!mediaStream) {
+        console.log('Mobile: Final fallback to any available camera');
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        console.log('Mobile: Success with fallback');
       }
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await new Promise<void>((resolve, reject) => {
           if (!videoRef.current) return reject();
-          videoRef.current.onloadedmetadata = () => resolve();
+          videoRef.current.onloadedmetadata = () => {
+            console.log('Mobile: Video metadata loaded');
+            resolve();
+          };
           videoRef.current.onerror = () => reject(new Error('Failed to initialize video'));
         });
         
         await videoRef.current.play();
+        console.log('Mobile: Video playing');
       }
 
       setStream(mediaStream);
@@ -554,26 +614,16 @@ const PhotoboothPage: React.FC = () => {
         }, 2000);
         
         // CRITICAL FIX: Force camera restart after successful upload
-        // This ensures the camera is properly reinitialized on desktop
+        // This ensures the camera is properly reinitialized
         // For mobile, ensure we restart with front camera preference
         setTimeout(async () => {
           console.log('Restarting camera after upload');
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           
-          if (isMobile && devices.length > 0) {
-            // On mobile, restart with front camera preference
-            const frontCamera = devices.find(device => 
-              device.label.toLowerCase().includes('front') || 
-              device.label.toLowerCase().includes('user') ||
-              device.label.toLowerCase().includes('selfie')
-            );
-            
-            if (frontCamera) {
-              console.log('Mobile: Restarting with front camera after upload');
-              await startCamera(frontCamera.deviceId);
-            } else {
-              await startCamera(selectedDevice);
-            }
+          if (isMobile) {
+            // On mobile, restart without specifying device ID to trigger front camera auto-selection
+            console.log('Mobile: Restarting with front camera preference after upload');
+            await startCamera(); // Don't pass device ID to trigger auto front camera selection
           } else {
             await startCamera(selectedDevice);
           }
@@ -603,27 +653,17 @@ const PhotoboothPage: React.FC = () => {
     setText('');
     
     // CRITICAL FIX: Restart camera immediately after clearing photo
-    // This ensures camera is available for desktop users
+    // This ensures camera is available for users
     // For mobile, ensure we restart with front camera preference
     setTimeout(async () => {
       console.log('Restarting camera after retake');
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
       if (!stream || !cameraStarted) {
-        if (isMobile && devices.length > 0) {
-          // On mobile, restart with front camera preference
-          const frontCamera = devices.find(device => 
-            device.label.toLowerCase().includes('front') || 
-            device.label.toLowerCase().includes('user') ||
-            device.label.toLowerCase().includes('selfie')
-          );
-          
-          if (frontCamera) {
-            console.log('Mobile: Restarting with front camera after retake');
-            await startCamera(frontCamera.deviceId);
-          } else {
-            await startCamera(selectedDevice);
-          }
+        if (isMobile) {
+          // On mobile, restart without specifying device ID to trigger front camera auto-selection
+          console.log('Mobile: Restarting with front camera preference after retake');
+          await startCamera(); // Don't pass device ID to trigger auto front camera selection
         } else {
           await startCamera(selectedDevice);
         }
@@ -697,19 +737,21 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
+    // Only run this effect on mobile and only if we don't already have a selected device
     if (isMobile && devices.length > 0 && !selectedDevice) {
       // Try to find and auto-select front camera
       const frontCamera = devices.find(device => 
         device.label.toLowerCase().includes('front') || 
         device.label.toLowerCase().includes('user') ||
-        device.label.toLowerCase().includes('selfie')
+        device.label.toLowerCase().includes('selfie') ||
+        device.label.toLowerCase().includes('facetime')
       );
       
       if (frontCamera) {
-        console.log('Mobile: Auto-selecting front camera:', frontCamera.label);
+        console.log('Mobile: Auto-selecting front camera from devices:', frontCamera.label);
         setSelectedDevice(frontCamera.deviceId);
       } else {
-        console.log('Mobile: No front camera found, selecting first available');
+        console.log('Mobile: No front camera found in devices, selecting first available');
         setSelectedDevice(devices[0].deviceId);
       }
     }
