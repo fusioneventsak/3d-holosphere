@@ -6,7 +6,6 @@ import * as THREE from 'three';
 import { Photo, useCollageStore } from '../../store/collageStore';
 
 interface CollageSceneProps {
-  photos: Photo[];
   settings: any;
   onSettingsChange?: (settings: any) => void;
 }
@@ -346,10 +345,11 @@ const BackgroundRenderer: React.FC<{ settings: any }> = ({ settings }) => {
   return null;
 };
 
-// Main CollageScene component - STABLE AND SMOOTH
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+// Main CollageScene component - DIRECTLY CONNECTED TO STORE
+const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange }) => {
+  // CRITICAL: Get photos directly from store, not from props
+  const { photos, lastRefreshTime } = useCollageStore();
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const { lastRefreshTime } = useCollageStore();
   const stablePhotosRef = useRef<Photo[]>([]);
   const forceUpdateRef = useRef(0);
   
@@ -365,8 +365,9 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     const stablePhotoIds = stablePhotosRef.current.map(p => p.id).sort().join(',');
     
     if (photoIds !== stablePhotoIds) {
-      console.log('🔄 SMOOTH: Photos changed without scene re-render');
+      console.log('🔄 SCENE: Photos changed directly from store!');
       console.log('📸 Old count:', stablePhotosRef.current.length, 'New count:', photos.length);
+      console.log('📸 New photo IDs:', photos.map(p => p.id.slice(-4)));
       
       stablePhotosRef.current = [...photos];
       forceUpdateRef.current += 1;
@@ -382,7 +383,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   // Listen to deletion signals
   useEffect(() => {
     if (lastRefreshTime) {
-      console.log('🔄 SMOOTH: Refresh signal received:', lastRefreshTime);
+      console.log('🔄 SCENE: Refresh signal received:', lastRefreshTime);
       forceUpdateRef.current += 1;
       setPhotosWithPositions(prev => [...prev]);
     }
