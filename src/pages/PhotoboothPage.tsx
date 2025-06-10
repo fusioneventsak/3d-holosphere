@@ -579,16 +579,38 @@ const PhotoboothPage: React.FC = () => {
         
         setTimeout(async () => {
           console.log('Restarting camera after upload');
+          console.log('videoRef.current after upload:', videoRef.current);
+          
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
           const isAndroid = /Android/.test(navigator.userAgent);
           
-          if (isIOS || isAndroid) {
-            console.log('Mobile: Restarting with front camera preference after upload');
-            await startCamera();
+          // Ensure we have a video element before trying to start camera
+          if (!videoRef.current) {
+            console.log('Video element not ready yet after upload, waiting...');
+            // Wait for React to render the video element
+            setTimeout(async () => {
+              console.log('Second attempt after upload - videoRef.current:', videoRef.current);
+              if (videoRef.current) {
+                if (isIOS || isAndroid) {
+                  console.log('Mobile: Restarting with front camera preference after upload');
+                  await startCamera();
+                } else {
+                  await startCamera(selectedDevice);
+                }
+              } else {
+                console.error('Video element still not available after upload');
+                setError('Camera initialization failed. Please refresh the page.');
+              }
+            }, 500);
           } else {
-            await startCamera(selectedDevice);
+            if (isIOS || isAndroid) {
+              console.log('Mobile: Restarting with front camera preference after upload');
+              await startCamera();
+            } else {
+              await startCamera(selectedDevice);
+            }
           }
-        }, 200);
+        }, 100); // Reduced delay but with fallback
         
       } else {
         throw new Error('Failed to upload photo');
@@ -613,12 +635,33 @@ const PhotoboothPage: React.FC = () => {
     setPhoto(null);
     setText('');
     
+    // Wait for React to re-render and show the video element before starting camera
     setTimeout(async () => {
       console.log('Restarting camera after retake');
+      console.log('videoRef.current after retake:', videoRef.current);
+      
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       
-      if (!stream || !cameraStarted) {
+      // Ensure we have a video element before trying to start camera
+      if (!videoRef.current) {
+        console.log('Video element not ready yet, waiting longer...');
+        // Wait a bit more for React to render the video element
+        setTimeout(async () => {
+          console.log('Second attempt - videoRef.current:', videoRef.current);
+          if (videoRef.current) {
+            if (isIOS || isAndroid) {
+              console.log('Mobile: Restarting with front camera preference after retake');
+              await startCamera();
+            } else {
+              await startCamera(selectedDevice);
+            }
+          } else {
+            console.error('Video element still not available after waiting');
+            setError('Camera initialization failed. Please refresh the page.');
+          }
+        }, 500);
+      } else {
         if (isIOS || isAndroid) {
           console.log('Mobile: Restarting with front camera preference after retake');
           await startCamera();
@@ -626,7 +669,7 @@ const PhotoboothPage: React.FC = () => {
           await startCamera(selectedDevice);
         }
       }
-    }, 200);
+    }, 100); // Small delay to let React re-render
   };
 
   useEffect(() => {
@@ -714,10 +757,27 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     if (!photo && !stream && !loading && !cameraStarted) {
       console.log('Starting camera because: no photo, no stream, not loading, camera not started');
-      const timer = setTimeout(() => {
-        startCamera();
-      }, 500);
-      return () => clearTimeout(timer);
+      console.log('videoRef.current in effect:', videoRef.current);
+      
+      // Make sure we have a video element before starting
+      if (videoRef.current) {
+        const timer = setTimeout(() => {
+          startCamera();
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+        console.log('Video element not ready in effect, will retry...');
+        // If video element not ready, retry after a longer delay
+        const timer = setTimeout(() => {
+          console.log('Retry - videoRef.current:', videoRef.current);
+          if (videoRef.current) {
+            startCamera();
+          } else {
+            console.error('Video element still not available in effect retry');
+          }
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [photo, stream, loading, cameraStarted]);
 
