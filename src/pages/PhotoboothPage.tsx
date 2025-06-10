@@ -213,7 +213,21 @@ const PhotoboothPage: React.FC = () => {
 
       let targetDeviceId = deviceId;
       if (!targetDeviceId || !videoDevices.find(d => d.deviceId === targetDeviceId)) {
-        targetDeviceId = videoDevices[0].deviceId;
+        // For mobile, prioritize front camera (user-facing)
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') || 
+          device.label.toLowerCase().includes('user') ||
+          device.label.toLowerCase().includes('selfie')
+        );
+        
+        if (frontCamera) {
+          targetDeviceId = frontCamera.deviceId;
+          console.log('Mobile: Auto-selected front camera:', frontCamera.label);
+        } else {
+          // Fallback to first available camera
+          targetDeviceId = videoDevices[0].deviceId;
+          console.log('Mobile: No front camera found, using first available:', videoDevices[0].label);
+        }
       }
 
       const constraints = {
@@ -221,7 +235,7 @@ const PhotoboothPage: React.FC = () => {
           deviceId: { exact: targetDeviceId },
           width: { ideal: 1920 },
           height: { ideal: 1080 },
-          facingMode: "user",
+          facingMode: "user", // Prefer front camera for mobile
           frameRate: { ideal: 30 }
         },
         audio: false
@@ -230,9 +244,21 @@ const PhotoboothPage: React.FC = () => {
       let mediaStream: MediaStream;
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Mobile: Camera started with front-facing preference');
       } catch (err) {
-        // Fallback to basic constraints if specific device fails
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        console.warn('Mobile: Specific camera failed, trying fallback');
+        // Fallback to basic constraints with front camera preference
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+          });
+          console.log('Mobile: Fallback to facingMode user successful');
+        } catch (fallbackErr) {
+          // Final fallback to any camera
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          console.log('Mobile: Final fallback to any camera');
+        }
       }
 
       if (videoRef.current) {
@@ -529,9 +555,28 @@ const PhotoboothPage: React.FC = () => {
         
         // CRITICAL FIX: Force camera restart after successful upload
         // This ensures the camera is properly reinitialized on desktop
+        // For mobile, ensure we restart with front camera preference
         setTimeout(async () => {
           console.log('Restarting camera after upload');
-          await startCamera(selectedDevice);
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          
+          if (isMobile && devices.length > 0) {
+            // On mobile, restart with front camera preference
+            const frontCamera = devices.find(device => 
+              device.label.toLowerCase().includes('front') || 
+              device.label.toLowerCase().includes('user') ||
+              device.label.toLowerCase().includes('selfie')
+            );
+            
+            if (frontCamera) {
+              console.log('Mobile: Restarting with front camera after upload');
+              await startCamera(frontCamera.deviceId);
+            } else {
+              await startCamera(selectedDevice);
+            }
+          } else {
+            await startCamera(selectedDevice);
+          }
         }, 200);
         
       } else {
@@ -559,10 +604,29 @@ const PhotoboothPage: React.FC = () => {
     
     // CRITICAL FIX: Restart camera immediately after clearing photo
     // This ensures camera is available for desktop users
+    // For mobile, ensure we restart with front camera preference
     setTimeout(async () => {
       console.log('Restarting camera after retake');
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       if (!stream || !cameraStarted) {
-        await startCamera(selectedDevice);
+        if (isMobile && devices.length > 0) {
+          // On mobile, restart with front camera preference
+          const frontCamera = devices.find(device => 
+            device.label.toLowerCase().includes('front') || 
+            device.label.toLowerCase().includes('user') ||
+            device.label.toLowerCase().includes('selfie')
+          );
+          
+          if (frontCamera) {
+            console.log('Mobile: Restarting with front camera after retake');
+            await startCamera(frontCamera.deviceId);
+          } else {
+            await startCamera(selectedDevice);
+          }
+        } else {
+          await startCamera(selectedDevice);
+        }
       }
     }, 200);
   };
@@ -628,6 +692,28 @@ const PhotoboothPage: React.FC = () => {
       startCamera(selectedDevice);
     }
   }, [selectedDevice, devices.length, stream]);
+
+  // Auto-select front camera on mobile when devices are loaded
+  useEffect(() => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile && devices.length > 0 && !selectedDevice) {
+      // Try to find and auto-select front camera
+      const frontCamera = devices.find(device => 
+        device.label.toLowerCase().includes('front') || 
+        device.label.toLowerCase().includes('user') ||
+        device.label.toLowerCase().includes('selfie')
+      );
+      
+      if (frontCamera) {
+        console.log('Mobile: Auto-selecting front camera:', frontCamera.label);
+        setSelectedDevice(frontCamera.deviceId);
+      } else {
+        console.log('Mobile: No front camera found, selecting first available');
+        setSelectedDevice(devices[0].deviceId);
+      }
+    }
+  }, [devices, selectedDevice]);
 
   // CRITICAL FIX: Enhanced effect to restart camera when needed
   useEffect(() => {
@@ -704,7 +790,7 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative max-h-[70vh]">
+        <div className="bg-black rounded-lg overflow-hidden aspect-[9/16] relative md:max-h-[70vh] max-h-[85vh]">
           {!photo ? (
             <>
               {loading ? (
