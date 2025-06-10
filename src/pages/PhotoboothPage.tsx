@@ -27,6 +27,8 @@ const PhotoboothPage: React.FC = () => {
 
   // Define all functions before useEffect hooks
   const startCamera = async (deviceId?: string) => {
+    console.log('Starting camera with deviceId:', deviceId);
+    
     // Force cleanup of any existing streams
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -58,16 +60,19 @@ const PhotoboothPage: React.FC = () => {
     setError(null);
     setCameraStarted(false);
 
-    // Longer delay to ensure camera is fully released
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Delay to ensure camera is fully released
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       // Check if we're on desktop or mobile
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log('Device type:', isMobile ? 'Mobile' : 'Desktop');
       
-      // For desktop, enumerate devices but use simpler constraints
       if (!isMobile) {
-        // First, get all video devices for desktop too (so users can switch cameras)
+        // DESKTOP CAMERA INITIALIZATION
+        console.log('Desktop: Starting camera initialization');
+        
+        // Get all video devices for desktop
         const allDevices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = allDevices
           .filter(device => device.kind === 'videoinput')
@@ -76,21 +81,25 @@ const PhotoboothPage: React.FC = () => {
             label: device.label || `Camera ${device.deviceId}`
           }));
         
+        console.log('Desktop: Found video devices:', videoDevices);
         setDevices(videoDevices);
 
         // Determine which device to use
         let targetDeviceId = deviceId;
         if (!targetDeviceId && videoDevices.length > 0) {
           targetDeviceId = videoDevices[0].deviceId;
+          setSelectedDevice(videoDevices[0].deviceId);
         }
 
-        // Try multiple constraint sets from most basic to more advanced
+        console.log('Desktop: Using device:', targetDeviceId);
+
+        // Try multiple constraint sets for desktop
         const constraintSets = [
-          // Most basic - just video with device if specified
+          // Basic - just video with device if specified
           targetDeviceId 
             ? { video: { deviceId: { exact: targetDeviceId } }, audio: false }
             : { video: true, audio: false },
-          // Basic with resolution preference
+          // With resolution
           targetDeviceId 
             ? { 
                 video: { 
@@ -104,23 +113,6 @@ const PhotoboothPage: React.FC = () => {
                 video: { 
                   width: { ideal: 1280 }, 
                   height: { ideal: 720 } 
-                }, 
-                audio: false 
-              },
-          // Higher resolution if basic works
-          targetDeviceId 
-            ? { 
-                video: { 
-                  deviceId: { exact: targetDeviceId },
-                  width: { ideal: 1920 }, 
-                  height: { ideal: 1080 } 
-                }, 
-                audio: false 
-              }
-            : { 
-                video: { 
-                  width: { ideal: 1920 }, 
-                  height: { ideal: 1080 } 
                 }, 
                 audio: false 
               }
@@ -131,60 +123,55 @@ const PhotoboothPage: React.FC = () => {
 
         for (const constraints of constraintSets) {
           try {
-            console.log('Trying desktop camera constraints:', constraints);
+            console.log('Desktop: Trying constraints:', constraints);
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            console.log('Desktop camera success with constraints:', constraints);
-            break; // Success, exit loop
+            console.log('Desktop: Camera success');
+            break;
           } catch (err) {
             lastError = err;
-            console.warn('Desktop camera constraint failed, trying next:', err);
-            // Wait a bit before trying next constraint
+            console.warn('Desktop: Camera constraint failed:', err);
             await new Promise(resolve => setTimeout(resolve, 300));
           }
         }
 
         if (!mediaStream) {
-          console.error('All desktop camera constraints failed:', lastError);
-          throw lastError || new Error('All camera constraints failed');
+          console.error('Desktop: All camera constraints failed:', lastError);
+          throw lastError || new Error('Failed to access camera');
         }
         
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           
-          // Wait for video to be ready
           await new Promise<void>((resolve, reject) => {
             if (!videoRef.current) return reject(new Error('Video element not found'));
             
             const handleLoad = () => {
               videoRef.current!.removeEventListener('loadedmetadata', handleLoad);
               videoRef.current!.removeEventListener('error', handleError);
-              console.log('Desktop camera video loaded successfully');
+              console.log('Desktop: Video loaded successfully');
               resolve();
             };
             
             const handleError = (e: any) => {
               videoRef.current!.removeEventListener('loadedmetadata', handleLoad);
               videoRef.current!.removeEventListener('error', handleError);
-              console.error('Desktop camera video load error:', e);
+              console.error('Desktop: Video load error:', e);
               reject(new Error('Video failed to load'));
             };
             
             videoRef.current.addEventListener('loadedmetadata', handleLoad);
             videoRef.current.addEventListener('error', handleError);
             
-            // Fallback timeout
             setTimeout(() => {
               if (videoRef.current && videoRef.current.readyState >= 2) {
-                console.log('Desktop camera video ready via timeout');
+                console.log('Desktop: Video ready via timeout');
                 handleLoad();
-              } else {
-                console.warn('Desktop camera video not ready after timeout');
               }
             }, 3000);
           });
           
           await videoRef.current.play();
-          console.log('Desktop camera video playing');
+          console.log('Desktop: Video playing');
         }
 
         setStream(mediaStream);
@@ -196,7 +183,9 @@ const PhotoboothPage: React.FC = () => {
         return;
       }
 
-      // Mobile device handling with front camera prioritization
+      // MOBILE CAMERA INITIALIZATION
+      console.log('Mobile: Starting camera initialization');
+      
       const allDevices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = allDevices
         .filter(device => device.kind === 'videoinput')
@@ -205,6 +194,7 @@ const PhotoboothPage: React.FC = () => {
           label: device.label || `Camera ${device.deviceId}`
         }));
       
+      console.log('Mobile: Found video devices:', videoDevices);
       setDevices(videoDevices);
       
       if (videoDevices.length === 0) {
@@ -213,9 +203,8 @@ const PhotoboothPage: React.FC = () => {
 
       let targetDeviceId = deviceId;
       
-      // CRITICAL FIX: Always prioritize front camera on mobile if no specific device requested
+      // For mobile, prioritize front camera if no specific device requested
       if (!targetDeviceId) {
-        // First try to find front camera by common keywords
         const frontCamera = videoDevices.find(device => {
           const label = device.label.toLowerCase();
           return label.includes('front') || 
@@ -228,110 +217,71 @@ const PhotoboothPage: React.FC = () => {
         if (frontCamera) {
           targetDeviceId = frontCamera.deviceId;
           setSelectedDevice(frontCamera.deviceId);
-          console.log('Mobile: Auto-selected front camera on startup:', frontCamera.label);
+          console.log('Mobile: Auto-selected front camera:', frontCamera.label);
         } else {
-          // If no obvious front camera, try using facingMode: "user" first
-          console.log('Mobile: No obvious front camera found, will try facingMode user first');
-        }
-      } else if (!videoDevices.find(d => d.deviceId === targetDeviceId)) {
-        // If specified device doesn't exist, fall back to front camera
-        const frontCamera = videoDevices.find(device => {
-          const label = device.label.toLowerCase();
-          return label.includes('front') || 
-                 label.includes('user') ||
-                 label.includes('selfie') ||
-                 label.includes('facetime') ||
-                 label.includes('face');
-        });
-        
-        if (frontCamera) {
-          targetDeviceId = frontCamera.deviceId;
-          setSelectedDevice(frontCamera.deviceId);
-          console.log('Mobile: Specified device not found, falling back to front camera:', frontCamera.label);
-        } else {
-          targetDeviceId = videoDevices[0].deviceId;
-          setSelectedDevice(videoDevices[0].deviceId);
-          console.log('Mobile: Specified device not found, using first available:', videoDevices[0].label);
+          console.log('Mobile: No obvious front camera found, will try facingMode user');
         }
       }
 
       // Try multiple approaches for mobile camera initialization
       let mediaStream: MediaStream | null = null;
       
-      // Approach 1: Try with facingMode user first (most reliable for front camera)
-      if (!targetDeviceId || !mediaStream) {
-        try {
-          console.log('Mobile: Trying facingMode user preference (most reliable)');
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: "user",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
-            },
-            audio: false
-          });
-          console.log('Mobile: Success with facingMode user');
-          
-          // If this works, try to identify which device was actually used
-          if (mediaStream && videoDevices.length > 0) {
-            const track = mediaStream.getVideoTracks()[0];
-            const settings = track.getSettings();
-            if (settings.deviceId) {
-              const matchedDevice = videoDevices.find(d => d.deviceId === settings.deviceId);
-              if (matchedDevice) {
-                setSelectedDevice(matchedDevice.deviceId);
-                console.log('Mobile: Detected front camera device:', matchedDevice.label);
-              }
+      // Approach 1: Try facingMode user first (most reliable for front camera)
+      try {
+        console.log('Mobile: Trying facingMode user preference');
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        });
+        console.log('Mobile: Success with facingMode user');
+        
+        // Try to identify which device was used
+        if (mediaStream && videoDevices.length > 0) {
+          const track = mediaStream.getVideoTracks()[0];
+          const settings = track.getSettings();
+          if (settings.deviceId) {
+            const matchedDevice = videoDevices.find(d => d.deviceId === settings.deviceId);
+            if (matchedDevice) {
+              setSelectedDevice(matchedDevice.deviceId);
+              console.log('Mobile: Detected camera device:', matchedDevice.label);
             }
           }
-        } catch (err) {
-          console.warn('Mobile: FacingMode user failed:', err);
+        }
+      } catch (err) {
+        console.warn('Mobile: FacingMode user failed:', err);
+        
+        // Approach 2: Try with specific device ID if we have one
+        if (targetDeviceId) {
+          try {
+            console.log('Mobile: Trying specific device:', targetDeviceId);
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: targetDeviceId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
+              },
+              audio: false
+            });
+            console.log('Mobile: Success with specific device');
+          } catch (specificErr) {
+            console.warn('Mobile: Specific device failed:', specificErr);
+          }
+        }
+        
+        // Approach 3: Final fallback
+        if (!mediaStream) {
+          console.log('Mobile: Final fallback to any camera');
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          console.log('Mobile: Success with fallback');
         }
       }
-      
-      // Approach 2: Try with specific device ID and front-facing preference
-      if (!mediaStream && targetDeviceId) {
-        try {
-          console.log('Mobile: Trying specific device with front preference:', targetDeviceId);
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              deviceId: { exact: targetDeviceId },
-              facingMode: "user",
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              frameRate: { ideal: 30 }
-            },
-            audio: false
-          });
-          console.log('Mobile: Success with specific device and front preference');
-        } catch (err) {
-          console.warn('Mobile: Specific device with front preference failed:', err);
-        }
-      }
-      
-      // Approach 3: Try with specific device ID only
-      if (!mediaStream && targetDeviceId) {
-        try {
-          console.log('Mobile: Trying specific device only:', targetDeviceId);
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              deviceId: { exact: targetDeviceId },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
-            },
-            audio: false
-          });
-          console.log('Mobile: Success with specific device only');
-        } catch (err) {
-          console.warn('Mobile: Specific device only failed:', err);
-        }
-      }
-      
-      // Approach 4: Final fallback to any camera
+
       if (!mediaStream) {
-        console.log('Mobile: Final fallback to any available camera');
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        console.log('Mobile: Success with fallback');
+        throw new Error('Failed to access any camera');
       }
 
       if (videoRef.current) {
@@ -350,11 +300,14 @@ const PhotoboothPage: React.FC = () => {
       }
 
       setStream(mediaStream);
-      setSelectedDevice(targetDeviceId);
+      if (targetDeviceId) {
+        setSelectedDevice(targetDeviceId);
+      }
       setError(null);
       setCameraStarted(true);
 
     } catch (err: any) {
+      console.error('Camera initialization failed:', err);
       let errorMessage = 'Failed to access camera';
       
       if (err.name === 'NotAllowedError') {
@@ -362,18 +315,13 @@ const PhotoboothPage: React.FC = () => {
       } else if (err.name === 'NotFoundError') {
         errorMessage = 'No camera found. Please connect a camera and try again.';
       } else if (err.name === 'NotReadableError' || err.message?.includes('in use')) {
-        errorMessage = 'Camera is busy. Please refresh the page to reset the camera connection.';
-        // Auto-refresh suggestion
-        setTimeout(() => {
-          if (confirm('Camera is still busy. Would you like to refresh the page to fix this?')) {
-            window.location.reload();
-          }
-        }, 3000);
+        errorMessage = 'Camera is busy. Please close other applications using the camera and try again.';
       } else if (err.name === 'OverconstrainedError') {
-        errorMessage = 'Camera constraints not supported. Trying basic camera access...';
+        errorMessage = 'Camera constraints not supported. Trying with basic settings...';
         
-        // Final fallback: try with absolute minimal constraints
+        // Final fallback
         try {
+          console.log('Final fallback: basic camera access');
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
@@ -389,7 +337,6 @@ const PhotoboothPage: React.FC = () => {
       }
       
       setError(errorMessage);
-      console.warn('Camera access warning:', err);
       setCameraStarted(false);
     } finally {
       setLoading(false);
@@ -696,21 +643,9 @@ const PhotoboothPage: React.FC = () => {
   }, [code, fetchCollageByCode]);
 
   useEffect(() => {
-    // Initialize camera on component mount with front camera preference for mobile
-    const initializeCamera = async () => {
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        console.log('Mobile: Initial camera setup with front camera preference');
-        // For mobile, start with front camera preference immediately
-        await startCamera();
-      } else {
-        // For desktop, use normal initialization
-        await startCamera();
-      }
-    };
-    
-    initializeCamera();
+    // Initialize camera on component mount
+    console.log('Component mounted, starting camera initialization');
+    startCamera();
 
     return () => {
       // Enhanced cleanup on component unmount
@@ -758,15 +693,13 @@ const PhotoboothPage: React.FC = () => {
 
   // Handle device selection for both mobile and desktop
   useEffect(() => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
     // Only restart camera if user manually changed device selection
-    // Don't interfere with initial front camera auto-selection on mobile
-    if (selectedDevice && !stream && devices.length > 0 && cameraStarted) {
+    // And we have a valid device and the camera was previously started
+    if (selectedDevice && devices.length > 0 && !stream && cameraStarted) {
       console.log('Device selection changed by user, starting camera with device:', selectedDevice);
       startCamera(selectedDevice);
     }
-  }, [selectedDevice, devices.length, stream, cameraStarted]);
+  }, [selectedDevice]);
 
   // Auto-select front camera on mobile when devices are loaded (but don't restart camera)
   useEffect(() => {
@@ -799,11 +732,11 @@ const PhotoboothPage: React.FC = () => {
       console.log('Starting camera because: no photo, no stream, not loading, camera not started');
       // Add a small delay to ensure component is fully mounted
       const timer = setTimeout(() => {
-        startCamera(selectedDevice);
-      }, 200);
+        startCamera();
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [photo, stream, loading, cameraStarted, selectedDevice]);
+  }, [photo, stream, loading, cameraStarted]);
 
   if (!currentCollage) {
     return (
@@ -923,7 +856,7 @@ const PhotoboothPage: React.FC = () => {
                     <Camera className="w-4 h-4 mr-2" />
                     Take Photo
                   </button>
-                  {/* Manual refresh button for troubleshooting */}
+                  {/* Manual refresh button for troubleshooting - desktop and mobile */}
                   <button
                     onClick={() => startCamera(selectedDevice)}
                     className="px-2 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
