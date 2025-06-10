@@ -174,6 +174,11 @@ const PhotoboothPage: React.FC = () => {
         
         const video = videoRef.current;
         
+        // Clear any existing source first
+        if (video.srcObject) {
+          video.srcObject = null;
+        }
+        
         // iOS-specific video setup
         if (isIOS) {
           video.setAttribute('webkit-playsinline', 'true');
@@ -189,10 +194,12 @@ const PhotoboothPage: React.FC = () => {
           video.controls = false;
         }
         
+        // Set the media stream
         video.srcObject = mediaStream;
         
         console.log('Video element configured');
         console.log('Video readyState:', video.readyState);
+        console.log('Video srcObject:', video.srcObject);
         
         // Wait for video to load
         await new Promise<void>((resolve, reject) => {
@@ -202,59 +209,97 @@ const PhotoboothPage: React.FC = () => {
             console.log('Video readyState:', video.readyState);
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('error', handleError);
+            video.removeEventListener('loadeddata', handleLoadedData);
             resolve();
           };
           
+          const handleLoadedData = () => {
+            console.log('Video data loaded');
+            if (video.readyState >= 2) {
+              handleLoadedMetadata();
+            }
+          };
+          
           const handleError = (e: any) => {
-            console.error('Video error:', e);
+            console.error('Video error during setup:', e);
             video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('error', handleError);
-            reject(new Error('Video failed to load'));
+            video.removeEventListener('loadeddata', handleLoadedData);
+            reject(new Error(`Video failed to load: ${e.message || 'Unknown error'}`));
           };
           
           video.addEventListener('loadedmetadata', handleLoadedMetadata);
+          video.addEventListener('loadeddata', handleLoadedData);
           video.addEventListener('error', handleError);
           
           // Check if already loaded
           if (video.readyState >= 1) {
-            console.log('Video already has metadata');
+            console.log('Video already has metadata, readyState:', video.readyState);
             handleLoadedMetadata();
           }
           
-          // Timeout fallback
+          // Timeout fallback - be more generous for mobile
           setTimeout(() => {
+            console.log('Timeout check - readyState:', video.readyState);
             if (video.readyState >= 1) {
               console.log('Video ready via timeout');
               handleLoadedMetadata();
             } else {
               console.warn('Video not ready after timeout, readyState:', video.readyState);
-              reject(new Error('Video load timeout'));
+              // Don't reject on timeout for iOS - sometimes it works anyway
+              if (isIOS) {
+                console.log('iOS: Proceeding despite timeout');
+                handleLoadedMetadata();
+              } else {
+                reject(new Error('Video load timeout'));
+              }
             }
-          }, 5000);
+          }, 8000); // Increased timeout for mobile
         });
         
         // Try to play
         try {
           console.log('Attempting to play video...');
+          console.log('Video paused state:', video.paused);
+          console.log('Video ready state before play:', video.readyState);
+          
           const playPromise = video.play();
           
           if (playPromise !== undefined) {
             await playPromise;
-            console.log('Video playing successfully');
+            console.log('Video playing successfully via promise');
           } else {
-            console.log('Video play() returned undefined');
+            console.log('Video play() returned undefined - checking if playing');
+            // Wait a bit and check if it's actually playing
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (!video.paused) {
+              console.log('Video is playing despite undefined promise');
+            }
           }
         } catch (playError) {
           console.warn('Video play failed:', playError);
           
-          // For iOS, sometimes we need user interaction
+          // For iOS, sometimes we need user interaction, but don't fail completely
           if (isIOS) {
-            console.log('iOS play failed - may need user interaction');
-            // Don't throw error, just log it
+            console.log('iOS play failed - this is common and may not be a real error');
+            // Check if video is actually playing despite the error
+            setTimeout(() => {
+              if (!video.paused) {
+                console.log('Video is actually playing despite play() error');
+              }
+            }, 1000);
           } else {
+            // For desktop, play errors are more serious
+            console.error('Desktop video play failed, this is a real error');
             throw playError;
           }
         }
+        
+        console.log('Final video state:');
+        console.log('- paused:', video.paused);
+        console.log('- readyState:', video.readyState);
+        console.log('- videoWidth:', video.videoWidth);
+        console.log('- videoHeight:', video.videoHeight);
         
         setStream(mediaStream);
         setError(null);
@@ -262,7 +307,11 @@ const PhotoboothPage: React.FC = () => {
         console.log('Camera initialization complete');
         
       } else {
-        throw new Error('Video element or media stream not available');
+        const errorMsg = !videoRef.current ? 'Video element not found' : 'Media stream not available';
+        console.error('Setup failed:', errorMsg);
+        console.log('videoRef.current:', videoRef.current);
+        console.log('mediaStream:', mediaStream);
+        throw new Error(errorMsg);
       }
 
     } catch (err: any) {
