@@ -79,14 +79,15 @@ class SlotManager {
   }
 
   assignSlots(photos: Photo[]): Map<string, number> {
-    // Safety check for photos array - but allow empty array
+    // SAFETY: Always ensure photos is a valid array
+    const safePhotos = Array.isArray(photos) ? photos : [];
+    
     if (!Array.isArray(photos)) {
       console.warn('🎬 SLOT MANAGER: Photos is not an array, using empty array');
-      photos = [];
     }
 
     // Remove assignments for photos that no longer exist
-    const currentPhotoIds = new Set(photos.map(p => p.id));
+    const currentPhotoIds = new Set(safePhotos.map(p => p?.id).filter(Boolean));
     const beforeCount = this.slotAssignments.size;
     
     for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
@@ -106,12 +107,14 @@ class SlotManager {
     this.rebuildAvailableSlots();
 
     // Assign slots to new photos in order of creation (oldest first for stability)
-    const sortedPhotos = [...photos].sort((a, b) => {
-      if (a.created_at && b.created_at) {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      }
-      return a.id.localeCompare(b.id);
-    });
+    const sortedPhotos = [...safePhotos]
+      .filter(photo => photo && photo.id) // Filter out any invalid photos
+      .sort((a, b) => {
+        if (a.created_at && b.created_at) {
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        return a.id.localeCompare(b.id);
+      });
 
     for (const photo of sortedPhotos) {
       if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
@@ -616,8 +619,17 @@ const AnimationController: React.FC<{
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
-  const slotManagerRef = useRef(new SlotManager(settings.photoCount));
-  const lastPhotoCount = useRef(settings.photoCount);
+  // SAFETY: Ensure settings have defaults
+  const safeSettings = {
+    photoCount: 100,
+    animationPattern: 'grid',
+    animationSpeed: 50,
+    animationEnabled: true,
+    ...settings
+  };
+  
+  const slotManagerRef = useRef(new SlotManager(safeSettings.photoCount));
+  const lastPhotoCount = useRef(safeSettings.photoCount);
   
   // CRITICAL FIX: Immediately update positions when photos array changes
   const currentPhotoIds = useMemo(() => 
@@ -628,26 +640,26 @@ const AnimationController: React.FC<{
   const lastPhotoIds = useRef(currentPhotoIds);
   
   const updatePositions = useCallback((time: number = 0) => {
-    // Safety check for photos - but allow empty array
+    // SAFETY: Ensure photos is always an array
+    const safePhotos = Array.isArray(photos) ? photos : [];
+    
     if (!Array.isArray(photos)) {
       console.warn('🎬 Photos is not an array, using empty array');
-      // Use empty array instead of returning early
-      photos = [];
     }
 
-    // Get slot assignments with the current photo array
-    const slotAssignments = slotManagerRef.current.assignSlots(photos);
+    // Get slot assignments with the safe photo array
+    const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
     
     // Generate pattern positions
-    const pattern = PatternFactory.createPattern(settings.animationPattern || 'grid', settings, photos);
+    const pattern = PatternFactory.createPattern(safeSettings.animationPattern || 'grid', safeSettings, safePhotos);
     const patternState = pattern.generatePositions(time);
     
     const photosWithPositions: PhotoWithPosition[] = [];
     
     // Create photos with assigned slots
-    for (const photo of photos) {
+    for (const photo of safePhotos) {
       const slotIndex = slotAssignments.get(photo.id);
-      if (slotIndex !== undefined && slotIndex < (settings.photoCount || 50)) {
+      if (slotIndex !== undefined && slotIndex < (safeSettings.photoCount || 50)) {
         photosWithPositions.push({
           ...photo,
           targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
@@ -659,7 +671,7 @@ const AnimationController: React.FC<{
     }
     
     // Add empty slots for remaining positions - ALWAYS CREATE THESE
-    for (let i = 0; i < (settings.photoCount || 50); i++) {
+    for (let i = 0; i < (safeSettings.photoCount || 50); i++) {
       const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
       if (!hasPhoto) {
         photosWithPositions.push({
@@ -694,16 +706,16 @@ const AnimationController: React.FC<{
 
   // Update slot manager when photo count changes
   useEffect(() => {
-    if (settings.photoCount !== lastPhotoCount.current) {
-      slotManagerRef.current.updateSlotCount(settings.photoCount);
-      lastPhotoCount.current = settings.photoCount;
+    if (safeSettings.photoCount !== lastPhotoCount.current) {
+      slotManagerRef.current.updateSlotCount(safeSettings.photoCount);
+      lastPhotoCount.current = safeSettings.photoCount;
     }
-  }, [settings.photoCount]);
+  }, [safeSettings.photoCount]);
 
   // Regular animation updates
   useFrame((state) => {
-    const time = settings.animationEnabled ? 
-      state.clock.elapsedTime * (settings.animationSpeed / 50) : 0;
+    const time = safeSettings.animationEnabled ? 
+      state.clock.elapsedTime * (safeSettings.animationSpeed / 50) : 0;
     
     updatePositions(time);
   });
@@ -738,11 +750,14 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
 
 // Debug component to track photo changes
 const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  
   useEffect(() => {
     console.log('🔍 PHOTO DEBUGGER: Photos updated in scene');
-    console.log('🔍 Count:', photos?.length || 0);
-    console.log('🔍 IDs:', (photos || []).map(p => p.id.slice(-4)));
-  }, [photos]);
+    console.log('🔍 Count:', safePhotos.length);
+    console.log('🔍 IDs:', safePhotos.map(p => p?.id?.slice(-4) || 'invalid').filter(id => id !== 'invalid'));
+  }, [safePhotos]);
   
   return null;
 };
@@ -752,31 +767,41 @@ const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange 
   const { photos } = useCollageStore(); // GET PHOTOS DIRECTLY FROM STORE
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
-  // SAFETY: Ensure photos is always an array
+  // SAFETY: Ensure photos is always an array and settings are defined
   const safePhotos = Array.isArray(photos) ? photos : [];
+  const safeSettings = settings || {
+    photoCount: 100,
+    animationPattern: 'grid',
+    photoSize: 4.0,
+    backgroundColor: '#000000',
+    backgroundGradient: false,
+    photoBrightness: 1.0,
+    emptySlotColor: '#1A1A1A',
+    photoRotation: false
+  };
 
   // DEBUG: Log when photos change
   useEffect(() => {
     console.log('🎬 COLLAGE SCENE: Store photos changed');
     console.log('🎬 Photo count:', safePhotos.length);
-    console.log('🎬 Photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+    console.log('🎬 Photo IDs:', safePhotos.map(p => p?.id?.slice(-4) || 'invalid').filter(id => id !== 'invalid'));
   }, [safePhotos]);
 
   const backgroundStyle = useMemo(() => {
-    if (settings.backgroundGradient) {
+    if (safeSettings.backgroundGradient) {
       return {
-        background: `linear-gradient(${settings.backgroundGradientAngle || 45}deg, ${settings.backgroundGradientStart || '#000000'}, ${settings.backgroundGradientEnd || '#000000'})`
+        background: `linear-gradient(${safeSettings.backgroundGradientAngle || 45}deg, ${safeSettings.backgroundGradientStart || '#000000'}, ${safeSettings.backgroundGradientEnd || '#000000'})`
       };
     }
     return {
-      background: settings.backgroundColor || '#000000'
+      background: safeSettings.backgroundColor || '#000000'
     };
   }, [
-    settings.backgroundGradient,
-    settings.backgroundColor,
-    settings.backgroundGradientStart,
-    settings.backgroundGradientEnd,
-    settings.backgroundGradientAngle
+    safeSettings.backgroundGradient,
+    safeSettings.backgroundColor,
+    safeSettings.backgroundGradientStart,
+    safeSettings.backgroundGradientEnd,
+    safeSettings.backgroundGradientAngle
   ]);
 
   return (
@@ -801,14 +826,14 @@ const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange 
         performance={{ min: 0.8 }}
         linear={true}
       >
-        <BackgroundRenderer settings={settings} />
-        <CameraController settings={settings} />
-        <SceneLighting settings={settings} />
-        <Floor settings={settings} />
-        <Grid settings={settings} />
+        <BackgroundRenderer settings={safeSettings} />
+        <CameraController settings={safeSettings} />
+        <SceneLighting settings={safeSettings} />
+        <Floor settings={safeSettings} />
+        <Grid settings={safeSettings} />
         
         <AnimationController
-          settings={settings}
+          settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
         />
@@ -819,11 +844,11 @@ const CollageScene: React.FC<CollageSceneProps> = ({ settings, onSettingsChange 
           <PhotoMesh
             key={`${photo.id}-${photo.slotIndex}-${safePhotos.length}-v4`}
             photo={photo}
-            size={settings.photoSize || 4.0}
-            emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
-            pattern={settings.animationPattern || 'grid'}
-            shouldFaceCamera={settings.photoRotation || false}
-            brightness={settings.photoBrightness || 1.0}
+            size={safeSettings.photoSize || 4.0}
+            emptySlotColor={safeSettings.emptySlotColor || '#1A1A1A'}
+            pattern={safeSettings.animationPattern || 'grid'}
+            shouldFaceCamera={safeSettings.photoRotation || false}
+            brightness={safeSettings.photoBrightness || 1.0}
           />
         ))}
       </Canvas>
