@@ -1,47 +1,56 @@
+// src/store/collageStore.ts
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Helper function to get file URL
-const getFileUrl = (bucket: string, path: string) => {
+const getFileUrl = (bucket: string, path: string): string => {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 };
 
-// Helper function for deep merging objects
-const deepMerge = (target: any, source: any): any => {
-  const output = Object.assign({}, target);
-  if (isObject(target) && isObject(source)) {
-    Object.keys(source).forEach(key => {
-      if (isObject(source[key])) {
-        if (!(key in target))
-          Object.assign(output, { [key]: source[key] });
-        else
-          output[key] = deepMerge(target[key], source[key]);
-      } else {
-        Object.assign(output, { [key]: source[key] });
-      }
-    });
+// Helper for deep merging objects
+function deepMerge(target: any, source: any): any {
+  const output = { ...target };
+  for (const key in source) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      output[key] = deepMerge(target[key] || {}, source[key]);
+    } else {
+      output[key] = source[key];
+    }
   }
   return output;
-};
+}
 
-const isObject = (item: any): boolean => {
-  return item && typeof item === 'object' && !Array.isArray(item);
-};
-
-// Default settings for collages
+// Default scene settings
 const defaultSettings = {
-  animationPattern: 'floating',
+  animationPattern: 'grid_wall',
+  photoCount: 100,
+  animationSpeed: 50,
+  cameraDistance: 15,
+  cameraHeight: 8,
+  cameraRotationSpeed: 20,
+  photoSize: 1.0,
+  photoBrightness: 1.0,
+  backgroundColor: '#000000',
+  backgroundGradient: true,
+  backgroundGradientStart: '#1a1a2e',
+  backgroundGradientEnd: '#16213e',
+  backgroundGradientAngle: 45,
+  floorColor: '#111111',
+  showFloor: true,
+  showGrid: true,
+  ambientLightIntensity: 0.4,
+  spotlightIntensity: 0.8,
   patterns: {
-    floating: { enabled: true, speed: 1 },
-    spinning: { enabled: false, speed: 1 },
-    bouncing: { enabled: false, speed: 1 }
+    grid_wall: { enabled: true },
+    float: { enabled: false },
+    wave: { enabled: false },
+    spiral: { enabled: false }
   }
 };
 
-// Types
 export interface Photo {
   id: string;
   collage_id: string;
@@ -51,9 +60,8 @@ export interface Photo {
 
 export interface Collage {
   id: string;
-  code: string;
   name: string;
-  user_id?: string;
+  code: string;
   created_at: string;
   settings: any;
 }
@@ -105,7 +113,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       // Prevent duplicates
       const exists = state.photos.some(p => p.id === photo.id);
       if (exists) {
-        console.log('Photo already exists in state:', photo.id);
+        console.log('🔄 Photo already exists in state:', photo.id);
         return state;
       }
       
@@ -127,7 +135,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Setup realtime subscription - THIS IS THE KEY FUNCTION
   setupRealtimeSubscription: (collageId: string) => {
     const currentChannel = get().realtimeChannel;
-    const store = get();
     
     // Clean up existing subscription first
     if (currentChannel) {
@@ -137,8 +144,11 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
     console.log('🚀 Setting up NEW realtime subscription for collage:', collageId);
 
+    // Capture current state functions to avoid stale closures
+    const store = get();
+
     const channel = supabase
-      .channel(`public:photos:collage_id=eq.${collageId}`)
+      .channel(`photos-${collageId}`)
       .on(
         'postgres_changes',
         {
@@ -149,8 +159,9 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         },
         (payload) => {
           console.log('🔔 Realtime: New photo inserted:', payload.new);
-          // Use the store reference captured in closure to avoid stale state
-          store.addPhotoToState(payload.new as Photo);
+          // Get fresh store reference to avoid stale state
+          const currentStore = get();
+          currentStore.addPhotoToState(payload.new as Photo);
         }
       )
       .on(
@@ -163,8 +174,9 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         },
         (payload) => {
           console.log('🔔 Realtime: Photo deleted:', payload.old);
-          // Use the store reference captured in closure to avoid stale state
-          store.removePhotoFromState(payload.old.id);
+          // Get fresh store reference to avoid stale state
+          const currentStore = get();
+          currentStore.removePhotoFromState(payload.old.id);
         }
       )
       .subscribe((status) => {
@@ -262,7 +274,8 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      await get().fetchPhotosByCollageId(collage.id);
+      // CRITICAL: Fetch photos and setup realtime subscription
+      await get().fetchPhotosByCollageId(id);
       
       return collageWithSettings;
     } catch (error: any) {
@@ -274,7 +287,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
-      const code = nanoid(6).toLowerCase();
+      const code = nanoid(8).toUpperCase();
       
       const { data: collage, error: collageError } = await supabase
         .from('collages')
@@ -284,61 +297,51 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       if (collageError) throw collageError;
 
-      const newCollage = { 
+      const { data: settings, error: settingsError } = await supabase
+        .from('collage_settings')
+        .insert([{ 
+          collage_id: collage.id, 
+          settings: defaultSettings 
+        }])
+        .select()
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      const collageWithSettings = {
         ...collage,
-        settings: defaultSettings 
+        settings: defaultSettings
       } as Collage;
 
-      set({ 
-        collages: [...get().collages, newCollage],
-        loading: false,
-        currentCollage: newCollage,
-        error: null
-      });
+      set((state) => ({
+        collages: [collageWithSettings, ...state.collages],
+        loading: false
+      }));
 
-      return newCollage;
+      return collageWithSettings;
     } catch (error: any) {
       set({ error: error.message, loading: false });
       return null;
     }
   },
 
-  updateCollageSettings: async (collageId: string, newSettings: Partial<SceneSettings>) => {
+  updateCollageSettings: async (collageId: string, settings: Partial<SceneSettings>) => {
     try {
-      const { data: existingData } = await supabase
-        .from('collage_settings')
-        .select('settings')
-        .eq('collage_id', collageId)
-        .single();
+      const currentCollage = get().currentCollage;
+      if (!currentCollage) throw new Error('No current collage');
 
-      const currentSettings = deepMerge(defaultSettings, existingData?.settings || {});
-
-      // Handle pattern changes
-      if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-        Object.keys(currentSettings.patterns || {}).forEach(pattern => {
-          if (currentSettings.patterns[pattern as keyof typeof currentSettings.patterns]) {
-            currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
-              pattern === newSettings.animationPattern;
-          }
-        });
-      }
-
-      const mergedSettings = deepMerge(currentSettings, newSettings);
+      const mergedSettings = deepMerge(currentCollage.settings, settings);
 
       const { data, error } = await supabase
         .from('collage_settings')
-        .upsert({
-          collage_id: collageId,
-          settings: mergedSettings
-        }, {
-          onConflict: 'collage_id'
-        })
+        .update({ settings: mergedSettings })
+        .eq('collage_id', collageId)
         .select()
         .single();
 
       if (error) throw error;
 
-      set(state => ({
+      set((state) => ({
         currentCollage: state.currentCollage ? {
           ...state.currentCollage,
           settings: mergedSettings
@@ -352,7 +355,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // Upload photo (called from photobooth) - CRITICAL FOR REALTIME SYNC
+  // Upload photo (called from photobooth/uploader) - CRITICAL FOR REALTIME SYNC
   uploadPhoto: async (collageId: string, file: File) => {
     try {
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -410,7 +413,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       // IMPORTANT: Don't manually add to state here!
       // Let the realtime subscription handle it to ensure consistency across components
-      console.log('📸 Photo uploaded successfully from photobooth:', newPhoto.id);
+      console.log('📸 Photo uploaded successfully:', newPhoto.id);
       console.log('🔔 Realtime subscription should pick this up automatically...');
       
       set({ error: null });
