@@ -82,18 +82,24 @@ const CollageViewerPage: React.FC = () => {
     }
   };
 
-  // Fetch collage - this will automatically setup realtime subscription
+  // CRITICAL: Use global subscription for all collage viewers
   useEffect(() => {
     if (code) {
-      console.log('🔥 FETCHING COLLAGE BY CODE:', code);
-      fetchCollageByCode(code);
+      console.log('🔥 VIEWER: Fetching collage and subscribing globally:', code);
+      fetchCollageByCode(code).then((collage) => {
+        if (collage?.id) {
+          const { subscribeToCollage } = useCollageStore.getState();
+          subscribeToCollage(collage.id);
+        }
+      });
     }
     
     return () => {
-      console.log('🔥 CLEANUP: Removing realtime subscription on unmount');
-      cleanupRealtimeSubscription();
+      console.log('🔥 VIEWER: Unsubscribing from global updates');
+      const { unsubscribeFromCollage } = useCollageStore.getState();
+      unsubscribeFromCollage();
     };
-  }, [code, fetchCollageByCode, cleanupRealtimeSubscription]);
+  }, [code, fetchCollageByCode]);
 
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {
