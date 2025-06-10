@@ -128,6 +128,8 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId }) => {
               progress: 100 
             });
             
+            console.log('✅ Photo uploaded successfully! It will appear in the collage automatically.');
+            
             // Auto-remove successful uploads after 2 seconds
             setTimeout(() => {
               removeFile(upload.id);

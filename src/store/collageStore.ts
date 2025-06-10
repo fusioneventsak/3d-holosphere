@@ -138,7 +138,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     console.log('🚀 Setting up NEW realtime subscription for collage:', collageId);
 
     const channel = supabase
-      .channel(`collage_${collageId}_photos`)
+      .channel(`public:photos:collage_id=eq.${collageId}`)
       .on(
         'postgres_changes',
         {

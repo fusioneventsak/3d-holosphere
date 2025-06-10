@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
-import { supabase } from '../../lib/supabase';
+import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
   photos: Photo[];
@@ -14,93 +14,21 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
-  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
+  const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
-  // Update local photos when props change
-  useEffect(() => {
-    setLocalPhotos(photos);
-  }, [photos]);
-  
-  // Setup realtime subscription for this component
-  useEffect(() => {
-    if (!collageId) return;
-    
-    // Set up a dedicated channel for this component
-    const channel = supabase
-      .channel(`moderation-modal-${collageId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${collageId}`
-      }, (payload) => {
-        console.log('🔔 Modal: New photo inserted:', payload.new);
-        setLocalPhotos(prev => [payload.new as Photo, ...prev]);
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'photos',
-        filter: `collage_id=eq.${collageId}`
-      }, (payload) => {
-        console.log('🔔 Modal: Photo deleted:', payload.old);
-        setLocalPhotos(prev => prev.filter(photo => photo.id !== payload.old.id));
-      })
-      .subscribe();
-    
-    setRealtimeChannel(channel);
-    
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [collageId]);
 
   const handleDeletePhoto = async (photo: Photo) => {
     setDeletingPhotoId(photo.id);
     setError(null);
     
     try {
-      // Extract file path from URL for storage deletion
-      let filePath = '';
-      if (photo.url) {
-        const urlParts = photo.url.split('/');
-        const bucketIndex = urlParts.findIndex(part => part === 'photos');
-        if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
-          filePath = urlParts.slice(bucketIndex + 1).join('/');
-        }
-      }
-
-      // Delete from storage if we have a valid path
-      let storageError = null;
-      if (filePath) {
-        try {
-          const { error } = await supabase.storage.from('photos').remove([filePath]);
-          if (error) storageError = error;
-        } catch (err) {
-          console.warn('Storage delete error (continuing):', err);
-        }
-      }
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('photos')
-        .delete().eq('id', photo.id);
-
-      if (dbError) throw dbError;
-      
-      // Update local state immediately
-      setLocalPhotos(prev => prev.filter(p => p.id !== photo.id));
+      // Use the store's delete method
+      await deletePhoto(photo.id);
       
       if (selectedPhoto?.id === photo.id) {
         setSelectedPhoto(null);
-      }
-      
-      // If we had a storage error but DB delete succeeded, just log it
-      if (storageError) {
-        console.warn('Storage delete had error but DB delete succeeded:', storageError);
       }
     } catch (error: any) {
       console.error('Failed to delete photo:', error);
@@ -117,16 +45,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     setError(null);
     
     try {
-      // Directly fetch photos
-      const { data, error } = await supabase
-        .from('photos')
-        .select('*')
-        .eq('collage_id', collageId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      setLocalPhotos(data as Photo[]);
+      // Use the store's fetch method
+      await fetchPhotosByCollageId(collageId);
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
@@ -165,8 +85,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
         )}
 
         <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {localPhotos.length > 0 ? (
-            localPhotos.map((photo) => (
+          {photos.length > 0 ? (
+            photos.map((photo) => (
               <div
                 key={photo.id}
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
