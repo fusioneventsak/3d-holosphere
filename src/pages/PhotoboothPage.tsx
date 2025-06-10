@@ -1,29 +1,221 @@
 // src/pages/PhotoboothPage.tsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Upload, RotateCcw, Type, ArrowLeft, Settings } from 'lucide-react';
-import { useCollageStore } from '../store/collageStore';
-import { useCameraStore } from '../store/cameraStore';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings } from 'lucide-react';
+import { useCollageStore, Photo } from '../store/collageStore';
+import Layout from '../components/layout/Layout';
+
+type VideoDevice = {
+  deviceId: string;
+  label: string;
+};
+
+type CameraState = 'idle' | 'starting' | 'active' | 'error';
 
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
-  const { 
-    videoRef, 
-    canvasRef, 
-    cameraState, 
-    devices, 
-    selectedDevice, 
-    setSelectedDevice,
-    startCamera, 
-    cleanupCamera
-  } = useCameraStore();
-
+  const navigate = useNavigate();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const isInitializingRef = useRef(false);
+  
+  const [devices, setDevices] = useState<VideoDevice[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [text, setText] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isInitializingRef = useRef(false);
+  const [uploading, setUploading] = useState(false);
+  const [cameraState, setCameraState] = useState<CameraState>('idle');
+  
+  const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription } = useCollageStore();
+
+  const cleanupCamera = useCallback(() => {
+    console.log('🧹 Cleaning up camera...');
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+      streamRef.current = null;
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.pause();
+    }
+    
+    setCameraState('idle');
+  }, []);
+
+  const getVideoDevices = useCallback(async (): Promise<VideoDevice[]> => {
+    try {
+      const allDevices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = allDevices
+        .filter(device => device.kind === 'videoinput')
+        .map(device => ({
+          deviceId: device.deviceId,
+          label: device.label || `Camera ${device.deviceId}`
+        }));
+      
+      console.log('📹 Available video devices:', videoDevices);
+      return videoDevices;
+    } catch (error) {
+      console.warn('⚠️ Could not enumerate devices:', error);
+      return [];
+    }
+  }, []);
+
+  const startCamera = useCallback(async (deviceId?: string) => {
+    // Prevent multiple simultaneous initializations
+    if (isInitializingRef.current) {
+      console.log('🔄 Camera initialization already in progress, skipping...');
+      return;
+    }
+
+    console.log('🎥 Starting camera initialization with device:', deviceId);
+    isInitializingRef.current = true;
+    setCameraState('starting');
+    setError(null);
+
+    try {
+      // Clean up any existing camera first
+      cleanupCamera();
+
+      // Small delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Detect platform
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+      const isMobile = isIOS || isAndroid;
+      
+      console.log('📱 Platform detected:', { isIOS, isAndroid, isMobile });
+      
+      // Build constraints based on platform
+      let constraints: MediaStreamConstraints;
+      
+      if (deviceId) {
+        constraints = {
+          video: {
+            deviceId: { exact: deviceId },
+            ...(isMobile ? { facingMode: "user" } : {}),
+            ...(isIOS ? {
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            } : {})
+          },
+          audio: false
+        };
+      } else {
+        constraints = {
+          video: isMobile ? { facingMode: "user" } : true,
+          audio: false
+        };
+      }
+      
+      console.log('🔧 Using constraints:', constraints);
+      
+      // Get user media
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('✅ Got media stream:', mediaStream.active);
+      
+      // Update devices list after getting permission
+      const videoDevices = await getVideoDevices();
+      setDevices(videoDevices);
+      
+      // Auto-select front camera on mobile if not already selected
+      if (!selectedDevice && videoDevices.length > 0 && isMobile) {
+        const frontCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('front') ||
+          device.label.toLowerCase().includes('user') ||
+          device.label.toLowerCase().includes('selfie') ||
+          device.label.toLowerCase().includes('facetime')
+        );
+        
+        if (frontCamera) {
+          console.log('📱 Auto-selecting front camera:', frontCamera.label);
+          setSelectedDevice(frontCamera.deviceId);
+        } else {
+          setSelectedDevice(videoDevices[0].deviceId);
+        }
+      }
+      
+      // Set up video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        
+        // Setup event listeners
+        const video = videoRef.current;
+        
+        const handleLoadedMetadata = () => {
+          console.log('📹 Video metadata loaded, playing...');
+          video.play().then(() => {
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming');
+          }).catch(playErr => {
+            console.error('❌ Failed to play video:', playErr);
+            setCameraState('error');
+            setError('Failed to start video playback');
+          });
+        };
+        
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+        
+        // Timeout fallback
+        setTimeout(() => {
+          if (cameraState === 'starting') {
+            console.log('⏰ Camera start timeout, forcing play...');
+            video.play().catch(console.error);
+          }
+        }, 3000);
+      }
+      
+    } catch (err: any) {
+      console.error('❌ Camera initialization failed:', err);
+      setCameraState('error');
+      
+      let errorMessage = 'Failed to access camera. ';
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Camera access denied. Please allow camera access and refresh the page.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera found. Please check your camera and try again.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
+      } else if (err.name === 'OverconstrainedError') {
+        // Try fallback constraints
+        try {
+          console.log('🔄 Trying fallback constraints...');
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user" }, 
+            audio: false 
+          });
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = fallbackStream;
+            await videoRef.current.play();
+            streamRef.current = fallbackStream;
+            setCameraState('active');
+            setError(null);
+            console.log('✅ Fallback camera working');
+            return;
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          errorMessage = 'Camera not compatible with this device.';
+        }
+      } else {
+        errorMessage += err.message || 'Unknown camera error.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      isInitializingRef.current = false;
+    }
+  }, [selectedDevice, cameraState, cleanupCamera, getVideoDevices]);
 
   const switchCamera = useCallback(() => {
     if (devices.length <= 1) return;
@@ -237,30 +429,35 @@ const PhotoboothPage: React.FC = () => {
 
   if (!currentCollage) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-          <p className="text-white">Loading photobooth...</p>
+      <Layout>
+        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+            <p className="text-white">Loading photobooth...</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      {/* Header */}
-      <div className="bg-black/80 backdrop-blur-sm border-b border-gray-800 p-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+    <Layout>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
-            <Link 
-              to={`/collage/${currentCollage.code}`}
+            <button
+              onClick={() => navigate(`/collage/${currentCollage.code}`)}
               className="text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-6 h-6" />
-            </Link>
+            </button>
             <div>
-              <h1 className="text-xl font-bold text-white">📸 Photobooth</h1>
-              <p className="text-gray-400 text-sm">{currentCollage.name}</p>
+              <h1 className="text-2xl font-bold text-white flex items-center space-x-2">
+                <Camera className="w-6 h-6 text-purple-500" />
+                <span>Photobooth</span>
+              </h1>
+              <p className="text-gray-400">{currentCollage.name} • Code: {currentCollage.code}</p>
             </div>
           </div>
           
@@ -268,19 +465,17 @@ const PhotoboothPage: React.FC = () => {
           {!photo && devices.length > 1 && (
             <button
               onClick={switchCamera}
-              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              className="p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
               title="Switch Camera"
             >
               <SwitchCamera className="w-5 h-5" />
             </button>
           )}
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto p-4">
         {/* Error Display */}
         {error && (
-          <div className={`mb-4 p-4 rounded-lg ${
+          <div className={`mb-6 p-4 rounded-lg ${
             error.includes('successfully') 
               ? 'bg-green-900/30 border border-green-500/50 text-green-200'
               : 'bg-red-900/30 border border-red-500/50 text-red-200'
@@ -290,7 +485,7 @@ const PhotoboothPage: React.FC = () => {
         )}
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Camera/Photo View */}
           <div className="lg:col-span-2">
             <div className="bg-gray-900 rounded-lg overflow-hidden">
@@ -309,7 +504,7 @@ const PhotoboothPage: React.FC = () => {
                       onClick={retakePhoto}
                       className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <RefreshCw className="w-4 h-4" />
                       <span>Retake</span>
                     </button>
                     
@@ -333,7 +528,7 @@ const PhotoboothPage: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <Upload className="w-4 h-4" />
+                          <Send className="w-4 h-4" />
                           <span>Upload to Collage</span>
                         </>
                       )}
@@ -499,7 +694,7 @@ const PhotoboothPage: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
