@@ -58,6 +58,9 @@ const CollageEditorPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+
   // DEBUG: Log photos changes in editor
   useEffect(() => {
     console.log('🎨 EDITOR: Photos array changed!');
@@ -181,7 +184,7 @@ const CollageEditorPage: React.FC = () => {
             resetKeys={[currentCollage.id, settings, photos.length]}
           >
             <CollageScene 
-              photos={photos}
+              photos={safePhotos}
               settings={settings}
               onSettingsChange={handleSettingsChange}
             />
@@ -203,7 +206,7 @@ const CollageEditorPage: React.FC = () => {
                     <div className="flex items-center space-x-2 text-gray-400 text-sm">
                       <span>Code: {currentCollage.code}</span>
                       <span>•</span>
-                      <span>{photos.length} photos</span>
+                      <span>{safePhotos.length} photos</span>
                       <span>•</span>
                       <div className="flex items-center space-x-1">
                         <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
@@ -258,9 +261,9 @@ const CollageEditorPage: React.FC = () => {
           {/* DEBUG INFO - Floating bottom-left */}
           <div className="absolute bottom-4 left-4 bg-red-900/80 text-white p-3 rounded-lg text-xs max-w-sm z-10">
             <h3 className="font-bold mb-1">EDITOR DEBUG:</h3>
-            <p>Photos: {photos.length}</p>
+            <p>Photos: {safePhotos.length}</p>
             <p>Realtime: {isRealtimeConnected ? '✅ Connected' : '⚠️ Polling'}</p>
-            <p>IDs: {photos.map(p => p.id.slice(-4)).join(', ')}</p>
+            <p>IDs: {safePhotos.map(p => p.id.slice(-4)).join(', ')}</p>
             <button 
               onClick={() => console.log('🎨 EDITOR PHOTOS:', photos)}
               className="bg-red-700 px-2 py-1 mt-1 rounded text-xs"
@@ -294,7 +297,7 @@ const CollageEditorPage: React.FC = () => {
               }`}
             >
               <Image className="w-4 h-4" />
-              <span>Photos ({photos.length})</span>
+              <span>Photos ({safePhotos.length})</span>
             </button>
           </div>
 
@@ -336,7 +339,7 @@ const CollageEditorPage: React.FC = () => {
                       </button>
                     </div>
                     
-                    {photos.length === 0 ? (
+                    {safePhotos.length === 0 ? (
                       <div className="text-center py-8 text-gray-400">
                         <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p>No photos yet</p>
@@ -344,7 +347,7 @@ const CollageEditorPage: React.FC = () => {
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
-                        {photos.map((photo) => (
+                        {safePhotos.map((photo) => (
                           <div key={photo.id} className="aspect-square rounded overflow-hidden bg-gray-800">
                             <img 
                               src={photo.url} 
