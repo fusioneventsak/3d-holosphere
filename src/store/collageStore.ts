@@ -1,68 +1,143 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
-import { supabase, getFileUrl, addCacheBustToUrl, normalizeFileExtension } from '../lib/supabase';
-import { defaultSettings, type SceneSettings } from './sceneStore';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
-type Collage = {
+// Helper function to get file URL
+const getFileUrl = (bucket: string, path: string) => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+// Helper function for deep merging objects
+const deepMerge = (target: any, source: any): any => {
+  const output = Object.assign({}, target);
+  if (isObject(target) && isObject(source)) {
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target))
+          Object.assign(output, { [key]: source[key] });
+        else
+          output[key] = deepMerge(target[key], source[key]);
+      } else {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+  }
+  return output;
+};
+
+const isObject = (item: any): boolean => {
+  return item && typeof item === 'object' && !Array.isArray(item);
+};
+
+// Default settings for collages
+const defaultSettings = {
+  animationPattern: 'floating',
+  patterns: {
+    floating: { enabled: true, speed: 1 },
+    spinning: { enabled: false, speed: 1 },
+    bouncing: { enabled: false, speed: 1 }
+  }
+};
+
+// Types
+export interface Photo {
+  id: string;
+  collage_id: string;
+  url: string;
+  created_at: string;
+}
+
+export interface Collage {
   id: string;
   code: string;
   name: string;
   user_id?: string;
   created_at: string;
-  settings?: SceneSettings;
-};
+  settings: any;
+}
 
-type Photo = {
-  id: string;
-  collage_id: string;
-  url: string;
-  created_at: string;
-};
+export interface SceneSettings {
+  animationPattern?: string;
+  patterns?: any;
+  [key: string]: any;
+}
 
-type CollageState = {
-  collages: Collage[];
-  currentCollage: Collage | null;
+interface CollageStore {
+  // State
   photos: Photo[];
+  currentCollage: Collage | null;
   loading: boolean;
   error: string | null;
-  deletePhoto: (photoId: string) => Promise<void>;
-  subscribeToPhotos: (collageId: string) => () => void;
-  
+  collages: Collage[];
+  realtimeChannel: RealtimeChannel | null;
+
+  // Actions
   fetchCollages: () => Promise<void>;
   fetchCollageByCode: (code: string) => Promise<Collage | null>;
   fetchCollageById: (id: string) => Promise<Collage | null>;
   createCollage: (name: string) => Promise<Collage | null>;
   updateCollageSettings: (collageId: string, settings: Partial<SceneSettings>) => Promise<any>;
   uploadPhoto: (collageId: string, file: File) => Promise<Photo | null>;
+  deletePhoto: (photoId: string) => Promise<void>;
   fetchPhotosByCollageId: (collageId: string) => Promise<void>;
-};
-
-// Deep merge utility function
-const deepMerge = (target: any, source: any): any => {
-  if (!source) return target;
-  const output = { ...target };
   
-  Object.keys(source).forEach(key => {
-    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      output[key] = deepMerge(output[key] || {}, source[key]);
-    } else {
-      output[key] = source[key];
-    }
-  });
-  
-  return output;
-};
+  // Realtime methods - CRITICAL for photobooth sync
+  setupRealtimeSubscription: (collageId: string) => void;
+  cleanupRealtimeSubscription: () => void;
+  addPhotoToState: (photo: Photo) => void;
+  removePhotoFromState: (photoId: string) => void;
+}
 
-export const useCollageStore = create<CollageState>((set, get) => ({
-  collages: [],
-  currentCollage: null,
+export const useCollageStore = create<CollageStore>((set, get) => ({
+  // Initial state
   photos: [],
+  currentCollage: null,
   loading: false,
   error: null,
+  collages: [],
+  realtimeChannel: null,
 
-  subscribeToPhotos: (collageId: string) => {
+  // Add photo to state (called by realtime subscription)
+  addPhotoToState: (photo: Photo) => {
+    set((state) => {
+      // Prevent duplicates
+      const exists = state.photos.some(p => p.id === photo.id);
+      if (exists) {
+        console.log('Photo already exists in state:', photo.id);
+        return state;
+      }
+      
+      console.log('✅ Adding new photo to state via realtime:', photo.id);
+      return {
+        photos: [photo, ...state.photos] // Add to beginning for newest first
+      };
+    });
+  },
+
+  // Remove photo from state (called by realtime subscription)
+  removePhotoFromState: (photoId: string) => {
+    console.log('🗑️ Removing photo from state via realtime:', photoId);
+    set((state) => ({
+      photos: state.photos.filter(p => p.id !== photoId)
+    }));
+  },
+
+  // Setup realtime subscription - THIS IS THE KEY FUNCTION
+  setupRealtimeSubscription: (collageId: string) => {
+    const currentChannel = get().realtimeChannel;
+    
+    // Clean up existing subscription first
+    if (currentChannel) {
+      console.log('🧹 Cleaning up existing realtime subscription');
+      supabase.removeChannel(currentChannel);
+    }
+
+    console.log('🚀 Setting up realtime subscription for collage:', collageId);
+
     const channel = supabase
-      .channel(`photos:${collageId}`)
+      .channel(`collage_${collageId}_photos`)
       .on(
         'postgres_changes',
         {
@@ -71,21 +146,10 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           table: 'photos',
           filter: `collage_id=eq.${collageId}`
         },
-        async (payload) => {
-          if (payload.new) {
-            const newPhoto = payload.new as Photo;
-            
-            // Add new photo without duplicates
-            set((state) => {
-              const exists = state.photos.some(p => p.id === newPhoto.id);
-              if (exists) return state;
-              
-              // Add new photo to the beginning to maintain newest-first order
-              return {
-                photos: [newPhoto, ...state.photos]
-              };
-            });
-          }
+        (payload) => {
+          console.log('🔔 Realtime: New photo inserted:', payload.new);
+          const newPhoto = payload.new as Photo;
+          get().addPhotoToState(newPhoto);
         }
       )
       .on(
@@ -97,78 +161,30 @@ export const useCollageStore = create<CollageState>((set, get) => ({
           filter: `collage_id=eq.${collageId}`
         },
         (payload) => {
-          if (payload.old) {
-            set((state) => ({
-              photos: state.photos.filter(p => p.id !== payload.old.id)
-            }));
-          }
+          console.log('🔔 Realtime: Photo deleted:', payload.old);
+          const deletedPhoto = payload.old as Photo;
+          get().removePhotoFromState(deletedPhoto.id);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime subscription ACTIVE for collage:', collageId);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Realtime subscription ERROR for collage:', collageId);
+        }
+      });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    set({ realtimeChannel: channel });
   },
 
-  deletePhoto: async (photoId: string) => {
-    // Optimistically remove from state
-    set(state => ({
-      photos: state.photos.filter(p => p.id !== photoId)
-    }));
-
-    try {
-      const { data: photo, error: fetchError } = await supabase
-        .from('photos')
-        .select('*')
-        .eq('id', photoId)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Extract file path from URL
-      let filePath = '';
-      try {
-        const url = new URL(photo.url);
-        const pathParts = url.pathname.split('/');
-        const publicIndex = pathParts.indexOf('public');
-        if (publicIndex !== -1 && publicIndex + 1 < pathParts.length) {
-          filePath = pathParts.slice(publicIndex + 2).join('/');
-        }
-      } catch (err) {
-        console.warn('Failed to parse photo URL:', photo.url, err);
-      }
-
-      const deletePromises = [];
-      
-      // Delete from storage if we have a valid path
-      if (filePath) {
-        deletePromises.push(
-          supabase.storage.from('photos').remove([filePath])
-        );
-      }
-
-      // Delete from database
-      deletePromises.push(
-        supabase.from('photos').delete().eq('id', photoId)
-      );
-
-      await Promise.allSettled(deletePromises);
-
-      set({ error: null });
-    } catch (error: any) {
-      // Restore photo on error
-      const { data: photos } = await supabase
-        .from('photos')
-        .select('*')
-        .eq('collage_id', get().currentCollage?.id)
-        .order('created_at', { ascending: false });
-
-      set({ 
-        photos: (photos || []) as Photo[],
-        error: error.message || 'Failed to delete photo'
-      });
-      throw error;
+  // Clean up realtime subscription
+  cleanupRealtimeSubscription: () => {
+    const currentChannel = get().realtimeChannel;
+    if (currentChannel) {
+      console.log('🧹 Cleaning up realtime subscription');
+      supabase.removeChannel(currentChannel);
+      set({ realtimeChannel: null });
     }
   },
 
@@ -211,7 +227,8 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      get().fetchPhotosByCollageId(collage.id);
+      // CRITICAL: Fetch photos and setup realtime subscription
+      await get().fetchPhotosByCollageId(collage.id);
       
       return collageWithSettings;
     } catch (error: any) {
@@ -244,7 +261,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       set({ currentCollage: collageWithSettings, loading: false });
       
-      get().fetchPhotosByCollageId(collage.id);
+      await get().fetchPhotosByCollageId(collage.id);
       
       return collageWithSettings;
     } catch (error: any) {
@@ -334,6 +351,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     }
   },
 
+  // Upload photo (called from photobooth) - CRITICAL FOR REALTIME SYNC
   uploadPhoto: async (collageId: string, file: File) => {
     try {
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -371,7 +389,7 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       const publicUrl = getFileUrl('photos', filePath);
 
-      // Insert into database
+      // Insert into database - realtime subscription will handle UI update
       const { data: photoData, error: insertError } = await supabase
         .from('photos')
         .insert([{
@@ -382,24 +400,22 @@ export const useCollageStore = create<CollageState>((set, get) => ({
         .single();
 
       if (insertError) {
+        // Clean up storage if database insert failed
         await supabase.storage.from('photos').remove([filePath]);
         throw insertError;
       }
 
       const newPhoto = photoData as Photo;
       
-      // Add to state immediately (realtime subscription will handle deduplication)
-      set((state) => {
-        const exists = state.photos.some(p => p.id === newPhoto.id);
-        if (exists) return state;
-        
-        return {
-          photos: [newPhoto, ...state.photos]
-        };
-      });
+      // IMPORTANT: Don't manually add to state here!
+      // Let the realtime subscription handle it to ensure consistency
+      console.log('📸 Photo uploaded successfully from photobooth:', newPhoto.id);
+      console.log('🔔 Realtime subscription should pick this up and update CollageViewerPage...');
       
+      set({ error: null });
       return newPhoto;
     } catch (error: any) {
+      console.error('❌ Upload error:', error);
       set({ 
         error: error.message || 'Failed to upload photo'
       });
@@ -407,8 +423,62 @@ export const useCollageStore = create<CollageState>((set, get) => ({
     }
   },
 
+  // Delete photo (called from moderation)
+  deletePhoto: async (photoId: string) => {
+    try {
+      // Get photo data first to extract file path
+      const { data: photo, error: fetchError } = await supabase
+        .from('photos')
+        .select('url')
+        .eq('id', photoId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Extract file path from URL for storage deletion
+      let filePath = '';
+      if (photo?.url) {
+        const urlParts = photo.url.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === 'photos');
+        if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+          filePath = urlParts.slice(bucketIndex + 1).join('/');
+        }
+      }
+
+      const deletePromises = [];
+      
+      // Delete from storage if we have a valid path
+      if (filePath) {
+        deletePromises.push(
+          supabase.storage.from('photos').remove([filePath])
+        );
+      }
+
+      // Delete from database - realtime will handle UI update
+      deletePromises.push(
+        supabase.from('photos').delete().eq('id', photoId)
+      );
+
+      await Promise.allSettled(deletePromises);
+
+      console.log('🗑️ Photo deleted successfully:', photoId);
+      // Realtime subscription will handle UI update
+      
+      set({ error: null });
+    } catch (error: any) {
+      console.error('❌ Delete photo error:', error);
+      set({ 
+        error: error.message || 'Failed to delete photo'
+      });
+      throw error;
+    }
+  },
+
+  // Fetch photos and setup realtime subscription - CRITICAL
   fetchPhotosByCollageId: async (collageId: string) => {
     try {
+      console.log('📋 Fetching photos for collage:', collageId);
+      
       const { data, error } = await supabase
         .from('photos')
         .select('*')
@@ -417,8 +487,14 @@ export const useCollageStore = create<CollageState>((set, get) => ({
 
       if (error) throw error;
       
+      console.log('📸 Fetched photos:', data?.length || 0);
       set({ photos: data as Photo[], error: null });
+      
+      // CRITICAL: Setup realtime subscription after initial fetch
+      get().setupRealtimeSubscription(collageId);
+      
     } catch (error: any) {
+      console.error('❌ Fetch photos error:', error);
       set({ error: error.message });
     }
   }
