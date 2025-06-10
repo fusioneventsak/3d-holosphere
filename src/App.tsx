@@ -25,6 +25,11 @@ function App() {
         <Route path="/photobooth/:code" element={<PhotoboothPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
+        
+        {/* FIXED: Changed from /moderation/:id to /collage/:id/moderation */}
+        <Route path="/collage/:id/moderation" element={<CollageModerationPage />} />
+        
+        {/* Keep the old route for backwards compatibility if needed */}
         <Route path="/moderation/:id" element={<CollageModerationPage />} />
       </Routes>
     </Router>
