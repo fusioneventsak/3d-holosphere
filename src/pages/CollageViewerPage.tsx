@@ -1,4 +1,4 @@
-// src/pages/CollageViewerPage.tsx
+// src/pages/CollageViewerPage.tsx - DEBUG VERSION
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Share2, Upload, Edit, Maximize2, ChevronLeft } from 'lucide-react';
@@ -47,13 +47,28 @@ const CollageViewerPage: React.FC = () => {
   const [controlsVisible, setControlsVisible] = useState(true);
   const navigate = useNavigate();
 
+  // DEBUG: Log photos changes
+  useEffect(() => {
+    console.log('🔥 COLLAGE VIEWER: Photos array changed!');
+    console.log('🔥 Photo count:', photos.length);
+    console.log('🔥 Photo IDs:', photos.map(p => p.id));
+    console.log('🔥 Photos:', photos);
+  }, [photos]);
+
+  // DEBUG: Log store state
+  useEffect(() => {
+    console.log('🔥 STORE STATE:');
+    console.log('🔥 Current collage:', currentCollage?.id);
+    console.log('🔥 Loading:', loading);
+    console.log('🔥 Error:', error);
+  }, [currentCollage, loading, error]);
+
   // Handle fullscreen toggle
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
-        // Hide controls after a delay when entering fullscreen
         setTimeout(() => setControlsVisible(false), 2000);
       } else {
         await document.exitFullscreen();
@@ -65,48 +80,15 @@ const CollageViewerPage: React.FC = () => {
     }
   };
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Toggle fullscreen with 'f' key
-      if (e.key.toLowerCase() === 'f') {
-        toggleFullscreen();
-      }
-      // Show controls temporarily when moving mouse in fullscreen
-      if (isFullscreen) {
-        setControlsVisible(true);
-        // Hide controls after delay
-        setTimeout(() => setControlsVisible(false), 2000);
-      }
-    };
-
-    const handleMouseMove = () => {
-      if (isFullscreen) {
-        setControlsVisible(true);
-        // Hide controls after delay
-        setTimeout(() => setControlsVisible(false), 2000);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [isFullscreen]);
-
   // Fetch collage - this will automatically setup realtime subscription
   useEffect(() => {
     if (code) {
-      console.log('🔄 Fetching collage by code:', code);
+      console.log('🔥 FETCHING COLLAGE:', code);
       fetchCollageByCode(code);
     }
     
-    // Cleanup subscription when component unmounts
     return () => {
-      console.log('🧹 Cleaning up realtime subscription on unmount');
+      console.log('🔥 CLEANUP: Removing realtime subscription');
       cleanupRealtimeSubscription();
     };
   }, [code, fetchCollageByCode, cleanupRealtimeSubscription]);
@@ -154,7 +136,21 @@ const CollageViewerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header Controls - Only show when not in fullscreen or when controls are visible */}
+      {/* DEBUG INFO - TEMPORARY */}
+      <div className="fixed top-0 right-0 bg-red-900 text-white p-4 z-50 text-xs max-w-sm">
+        <h3 className="font-bold">DEBUG INFO:</h3>
+        <p>Photos: {photos.length}</p>
+        <p>Collage: {currentCollage?.name}</p>
+        <p>IDs: {photos.map(p => p.id.slice(-4)).join(', ')}</p>
+        <button 
+          onClick={() => console.log('🔥 CURRENT PHOTOS:', photos)}
+          className="bg-red-700 px-2 py-1 mt-2 rounded text-xs"
+        >
+          Log Photos
+        </button>
+      </div>
+
+      {/* Header Controls */}
       {(!isFullscreen || controlsVisible) && (
         <div className="relative z-50 bg-black/80 backdrop-blur-sm border-b border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -217,7 +213,6 @@ const CollageViewerPage: React.FC = () => {
             photos={photos}
             settings={currentCollage.settings || defaultSettings}
             onSettingsChange={(newSettings) => {
-              // This is view-only, so no settings changes allowed
               console.log('Settings change attempted in viewer mode');
             }}
           />
@@ -247,13 +242,6 @@ const CollageViewerPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Fullscreen Instructions */}
-      {isFullscreen && controlsVisible && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-lg text-sm z-50">
-          Press 'F' to toggle fullscreen • Move mouse to show controls
         </div>
       )}
     </div>
