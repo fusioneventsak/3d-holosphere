@@ -346,25 +346,46 @@ const BackgroundRenderer: React.FC<{ settings: any }> = ({ settings }) => {
   return null;
 };
 
-// Main CollageScene component
+// Main CollageScene component - STABLE AND SMOOTH
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
   const { lastRefreshTime } = useCollageStore();
+  const stablePhotosRef = useRef<Photo[]>([]);
+  const forceUpdateRef = useRef(0);
   
-  // SMOOTH: Use stable key that doesn't change on every photo update
-  const stableSceneKey = useMemo(() => {
-    return `scene-${settings.animationPattern}-${settings.photoCount}`;
+  // CRITICAL: Stable scene that doesn't recreate on photo changes
+  const sceneKey = useMemo(() => {
+    // Only change key when settings change, NOT when photos change
+    return `stable-scene-${settings.animationPattern}-${settings.photoCount}`;
   }, [settings.animationPattern, settings.photoCount]);
 
-  // DEBUG: Log changes without causing re-renders
+  // SMOOTH: Update internal photos without triggering re-render
   useEffect(() => {
-    console.log('🔄 CollageScene photos update (SMOOTH):', photos.length, 'photos');
-    console.log('📸 Photo IDs:', photos.map(p => p.id.slice(-4)));
-  }, [photos.length, photos.map(p => p.id).join(',')]);
+    const photoIds = photos.map(p => p.id).sort().join(',');
+    const stablePhotoIds = stablePhotosRef.current.map(p => p.id).sort().join(',');
+    
+    if (photoIds !== stablePhotoIds) {
+      console.log('🔄 SMOOTH: Photos changed without scene re-render');
+      console.log('📸 Old count:', stablePhotosRef.current.length, 'New count:', photos.length);
+      
+      stablePhotosRef.current = [...photos];
+      forceUpdateRef.current += 1;
+      
+      // Trigger smooth position update without scene recreation
+      setPhotosWithPositions(prev => {
+        // Return new array to trigger PhotoController update
+        return [...prev];
+      });
+    }
+  }, [photos]);
 
-  // Listen to force refresh but don't cause flickering
+  // Listen to deletion signals
   useEffect(() => {
-    console.log('🔄 Scene refresh signal received:', lastRefreshTime);
+    if (lastRefreshTime) {
+      console.log('🔄 SMOOTH: Refresh signal received:', lastRefreshTime);
+      forceUpdateRef.current += 1;
+      setPhotosWithPositions(prev => [...prev]);
+    }
   }, [lastRefreshTime]);
 
   const backgroundStyle = useMemo(() => {
@@ -427,16 +448,17 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         />
         
         <PhotoController
-          photos={photos}
+          photos={stablePhotosRef.current} // Use stable reference
           settings={settings}
           onPhotosWithPositions={setPhotosWithPositions}
+          key={`controller-${forceUpdateRef.current}`} // Force controller updates
         />
         
-        {/* SMOOTH: Stable group that doesn't recreate on every photo change */}
-        <group key={stableSceneKey}>
+        {/* STABLE: Group that only recreates when settings change */}
+        <group key={sceneKey}>
           {photosWithPositions.map((photo) => (
             <PhotoMesh
-              key={photo.id} // Stable key per photo
+              key={`${photo.id}-stable`} // Stable key
               photo={photo}
               size={settings.photoSize || 1}
               emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
