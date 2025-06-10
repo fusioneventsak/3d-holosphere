@@ -164,14 +164,6 @@ const CollageViewerPage: React.FC = () => {
             </button>
             
             <button
-              onClick={() => navigate(`/dashboard/collage/${currentCollage.id}`)}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
-            >
-              <Edit className="mr-1 h-4 w-4" />
-              Edit Settings
-            </button>
-            
-            <button
               onClick={handleCopyLink}
               className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
             >
