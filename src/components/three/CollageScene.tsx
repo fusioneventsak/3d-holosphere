@@ -79,10 +79,10 @@ class SlotManager {
   }
 
   assignSlots(photos: Photo[]): Map<string, number> {
-    // Safety check for photos array
-    if (!photos || !Array.isArray(photos)) {
-      console.warn('🎬 SLOT MANAGER: Photos array is undefined or not an array');
-      return new Map(this.slotAssignments);
+    // Safety check for photos array - but allow empty array
+    if (!Array.isArray(photos)) {
+      console.warn('🎬 SLOT MANAGER: Photos is not an array, using empty array');
+      photos = [];
     }
 
     // Remove assignments for photos that no longer exist
@@ -628,10 +628,11 @@ const AnimationController: React.FC<{
   const lastPhotoIds = useRef(currentPhotoIds);
   
   const updatePositions = useCallback((time: number = 0) => {
-    // Safety check for photos
-    if (!photos || !Array.isArray(photos)) {
-      console.warn('🎬 Photos array is undefined or not an array');
-      return;
+    // Safety check for photos - but allow empty array
+    if (!Array.isArray(photos)) {
+      console.warn('🎬 Photos is not an array, using empty array');
+      // Use empty array instead of returning early
+      photos = [];
     }
 
     // Get slot assignments with the current photo array
@@ -657,7 +658,7 @@ const AnimationController: React.FC<{
       }
     }
     
-    // Add empty slots for remaining positions
+    // Add empty slots for remaining positions - ALWAYS CREATE THESE
     for (let i = 0; i < (settings.photoCount || 50); i++) {
       const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
       if (!hasPhoto) {
