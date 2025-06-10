@@ -79,6 +79,12 @@ class SlotManager {
   }
 
   assignSlots(photos: Photo[]): Map<string, number> {
+    // Safety check for photos array
+    if (!photos || !Array.isArray(photos)) {
+      console.warn('🎬 SLOT MANAGER: Photos array is undefined or not an array');
+      return new Map(this.slotAssignments);
+    }
+
     // Remove assignments for photos that no longer exist
     const currentPhotoIds = new Set(photos.map(p => p.id));
     const beforeCount = this.slotAssignments.size;
@@ -615,18 +621,24 @@ const AnimationController: React.FC<{
   
   // CRITICAL FIX: Immediately update positions when photos array changes
   const currentPhotoIds = useMemo(() => 
-    photos.map(p => p.id).sort().join(','), 
+    (photos || []).map(p => p.id).sort().join(','), 
     [photos]
   );
   
   const lastPhotoIds = useRef(currentPhotoIds);
   
   const updatePositions = useCallback((time: number = 0) => {
+    // Safety check for photos
+    if (!photos || !Array.isArray(photos)) {
+      console.warn('🎬 Photos array is undefined or not an array');
+      return;
+    }
+
     // Get slot assignments with the current photo array
     const slotAssignments = slotManagerRef.current.assignSlots(photos);
     
     // Generate pattern positions
-    const pattern = PatternFactory.createPattern(settings.animationPattern, settings, photos);
+    const pattern = PatternFactory.createPattern(settings.animationPattern || 'grid', settings, photos);
     const patternState = pattern.generatePositions(time);
     
     const photosWithPositions: PhotoWithPosition[] = [];
@@ -634,7 +646,7 @@ const AnimationController: React.FC<{
     // Create photos with assigned slots
     for (const photo of photos) {
       const slotIndex = slotAssignments.get(photo.id);
-      if (slotIndex !== undefined && slotIndex < settings.photoCount) {
+      if (slotIndex !== undefined && slotIndex < (settings.photoCount || 50)) {
         photosWithPositions.push({
           ...photo,
           targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
@@ -646,7 +658,7 @@ const AnimationController: React.FC<{
     }
     
     // Add empty slots for remaining positions
-    for (let i = 0; i < settings.photoCount; i++) {
+    for (let i = 0; i < (settings.photoCount || 50); i++) {
       const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
       if (!hasPhoto) {
         photosWithPositions.push({
@@ -727,8 +739,8 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
 const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
   useEffect(() => {
     console.log('🔍 PHOTO DEBUGGER: Photos updated in scene');
-    console.log('🔍 Count:', photos.length);
-    console.log('🔍 IDs:', photos.map(p => p.id.slice(-4)));
+    console.log('🔍 Count:', photos?.length || 0);
+    console.log('🔍 IDs:', (photos || []).map(p => p.id.slice(-4)));
   }, [photos]);
   
   return null;
